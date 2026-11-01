@@ -1,0 +1,218 @@
+I (683) esp_psram: SPI SRAM memory test OK
+I (692) cpu_start: GPIO 44 and 43 are used as console UART I/O pins
+I (692) cpu_start: Pro cpu start user code
+I (692) cpu_start: cpu freq: 240000000 Hz
+I (694) app_init: Application information:
+I (698) app_init: Project name:     libespidf
+I (702) app_init: App version:      1
+I (705) app_init: Compile time:     Nov  1 2026 07:47:03
+I (710) app_init: ELF file SHA256:  b0bf21279...
+I (715) app_init: ESP-IDF:          v5.5.5
+I (718) efuse_init: Min chip rev:     v0.0
+I (722) efuse_init: Max chip rev:     v0.99 
+I (726) efuse_init: Chip rev:         v0.2
+I (730) heap_init: Initializing. RAM available for dynamic allocation:
+I (736) heap_init: At 3FC98AB8 len 00050C58 (323 KiB): RAM
+I (741) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM
+I (747) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM
+I (752) heap_init: At 600FE000 len 00001FE8 (7 KiB): RTCRAM
+I (757) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+I (764) spi_flash: detected chip: winbond
+I (767) spi_flash: flash io: dio
+W (771) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`
+I (780) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (786) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (793) main_task: Started on CPU0
+I (803) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (803) main_task: Calling app_main()
+READY protocol=1 source=sim display=managed commands=help,status,display
+E (2143) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
+E (2143) task_wdt:  - main (CPU 0)
+E (2143) task_wdt: Tasks currently running:
+E (2143) task_wdt: CPU 0: pthread
+E (2143) task_wdt: CPU 1: IDLE1
+E (2143) task_wdt: Aborting.
+E (2143) task_wdt: Print CPU 0 (current core) backtrace
+
+
+
+
+Backtrace: 0x42016024:0x3fceddb0 0x42004ede:0x3fceddd0 0x420065a3:0x3fcedec0 0x42007c39:0x3fcee100 0x4200d33f:0x3fcee140 0x4200ee97:0x3fcee190 0x4203a72b:0x3fcee1d0 0x4201ca6e:0x3fcee1f0 0x42062ef0:0x3fcee210
+
+
+
+
+ELF file SHA256: b0bf21279
+
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x2b (SPI_FAST_FLASH_BOOT)
+Saved PC:0x4037b78d
+SPIWP:0xee
+mode:DIO, clock div:2
+load:0x3fce2820,len:0x14f0
+load:0x403c8700,len:0xd24
+load:0x403cb700,len:0x2eec
+entry 0x403c8924
+I (31) boot: ESP-IDF v5.5.5 2nd stage bootloader
+I (31) boot: compile time Nov  1 2026 07:46:03
+I (31) boot: Multicore bootloader
+I (32) boot: chip revision: v0.2
+I (34) boot: efuse block revision: v1.3
+I (38) boot.esp32s3: Boot SPI Speed : 40MHz
+I (42) boot.esp32s3: SPI Mode       : DIO
+I (46) boot.esp32s3: SPI Flash Size : 16MB
+I (50) boot: Enabling RNG early entropy source...
+I (54) boot: Partition Table:
+I (57) boot: ## Label            Usage          Type ST Offset   Length
+I (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (69) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (76) boot:  2 factory          factory app      00 00 00010000 00100000
+I (83) boot: End of partition table
+I (86) esp_image: segment 0: paddr=00010020 vaddr=3c080020 size=4cd5ch (314716) map
+I (172) esp_image: segment 1: paddr=0005cd84 vaddr=3fc94000 size=03294h ( 12948) load
+I (176) esp_image: segment 2: paddr=00060020 vaddr=42000020 size=773b0h (488368) map
+I (300) esp_image: segment 3: paddr=000d73d8 vaddr=3fc97294 size=00930h (  2352) load
+I (301) esp_image: segment 4: paddr=000d7d10 vaddr=40374000 size=0ff3ch ( 65340) load
+I (323) esp_image: segment 5: paddr=000e7c54 vaddr=50000000 size=00020h (    32) load
+I (329) boot: Loaded app from partition at offset 0x10000
+I (330) boot: Disabling RNG early entropy source...
+I (341) octal_psram: vendor id    : 0x0d (AP)
+I (341) octal_psram: dev id       : 0x02 (generation 3)
+I (341) octal_psram: density      : 0x03 (64 Mbit)
+I (343) octal_psram: good-die     : 0x01 (Pass)
+I (347) octal_psram: Latency      : 0x01 (Fixed)
+I (352) octal_psram: VCC          : 0x01 (3V)
+I (356) octal_psram: SRF          : 0x01 (Fast Refresh)
+I (361) octal_psram: BurstType    : 0x01 (Hybrid Wrap)
+I (365) octal_psram: BurstLen     : 0x01 (32 Byte)
+I (370) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)
+I (375) octal_psram: DriveStrength: 0x00 (1/1)
+I (379) MSPI Timing: Enter psram timing tuning
+I (384) esp_psram: Found 8MB PSRAM device
+I (387) esp_psram: Speed: 80MHz
+I (390) cpu_start: Multicore app
+I (683) esp_psram: SPI SRAM memory test OK
+I (692) cpu_start: GPIO 44 and 43 are used as console UART I/O pins
+I (692) cpu_start: Pro cpu start user code
+I (692) cpu_start: cpu freq: 240000000 Hz
+I (694) app_init: Application information:
+I (698) app_init: Project name:     libespidf
+I (702) app_init: App version:      1
+I (705) app_init: Compile time:     Nov  1 2026 07:47:03
+I (710) app_init: ELF file SHA256:  b0bf21279...
+I (715) app_init: ESP-IDF:          v5.5.5
+I (718) efuse_init: Min chip rev:     v0.0
+I (722) efuse_init: Max chip rev:     v0.99 
+I (726) efuse_init: Chip rev:         v0.2
+I (730) heap_init: Initializing. RAM available for dynamic allocation:
+I (736) heap_init: At 3FC98AB8 len 00050C58 (323 KiB): RAM
+I (741) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM
+I (747) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM
+I (752) heap_init: At 600FE000 len 00001FE8 (7 KiB): RTCRAM
+I (757) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+I (764) spi_flash: detected chip: winbond
+I (767) spi_flash: flash io: dio
+W (771) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`
+I (780) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (786) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (793) main_task: Started on CPU0
+I (803) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (803) main_task: Calling app_main()
+READY protocol=1 source=sim display=managed commands=help,status,display
+E (2143) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
+E (2143) task_wdt:  - main (CPU 0)
+E (2143) task_wdt: Tasks currently running:
+E (2143) task_wdt: CPU 0: pthread
+E (2143) task_wdt: CPU 1: IDLE1
+E (2143) task_wdt: Aborting.
+E (2143) task_wdt: Print CPU 0 (current core) backtrace
+
+
+
+
+Backtrace: 0x4201601c:0x3fceddb0 0x42004ede:0x3fceddd0 0x420065a3:0x3fcedec0 0x42007c39:0x3fcee100 0x4200d33f:0x3fcee140 0x4200ee97:0x3fcee190 0x4203a72b:0x3fcee1d0 0x4201ca6e:0x3fcee1f0 0x42062ef0:0x3fcee210
+
+
+
+
+ELF file SHA256: b0bf21279
+
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x2b (SPI_FAST_FLASH_BOOT)
+Saved PC:0x4037b78d
+SPIWP:0xee
+mode:DIO, clock div:2
+load:0x3fce2820,len:0x14f0
+load:0x403c8700,len:0xd24
+load:0x403cb700,len:0x2eec
+entry 0x403c8924
+I (31) boot: ESP-IDF v5.5.5 2nd stage bootloader
+I (31) boot: compile time Nov  1 2026 07:46:03
+I (31) boot: Multicore bootloader
+I (32) boot: chip revision: v0.2
+I (34) boot: efuse block revision: v1.3
+I (38) boot.esp32s3: Boot SPI Speed : 40MHz
+I (42) boot.esp32s3: SPI Mode       : DIO
+I (46) boot.esp32s3: SPI Flash Size : 16MB
+I (50) boot: Enabling RNG early entropy source...
+I (54) boot: Partition Table:
+I (57) boot: ## Label            Usage          Type ST Offset   Length
+I (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (69) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (76) boot:  2 factory          factory app      00 00 00010000 00100000
+I (83) boot: End of partition table
+I (86) esp_image: segment 0: paddr=00010020 vaddr=3c080020 size=4cd5ch (314716) map
+I (172) esp_image: segment 1: paddr=0005cd84 vaddr=3fc94000 size=03294h ( 12948) load
+I (176) esp_image: segment 2: paddr=00060020 vaddr=42000020 size=773b0h (488368) map
+I (300) esp_image: segment 3: paddr=000d73d8 vaddr=3fc97294 size=00930h (  2352) load
+I (301) esp_image: segment 4: paddr=000d7d10 vaddr=40374000 size=0ff3ch ( 65340) load
+I (323) esp_image: segment 5: paddr=000e7c54 vaddr=50000000 size=00020h (    32) load
+I (329) boot: Loaded app from partition at offset 0x10000
+I (330) boot: Disabling RNG early entropy source...
+I (341) octal_psram: vendor id    : 0x0d (AP)
+I (341) octal_psram: dev id       : 0x02 (generation 3)
+I (341) octal_psram: density      : 0x03 (64 Mbit)
+I (343) octal_psram: good-die     : 0x01 (Pass)
+I (347) octal_psram: Latency      : 0x01 (Fixed)
+I (352) octal_psram: VCC          : 0x01 (3V)
+I (356) octal_psram: SRF          : 0x01 (Fast Refresh)
+I (361) octal_psram: BurstType    : 0x01 (Hybrid Wrap)
+I (365) octal_psram: BurstLen     : 0x01 (32 Byte)
+I (370) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)
+I (375) octal_psram: DriveStrength: 0x00 (1/1)
+I (379) MSPI Timing: Enter psram timing tuning
+I (384) esp_psram: Found 8MB PSRAM device
+I (387) esp_psram: Speed: 80MHz
+I (390) cpu_start: Multicore app
+I (683) esp_psram: SPI SRAM memory test OK
+I (692) cpu_start: GPIO 44 and 43 are used as console UART I/O pins
+I (692) cpu_start: Pro cpu start user code
+I (692) cpu_start: cpu freq: 240000000 Hz
+I (694) app_init: Application information:
+I (698) app_init: Project name:     libespidf
+I (702) app_init: App version:      1
+I (705) app_init: Compile time:     Nov  1 2026 07:47:03
+I (710) app_init: ELF file SHA256:  b0bf21279...
+I (715) app_init: ESP-IDF:          v5.5.5
+I (718) efuse_init: Min chip rev:     v0.0
+I (722) efuse_init: Max chip rev:     v0.99 
+I (726) efuse_init: Chip rev:         v0.2
+I (730) heap_init: Initializing. RAM available for dynamic allocation:
+I (736) heap_init: At 3FC98AB8 len 00050C58 (323 KiB): RAM
+I (741) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM
+I (747) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM
+I (752) heap_init: At 600FE000 len 00001FE8 (7 KiB): RTCRAM
+I (757) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+I (764) spi_flash: detected chip: winbond
+I (767) spi_flash: flash io: dio
+W (771) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`
+I (780) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (786) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (793) main_task: Started on CPU0
+I (803) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (803) main_task: Calling app_main()
+READY protocol=1 source=sim display=managed commands=help,status,display

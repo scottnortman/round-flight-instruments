@@ -1,0 +1,653 @@
+{
+  "passed": true,
+  "timestamp_utc": "2026-11-01T13:43:41.348154+00:00",
+  "stall": {
+    "blank_observed_ms": 469.0,
+    "before": {
+      "pclk_requested_hz": "18000000",
+      "pclk_applied_hz": "18000000",
+      "ready": "true",
+      "failed": "false",
+      "backlight": "true",
+      "enabled": "true",
+      "mode": "gauge",
+      "stall": "0",
+      "frames": "2149",
+      "frame_age_ms": "150",
+      "owner_age_ms": "0",
+      "render_max_ms": "131",
+      "transfer_max_ms": "49",
+      "stack_free_bytes": "7952",
+      "psram_bytes": "8388608",
+      "internal_free_bytes": "279823",
+      "blanked_at_ms": "357041",
+      "source": "sim",
+      "renderer": "altimeter",
+      "shown_quality": "valid",
+      "shown_alt_ft": "Some(4520.0)"
+    },
+    "dark": {
+      "pclk_requested_hz": "18000000",
+      "pclk_applied_hz": "18000000",
+      "ready": "true",
+      "failed": "false",
+      "backlight": "false",
+      "enabled": "true",
+      "mode": "gauge",
+      "stall": "1",
+      "frames": "2151",
+      "frame_age_ms": "280",
+      "owner_age_ms": "0",
+      "render_max_ms": "131",
+      "transfer_max_ms": "49",
+      "stack_free_bytes": "7952",
+      "psram_bytes": "8388608",
+      "internal_free_bytes": "279823",
+      "blanked_at_ms": "358191",
+      "source": "sim",
+      "renderer": "altimeter",
+      "shown_quality": "valid",
+      "shown_alt_ft": "Some(4520.0)"
+    }
+  },
+  "transfer-stall": {
+    "blank_observed_ms": 203.0,
+    "before": {
+      "pclk_requested_hz": "18000000",
+      "pclk_applied_hz": "18000000",
+      "ready": "true",
+      "failed": "false",
+      "backlight": "true",
+      "enabled": "true",
+      "mode": "gauge",
+      "stall": "0",
+      "frames": "2152",
+      "frame_age_ms": "70",
+      "owner_age_ms": "0",
+      "render_max_ms": "131",
+      "transfer_max_ms": "49",
+      "stack_free_bytes": "7952",
+      "psram_bytes": "8388608",
+      "internal_free_bytes": "279823",
+      "blanked_at_ms": "358191",
+      "source": "sim",
+      "renderer": "altimeter",
+      "shown_quality": "valid",
+      "shown_alt_ft": "Some(4520.0)"
+    },
+    "dark": {
+      "pclk_requested_hz": "18000000",
+      "pclk_applied_hz": "18000000",
+      "ready": "true",
+      "failed": "false",
+      "backlight": "false",
+      "enabled": "true",
+      "mode": "gauge",
+      "stall": "2",
+      "frames": "2152",
+      "frame_age_ms": "280",
+      "owner_age_ms": "0",
+      "render_max_ms": "131",
+      "transfer_max_ms": "49",
+      "stack_free_bytes": "7952",
+      "psram_bytes": "8388608",
+      "internal_free_bytes": "279823",
+      "blanked_at_ms": "359071",
+      "source": "sim",
+      "renderer": "altimeter",
+      "shown_quality": "valid",
+      "shown_alt_ft": "Some(4520.0)"
+    }
+  },
+  "final_display": {
+    "pclk_requested_hz": "18000000",
+    "pclk_applied_hz": "18000000",
+    "ready": "true",
+    "failed": "false",
+    "backlight": "true",
+    "enabled": "true",
+    "mode": "gauge",
+    "stall": "0",
+    "frames": "2163",
+    "frame_age_ms": "130",
+    "owner_age_ms": "0",
+    "render_max_ms": "131",
+    "transfer_max_ms": "49",
+    "stack_free_bytes": "7952",
+    "psram_bytes": "8388608",
+    "internal_free_bytes": "279823",
+    "blanked_at_ms": "361191",
+    "source": "sim",
+    "renderer": "altimeter",
+    "shown_quality": "valid",
+    "shown_alt_ft": "Some(4520.0)"
+  },
+  "final_status": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=13054 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+  "transcript": [
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=12740 pressure_altitude_ft=8500.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display recover",
+      "response": "OK display requested=Recover completion=check_status",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display on",
+      "response": "OK display requested=On completion=check_status",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display gauge",
+      "response": "OK display requested=Gauge completion=check_status",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "instrument altimeter",
+      "response": "OK instrument=altimeter display=managed",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim resume",
+      "response": "OK sim=running",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "baro 29.92",
+      "response": "OK baro_inhg=29.92 pressure_altitude=unchanged",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault pressure_altitude_ft off",
+      "response": "OK fault field=pressure_altitude_ft active=false",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim clear pressure_altitude_ft",
+      "response": "OK sim field=pressure_altitude_ft cleared=true",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2121 frame_age_ms=109 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2122 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2122 frame_age_ms=130 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2123 frame_age_ms=89 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft 0",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2124 frame_age_ms=29 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2124 frame_age_ms=149 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2125 frame_age_ms=90 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(0.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft 4520",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2126 frame_age_ms=40 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(0.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2126 frame_age_ms=150 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(0.0)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2127 frame_age_ms=90 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft -100",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2128 frame_age_ms=40 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2128 frame_age_ms=150 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2129 frame_age_ms=100 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(-100.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft 1000",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2130 frame_age_ms=40 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(-100.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2130 frame_age_ms=160 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(-100.0)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2131 frame_age_ms=118 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(1000.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft 60000",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2132 frame_age_ms=70 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(1000.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2132 frame_age_ms=160 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(1000.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2133 frame_age_ms=100 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(1000.0)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2134 frame_age_ms=30 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(60000.0)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft NaN",
+      "response": "ERR number",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2134 frame_age_ms=150 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(60000.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault pressure_altitude_ft on",
+      "response": "OK fault field=pressure_altitude_ft active=true",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2135 frame_age_ms=90 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(60000.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2136 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(60000.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2136 frame_age_ms=120 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(60000.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2137 frame_age_ms=70 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "fault pressure_altitude_ft off",
+      "response": "OK fault field=pressure_altitude_ft active=false",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim preset level",
+      "response": "OK preset=level applies=next_sample faults=unchanged",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2138 frame_age_ms=70 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2138 frame_age_ms=160 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2139 frame_age_ms=109 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(60000.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2140 frame_age_ms=30 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim pause",
+      "response": "OK sim=paused",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2140 frame_age_ms=150 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2141 frame_age_ms=90 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2142 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2142 frame_age_ms=120 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2143 frame_age_ms=70 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 79.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2143 frame_age_ms=160 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2144 frame_age_ms=100 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2145 frame_age_ms=30 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2145 frame_age_ms=150 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=true mode=gauge stall=0 frames=2146 frame_age_ms=90 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=true mode=gauge stall=0 frames=2146 frame_age_ms=210 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2147 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=stale shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim resume",
+      "response": "OK sim=running",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2147 frame_age_ms=130 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=stale shown_alt_ft=None",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2148 frame_age_ms=60 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=stale shown_alt_ft=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2148 frame_age_ms=150 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=stale shown_alt_ft=None",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2149 frame_age_ms=90 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2149 frame_age_ms=150 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display stall",
+      "response": "OK display requested=Stall completion=check_status",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=1 frames=2150 frame_age_ms=90 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=1 frames=2151 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=1 frames=2151 frame_age_ms=100 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=1 frames=2151 frame_age_ms=190 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=357041 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=true mode=gauge stall=1 frames=2151 frame_age_ms=280 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=358191 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=12945 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=12957 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display recover",
+      "response": "OK display requested=Recover completion=check_status",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=true mode=gauge stall=0 frames=2151 frame_age_ms=800 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=358191 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2152 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=358191 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2152 frame_age_ms=70 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=358191 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display transfer-stall",
+      "response": "OK display requested=TransferStall completion=check_status",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=2 frames=2152 frame_age_ms=190 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=358191 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=true mode=gauge stall=2 frames=2152 frame_age_ms=280 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=12975 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=12987 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display recover",
+      "response": "OK display requested=Recover completion=check_status",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2153 frame_age_ms=29 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "instrument attitude",
+      "response": "OK instrument=attitude display=managed",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2153 frame_age_ms=149 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2154 frame_age_ms=80 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2155 frame_age_ms=30 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=placeholder shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "instrument altimeter",
+      "response": "OK instrument=altimeter display=managed",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2156 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=placeholder shown_alt_ft=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2156 frame_age_ms=110 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=placeholder shown_alt_ft=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2157 frame_age_ms=30 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "baro 30.92",
+      "response": "OK baro_inhg=30.92 pressure_altitude=unchanged",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2159 frame_age_ms=130 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(5432.6074)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "baro 29.92",
+      "response": "OK baro_inhg=29.92 pressure_altitude=unchanged",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2160 frame_age_ms=78 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(5432.6074)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2161 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(5432.6074)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2161 frame_age_ms=120 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(5432.6074)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2162 frame_age_ms=60 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=359071 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display off",
+      "response": "OK display requested=Off completion=check_status",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=2163 frame_age_ms=10 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=361191 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display on",
+      "response": "OK display requested=On completion=check_status",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=2163 frame_age_ms=130 owner_age_ms=0 render_max_ms=131 transfer_max_ms=49 stack_free_bytes=7952 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=361191 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=13054 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    }
+  ]
+}

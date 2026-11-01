@@ -1,0 +1,14 @@
+[package]
+name = "imu-service"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+attitude-estimator = { path = "../attitude-estimator" }
+qmi8658 = { path = "../qmi8658" }
+instrument-core = { path = "../instrument-core" }
+text-cli = { path = "../text-cli" }
+
+[dev-dependencies]
+console-runtime = { path = "../console-runtime" }

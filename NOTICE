@@ -1,0 +1,21 @@
+Round Flight Instruments
+Copyright 2026 Scott Nortman and contributors
+
+Original project code and documentation are licensed under the Apache License,
+Version 2.0. See LICENSE. Third-party materials retain their own terms; see
+THIRD-PARTY-NOTICES.md and the instrument font asset notice.
+
+Developed with AI assistance: OpenAI ChatGPT was used for the browser prototype
+and handoff, and OpenAI Codex for hardware integration, Rust implementation,
+tests, debugging and documentation, under the project owner's direction.
+AI assistance does not establish correctness or fitness for aircraft use.
+
+The toolchain-check scaffold derives from esp-rs/esp-idf-template,
+Copyright 2021-2024 Contributors to esp-idf-template. Its MIT notice is retained
+in tools/toolchain-check/LICENSE-MIT.
+
+Instrument lettering: MS33558C 1.100, Leonardo Di Lena (Flanker), copyright 2020.
+Source: https://www.studiodilena.com/en/2573.html
+License identified in the supplied handoff: CC BY-ND 4.0.
+https://creativecommons.org/licenses/by-nd/4.0/
+The embedded font and unchanged original OTF are not relicensed under Apache-2.0.

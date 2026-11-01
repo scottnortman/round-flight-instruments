@@ -1,0 +1,17 @@
+[
+  {
+    "command": "status",
+    "response": "OK status protocol=1 source=sim display=off instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=30 ticks=490 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+    "elapsed_ms": 78.0
+  },
+  {
+    "command": "display status",
+    "response": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=68 frame_age_ms=195 owner_age_ms=0 render_max_ms=154 transfer_max_ms=36 stack_free_bytes=8300 psram_bytes=8388608 internal_free_bytes=280267 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+    "elapsed_ms": 94.0
+  },
+  {
+    "command": "display status",
+    "response": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=74 frame_age_ms=5 owner_age_ms=0 render_max_ms=154 transfer_max_ms=38 stack_free_bytes=8300 psram_bytes=8388608 internal_free_bytes=280267 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+    "elapsed_ms": 78.0
+  }
+]

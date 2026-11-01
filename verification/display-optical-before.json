@@ -1,0 +1,47 @@
+{
+  "passed": false,
+  "optical_observation": "artifact",
+  "timestamp_utc": "2026-11-01T13:30:11.215396+00:00",
+  "before": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=1623 frame_age_ms=70 owner_age_ms=0 render_max_ms=116 transfer_max_ms=49 stack_free_bytes=7944 psram_bytes=8388608 internal_free_bytes=279863 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+  "status": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=33 ticks=9980 pressure_altitude_ft=8500.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+  "display": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=1643 frame_age_ms=90 owner_age_ms=0 render_max_ms=120 transfer_max_ms=49 stack_free_bytes=7944 psram_bytes=8388608 internal_free_bytes=279863 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+  "software_checks_passed": true,
+  "transcript": [
+    {
+      "command": "display status",
+      "response": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=1623 frame_age_ms=70 owner_age_ms=0 render_max_ms=116 transfer_max_ms=49 stack_free_bytes=7944 psram_bytes=8388608 internal_free_bytes=279863 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "echo on",
+      "response": "OK echo=on",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim clear pressure_altitude_ft",
+      "response": "OK sim field=pressure_altitude_ft cleared=true",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft 8500",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft 8500",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=33 ticks=9980 pressure_altitude_ft=8500.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=1643 frame_age_ms=90 owner_age_ms=0 render_max_ms=120 transfer_max_ms=49 stack_free_bytes=7944 psram_bytes=8388608 internal_free_bytes=279863 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+      "elapsed_ms": 63.0
+    }
+  ],
+  "observation_note": "User confirms damaged left-edge ticks or duplicated bottom arc remain after the exact two-command replay."
+}

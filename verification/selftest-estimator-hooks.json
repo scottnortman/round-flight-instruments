@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "status": "OK imu request=9 completed=9 state=off quality=off detected=true address=0x6b who=0x05 revision=0x7c samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=passed selftest_accel_g=Some([0.8256836, 0.70947266, 0.6333008]) selftest_gyro_dps=Some([1096.0625, 905.4375, 1059.6875]) audit=not_run",
+  "transcript": [
+    {
+      "command": "imu selftest",
+      "response": "OK imu requested=selftest completion=check_status gauge_source=unchanged request=9",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=9 completed=0 state=testing quality=testing detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=9 completed=0 state=testing quality=testing detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=9 completed=0 state=testing quality=testing detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=9 completed=0 state=testing quality=testing detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=9 completed=9 state=off quality=off detected=true address=0x6b who=0x05 revision=0x7c samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=passed selftest_accel_g=Some([0.8256836, 0.70947266, 0.6333008]) selftest_gyro_dps=Some([1096.0625, 905.4375, 1059.6875]) audit=not_run",
+      "elapsed_ms": 78.0
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import vm from 'node:vm';
+const root=new URL('./',import.meta.url);
+const read=name=>readFile(new URL(name,root),'utf8');
+const settings=JSON.parse(await read('src/site-settings.json'));
+const source=await read('src/phone-attitude.js');
+let fragment=await read('src/instrument-fragment.html');
+fragment=fragment.replace('__DEVICE_SUPPORT_SOURCE__',await read('src/device-support.js')).replace('__PHONE_ATTITUDE_SOURCE__',source).replace('__TURN_SOURCE__',await read('src/turn-coordinator.js')).replace('__AIRSPEED_SOURCE__',await read('src/airspeed.js')).replace('__HEADING_SOURCE__',await read('src/heading.js')).replace('__PHONE_SITE_URL__',settings.url);
+if(fragment.includes('__PHONE_')||fragment.includes('__TURN_')||fragment.includes('__AIRSPEED_')||fragment.includes('__HEADING_')||fragment.includes('__DEVICE_SUPPORT_'))throw new Error('Unresolved source placeholder');
+for(const [,script]of fragment.matchAll(/<script>([\s\S]*?)<\/script>/g))new vm.Script(script);
+await mkdir(new URL('dist/',root),{recursive:true});
+await writeFile(new URL('dist/index.html',root),(await read('src/document-start.html'))+fragment+(await read('src/document-end.html')));
+console.log('Built phone instrument prototype; scripts parsed successfully.');

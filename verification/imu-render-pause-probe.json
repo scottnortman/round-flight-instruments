@@ -1,0 +1,27 @@
+[
+  {
+    "command": "display stall",
+    "response": "OK display requested=Stall completion=check_status",
+    "elapsed_ms": 32.0
+  },
+  {
+    "command": "imu on",
+    "response": "OK imu requested=on completion=check_status gauge_source=unchanged request=7",
+    "elapsed_ms": 62.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=7 completed=7 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=19 skipped=44 duplicates=0 errors=0 max_gap_ms=30 age_ms=28 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 94.0
+  },
+  {
+    "command": "imu off",
+    "response": "OK imu requested=off completion=check_status gauge_source=unchanged request=8",
+    "elapsed_ms": 62.0
+  },
+  {
+    "command": "display recover",
+    "response": "OK display requested=Recover completion=check_status",
+    "elapsed_ms": 47.0
+  }
+]

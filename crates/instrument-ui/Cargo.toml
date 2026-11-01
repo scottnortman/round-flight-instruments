@@ -1,0 +1,9 @@
+[package]
+name = "instrument-ui"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0 AND CC-BY-ND-4.0"
+
+[dependencies]
+instrument-core = { path = "../instrument-core" }
+libm = "=0.2.16"

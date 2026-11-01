@@ -1,0 +1,12 @@
+{
+  "name": "round-flight-instruments",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0 AND CC-BY-ND-4.0",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node check.mjs",
+    "test": "node check.mjs"
+  },
+  "description": "Browser gauge simulations and visual reference for the Rust instrument system"
+}

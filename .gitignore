@@ -1,0 +1,27 @@
+# Local firmware snapshots and device settings are kept outside version control.
+/backups/
+/target/
+/firmware/console/.embuild/
+/firmware/console/target/
+/firmware/console/sdkconfig
+/firmware/console/sdkconfig.old
+/console-build.log
+/tmp/
+/artifacts/
+
+# Reproducible output and local environments.
+/output/
+**/__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+/apps/browser-sim/dist/
+**/target/
+**/.embuild/
+.env
+.env.*
+!.env.example
+
+# Local conversation checkpoints and recovery notes are not public documentation.
+/checkpoints/
+/CHECKPOINT.md

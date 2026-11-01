@@ -1,0 +1,17 @@
+* text=auto eol=lf
+*.rs text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.ps1 text eol=crlf
+*.otf binary
+*.bin binary
+*.png binary
+# Preserve original UART evidence, including CR/CRLF and trailing spaces.
+verification/*.log -text -whitespace

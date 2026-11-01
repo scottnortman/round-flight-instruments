@@ -1,0 +1,4 @@
+[workspace]
+members = ["crates/instrument-core", "crates/text-cli", "crates/console-runtime", "crates/qmi8658", "crates/imu-service", "crates/attitude-estimator", "crates/instrument-ui", "apps/desktop-cli"]
+exclude = ["tools/toolchain-check", "firmware/console"]
+resolver = "2"

@@ -1,0 +1,917 @@
+{
+  "passed": true,
+  "timestamp_utc": "2026-11-01T13:10:40.279612+00:00",
+  "audits": [
+    "OK imu request=3 completed=3 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=6 skipped=15 duplicates=0 errors=0 max_gap_ms=60 age_ms=18 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=config_match:true;data_match:true;ctrl:[40, 16, 46, 00, 83];byte_gy:3853;burst_gy:3853",
+    "OK imu request=4 completed=4 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=11 skipped=31 duplicates=0 errors=0 max_gap_ms=60 age_ms=28 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=config_match:true;data_match:true;ctrl:[40, 16, 46, 00, 83];byte_gy:3864;burst_gy:3864",
+    "OK imu request=5 completed=5 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=16 skipped=46 duplicates=0 errors=0 max_gap_ms=60 age_ms=18 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=config_match:true;data_match:true;ctrl:[40, 16, 46, 00, 83];byte_gy:3853;burst_gy:3853"
+  ],
+  "estimates": [
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.613 pitch_deg=-2.800 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(13487634) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.632 pitch_deg=-2.767 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(13728285) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.643 pitch_deg=-2.814 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14027640) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.633 pitch_deg=-2.780 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14268278) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.685 pitch_deg=-2.800 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14597641) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.582 pitch_deg=-2.759 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14897689) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.659 pitch_deg=-2.803 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(15197647) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.568 pitch_deg=-2.802 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(15468221) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.531 pitch_deg=-2.756 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(15757686) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.557 pitch_deg=-2.769 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16077667) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.625 pitch_deg=-2.742 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16348466) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.679 pitch_deg=-2.736 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16648099) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.647 pitch_deg=-2.794 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16918216) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.693 pitch_deg=-2.824 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17208309) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.662 pitch_deg=-2.833 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17537544) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.689 pitch_deg=-2.781 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17778403) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.686 pitch_deg=-2.806 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18077641) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.629 pitch_deg=-2.747 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18338254) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.517 pitch_deg=-2.644 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18637708) gauge_eligible=false",
+    "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.629 pitch_deg=-2.810 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18937680) gauge_eligible=false"
+  ],
+  "raw_gyro_mean_dps": [
+    -1.601562,
+    30.1644535,
+    -0.0906235
+  ],
+  "samples": [
+    {
+      "sample": "20",
+      "counter": "90",
+      "age_ms": "8",
+      "ax_g": "0.04834",
+      "ay_g": "0.09326",
+      "az_g": "-0.98291",
+      "gx_dps": "-1.69531",
+      "gy_dps": "30.28125",
+      "gz_dps": "0.05469",
+      "temp_c": "32.754",
+      "norm_g": "0.98851",
+      "raw_ax": "396",
+      "raw_ay": "764",
+      "raw_az": "-8052",
+      "raw_gx": "-217",
+      "raw_gy": "3876",
+      "raw_gz": "7",
+      "tilt_pitch_deg": "-2.803",
+      "tilt_roll_deg": "174.580",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "28",
+      "counter": "117",
+      "age_ms": "28",
+      "ax_g": "0.04919",
+      "ay_g": "0.09314",
+      "az_g": "-0.98340",
+      "gx_dps": "-1.54688",
+      "gy_dps": "30.16406",
+      "gz_dps": "-0.15625",
+      "temp_c": "32.820",
+      "norm_g": "0.98902",
+      "raw_ax": "403",
+      "raw_ay": "763",
+      "raw_az": "-8056",
+      "raw_gx": "-198",
+      "raw_gy": "3861",
+      "raw_gz": "-20",
+      "tilt_pitch_deg": "-2.851",
+      "tilt_roll_deg": "174.590",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "38",
+      "counter": "151",
+      "age_ms": "8",
+      "ax_g": "0.04785",
+      "ay_g": "0.09253",
+      "az_g": "-0.98254",
+      "gx_dps": "-1.81250",
+      "gy_dps": "30.02344",
+      "gz_dps": "-0.03906",
+      "temp_c": "32.770",
+      "norm_g": "0.98805",
+      "raw_ax": "392",
+      "raw_ay": "758",
+      "raw_az": "-8049",
+      "raw_gx": "-232",
+      "raw_gy": "3843",
+      "raw_gz": "-5",
+      "tilt_pitch_deg": "-2.776",
+      "tilt_roll_deg": "174.620",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "46",
+      "counter": "178",
+      "age_ms": "28",
+      "ax_g": "0.04700",
+      "ay_g": "0.09277",
+      "az_g": "-0.98389",
+      "gx_dps": "-1.51562",
+      "gy_dps": "29.98438",
+      "gz_dps": "-0.07812",
+      "temp_c": "32.824",
+      "norm_g": "0.98937",
+      "raw_ax": "385",
+      "raw_ay": "760",
+      "raw_az": "-8060",
+      "raw_gx": "-194",
+      "raw_gy": "3838",
+      "raw_gz": "-10",
+      "tilt_pitch_deg": "-2.723",
+      "tilt_roll_deg": "174.613",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "57",
+      "counter": "216",
+      "age_ms": "8",
+      "ax_g": "0.04700",
+      "ay_g": "0.09290",
+      "az_g": "-0.98352",
+      "gx_dps": "-1.64062",
+      "gy_dps": "30.08594",
+      "gz_dps": "-0.12500",
+      "temp_c": "32.836",
+      "norm_g": "0.98902",
+      "raw_ax": "385",
+      "raw_ay": "761",
+      "raw_az": "-8057",
+      "raw_gx": "-210",
+      "raw_gy": "3851",
+      "raw_gz": "-16",
+      "tilt_pitch_deg": "-2.724",
+      "tilt_roll_deg": "174.604",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "66",
+      "counter": "247",
+      "age_ms": "9",
+      "ax_g": "0.04675",
+      "ay_g": "0.09131",
+      "az_g": "-0.98315",
+      "gx_dps": "-1.50000",
+      "gy_dps": "30.23438",
+      "gz_dps": "-0.14844",
+      "temp_c": "32.844",
+      "norm_g": "0.98849",
+      "raw_ax": "383",
+      "raw_ay": "748",
+      "raw_az": "-8054",
+      "raw_gx": "-192",
+      "raw_gy": "3870",
+      "raw_gz": "-19",
+      "tilt_pitch_deg": "-2.711",
+      "tilt_roll_deg": "174.694",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "76",
+      "counter": "281",
+      "age_ms": "9",
+      "ax_g": "0.04810",
+      "ay_g": "0.09338",
+      "az_g": "-0.98633",
+      "gx_dps": "-1.46875",
+      "gy_dps": "30.13281",
+      "gz_dps": "-0.03125",
+      "temp_c": "32.848",
+      "norm_g": "0.99191",
+      "raw_ax": "394",
+      "raw_ay": "765",
+      "raw_az": "-8080",
+      "raw_gx": "-188",
+      "raw_gy": "3857",
+      "raw_gz": "-4",
+      "tilt_pitch_deg": "-2.779",
+      "tilt_roll_deg": "174.591",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "86",
+      "counter": "315",
+      "age_ms": "28",
+      "ax_g": "0.04797",
+      "ay_g": "0.09363",
+      "az_g": "-0.98389",
+      "gx_dps": "-1.66406",
+      "gy_dps": "30.16406",
+      "gz_dps": "-0.08594",
+      "temp_c": "32.840",
+      "norm_g": "0.98950",
+      "raw_ax": "393",
+      "raw_ay": "767",
+      "raw_az": "-8060",
+      "raw_gx": "-213",
+      "raw_gy": "3861",
+      "raw_gz": "-11",
+      "tilt_pitch_deg": "-2.779",
+      "tilt_roll_deg": "174.564",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "96",
+      "counter": "349",
+      "age_ms": "18",
+      "ax_g": "0.04834",
+      "ay_g": "0.09277",
+      "az_g": "-0.98511",
+      "gx_dps": "-1.71875",
+      "gy_dps": "30.06250",
+      "gz_dps": "-0.01562",
+      "temp_c": "32.855",
+      "norm_g": "0.99065",
+      "raw_ax": "396",
+      "raw_ay": "760",
+      "raw_az": "-8070",
+      "raw_gx": "-220",
+      "raw_gy": "3848",
+      "raw_gz": "-2",
+      "tilt_pitch_deg": "-2.797",
+      "tilt_roll_deg": "174.620",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "106",
+      "counter": "381",
+      "age_ms": "9",
+      "ax_g": "0.04834",
+      "ay_g": "0.09351",
+      "az_g": "-0.98315",
+      "gx_dps": "-1.62500",
+      "gy_dps": "30.25000",
+      "gz_dps": "-0.07031",
+      "temp_c": "32.863",
+      "norm_g": "0.98877",
+      "raw_ax": "396",
+      "raw_ay": "766",
+      "raw_az": "-8054",
+      "raw_gx": "-208",
+      "raw_gy": "3872",
+      "raw_gz": "-9",
+      "tilt_pitch_deg": "-2.802",
+      "tilt_roll_deg": "174.567",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "116",
+      "counter": "415",
+      "age_ms": "28",
+      "ax_g": "0.04773",
+      "ay_g": "0.09277",
+      "az_g": "-0.98157",
+      "gx_dps": "-1.62500",
+      "gy_dps": "29.96094",
+      "gz_dps": "0.00000",
+      "temp_c": "32.863",
+      "norm_g": "0.98710",
+      "raw_ax": "391",
+      "raw_ay": "760",
+      "raw_az": "-8041",
+      "raw_gx": "-208",
+      "raw_gy": "3835",
+      "raw_gz": "0",
+      "tilt_pitch_deg": "-2.772",
+      "tilt_roll_deg": "174.601",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "126",
+      "counter": "449",
+      "age_ms": "28",
+      "ax_g": "0.04761",
+      "ay_g": "0.09241",
+      "az_g": "-0.98279",
+      "gx_dps": "-1.35156",
+      "gy_dps": "30.22656",
+      "gz_dps": "-0.19531",
+      "temp_c": "32.863",
+      "norm_g": "0.98827",
+      "raw_ax": "390",
+      "raw_ay": "757",
+      "raw_az": "-8051",
+      "raw_gx": "-173",
+      "raw_gy": "3869",
+      "raw_gz": "-25",
+      "tilt_pitch_deg": "-2.761",
+      "tilt_roll_deg": "174.629",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "135",
+      "counter": "480",
+      "age_ms": "28",
+      "ax_g": "0.04846",
+      "ay_g": "0.09302",
+      "az_g": "-0.98315",
+      "gx_dps": "-1.65625",
+      "gy_dps": "30.17969",
+      "gz_dps": "-0.13281",
+      "temp_c": "32.863",
+      "norm_g": "0.98873",
+      "raw_ax": "397",
+      "raw_ay": "762",
+      "raw_az": "-8054",
+      "raw_gx": "-212",
+      "raw_gy": "3863",
+      "raw_gz": "-17",
+      "tilt_pitch_deg": "-2.809",
+      "tilt_roll_deg": "174.595",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "145",
+      "counter": "514",
+      "age_ms": "18",
+      "ax_g": "0.04712",
+      "ay_g": "0.09338",
+      "az_g": "-0.98389",
+      "gx_dps": "-1.77344",
+      "gy_dps": "30.17188",
+      "gz_dps": "-0.14062",
+      "temp_c": "32.859",
+      "norm_g": "0.98943",
+      "raw_ax": "386",
+      "raw_ay": "765",
+      "raw_az": "-8060",
+      "raw_gx": "-227",
+      "raw_gy": "3862",
+      "raw_gz": "-18",
+      "tilt_pitch_deg": "-2.730",
+      "tilt_roll_deg": "174.578",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "156",
+      "counter": "550",
+      "age_ms": "9",
+      "ax_g": "0.04822",
+      "ay_g": "0.09180",
+      "az_g": "-0.98511",
+      "gx_dps": "-1.53125",
+      "gy_dps": "30.21875",
+      "gz_dps": "-0.01562",
+      "temp_c": "32.887",
+      "norm_g": "0.99055",
+      "raw_ax": "395",
+      "raw_ay": "752",
+      "raw_az": "-8070",
+      "raw_gx": "-196",
+      "raw_gy": "3868",
+      "raw_gz": "-2",
+      "tilt_pitch_deg": "-2.790",
+      "tilt_roll_deg": "174.676",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "164",
+      "counter": "578",
+      "age_ms": "28",
+      "ax_g": "0.04626",
+      "ay_g": "0.09290",
+      "az_g": "-0.98206",
+      "gx_dps": "-1.61719",
+      "gy_dps": "30.00781",
+      "gz_dps": "-0.17188",
+      "temp_c": "32.887",
+      "norm_g": "0.98752",
+      "raw_ax": "379",
+      "raw_ay": "761",
+      "raw_az": "-8045",
+      "raw_gx": "-207",
+      "raw_gy": "3841",
+      "raw_gz": "-22",
+      "tilt_pitch_deg": "-2.685",
+      "tilt_roll_deg": "174.596",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "174",
+      "counter": "612",
+      "age_ms": "9",
+      "ax_g": "0.05066",
+      "ay_g": "0.09167",
+      "az_g": "-0.98193",
+      "gx_dps": "-1.32812",
+      "gy_dps": "30.32031",
+      "gz_dps": "-0.09375",
+      "temp_c": "32.855",
+      "norm_g": "0.98750",
+      "raw_ax": "415",
+      "raw_ay": "751",
+      "raw_az": "-8044",
+      "raw_gx": "-170",
+      "raw_gy": "3881",
+      "raw_gz": "-12",
+      "tilt_pitch_deg": "-2.941",
+      "tilt_roll_deg": "174.666",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "183",
+      "counter": "643",
+      "age_ms": "18",
+      "ax_g": "0.05029",
+      "ay_g": "0.09082",
+      "az_g": "-0.98340",
+      "gx_dps": "-1.71094",
+      "gy_dps": "30.25781",
+      "gz_dps": "-0.14062",
+      "temp_c": "32.887",
+      "norm_g": "0.98886",
+      "raw_ax": "412",
+      "raw_ay": "744",
+      "raw_az": "-8056",
+      "raw_gx": "-219",
+      "raw_gy": "3873",
+      "raw_gz": "-18",
+      "tilt_pitch_deg": "-2.915",
+      "tilt_roll_deg": "174.724",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "193",
+      "counter": "676",
+      "age_ms": "9",
+      "ax_g": "0.04834",
+      "ay_g": "0.09253",
+      "az_g": "-0.98389",
+      "gx_dps": "-1.64844",
+      "gy_dps": "30.39844",
+      "gz_dps": "-0.14062",
+      "temp_c": "32.891",
+      "norm_g": "0.98941",
+      "raw_ax": "396",
+      "raw_ay": "758",
+      "raw_az": "-8060",
+      "raw_gx": "-211",
+      "raw_gy": "3891",
+      "raw_gz": "-18",
+      "tilt_pitch_deg": "-2.800",
+      "tilt_roll_deg": "174.627",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    },
+    {
+      "sample": "203",
+      "counter": "710",
+      "age_ms": "9",
+      "ax_g": "0.04700",
+      "ay_g": "0.09351",
+      "az_g": "-0.98169",
+      "gx_dps": "-1.60156",
+      "gy_dps": "30.16406",
+      "gz_dps": "-0.08594",
+      "temp_c": "32.887",
+      "norm_g": "0.98725",
+      "raw_ax": "385",
+      "raw_ay": "766",
+      "raw_az": "-8042",
+      "raw_gx": "-205",
+      "raw_gy": "3861",
+      "raw_gz": "-11",
+      "tilt_pitch_deg": "-2.729",
+      "tilt_roll_deg": "174.559",
+      "tilt": "accel_only",
+      "frame": "sensor",
+      "calibration": "none"
+    }
+  ],
+  "display_before": {
+    "ready": "true",
+    "failed": "false",
+    "backlight": "true",
+    "enabled": "true",
+    "mode": "gauge",
+    "stall": "0",
+    "frames": "64",
+    "frame_age_ms": "10",
+    "owner_age_ms": "0",
+    "render_max_ms": "109",
+    "transfer_max_ms": "46",
+    "stack_free_bytes": "7928",
+    "psram_bytes": "8388608",
+    "internal_free_bytes": "280251",
+    "blanked_at_ms": "11861",
+    "source": "sim",
+    "renderer": "altimeter",
+    "shown_quality": "valid",
+    "shown_alt_ft": "Some(4520.0)"
+  },
+  "display_after": {
+    "ready": "true",
+    "failed": "false",
+    "backlight": "true",
+    "enabled": "true",
+    "mode": "gauge",
+    "stall": "0",
+    "frames": "109",
+    "frame_age_ms": "110",
+    "owner_age_ms": "0",
+    "render_max_ms": "117",
+    "transfer_max_ms": "46",
+    "stack_free_bytes": "7928",
+    "psram_bytes": "8388608",
+    "internal_free_bytes": "280251",
+    "blanked_at_ms": "11861",
+    "source": "sim",
+    "renderer": "altimeter",
+    "shown_quality": "valid",
+    "shown_alt_ft": "Some(4520.0)"
+  },
+  "final_status": {
+    "protocol": "1",
+    "source": "sim",
+    "display": "managed",
+    "instrument": "altimeter",
+    "sim": "running",
+    "baro_inhg": "29.92",
+    "timing_fault": "false",
+    "max_gap_ms": "30",
+    "ticks": "706",
+    "pressure_altitude_ft": "4520.000:valid:0ms",
+    "pitch_deg": "0.000:valid:0ms",
+    "roll_deg": "0.000:valid:0ms",
+    "heading_deg": "0.000:valid:0ms",
+    "ias_kt": "120.000:valid:0ms",
+    "turn_dps": "0.000:valid:0ms",
+    "ball": "0.000:valid:0ms",
+    "vsi_fpm": "0.000:valid:0ms"
+  },
+  "shutdown": "OK imu request=8 completed=8 state=off quality=off detected=true address=0x6b who=0x05 revision=0x7c samples=17 skipped=39 duplicates=0 errors=0 max_gap_ms=31 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+  "transcript": [
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=30 ticks=427 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=64 frame_age_ms=10 owner_age_ms=0 render_max_ms=109 transfer_max_ms=46 stack_free_bytes=7928 psram_bytes=8388608 internal_free_bytes=280251 blanked_at_ms=11861 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu off",
+      "response": "OK imu requested=off completion=check_status gauge_source=unchanged request=1",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=1 completed=1 state=off quality=off detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=unavailable input_quality=off roll_deg=none pitch_deg=none yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=None gauge_eligible=false",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu on",
+      "response": "OK imu requested=on completion=check_status gauge_source=unchanged request=2",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=2 completed=0 state=starting quality=starting detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 110.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=2 completed=0 state=starting quality=starting detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 79.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=2 completed=2 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=2 skipped=2 duplicates=0 errors=0 max_gap_ms=29 age_ms=28 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 79.0
+    },
+    {
+      "command": "imu audit",
+      "response": "OK imu requested=audit completion=check_status gauge_source=unchanged request=3",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=3 completed=3 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=6 skipped=15 duplicates=0 errors=0 max_gap_ms=60 age_ms=18 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=config_match:true;data_match:true;ctrl:[40, 16, 46, 00, 83];byte_gy:3853;burst_gy:3853",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu audit",
+      "response": "OK imu requested=audit completion=check_status gauge_source=unchanged request=4",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=4 completed=4 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=11 skipped=31 duplicates=0 errors=0 max_gap_ms=60 age_ms=28 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=config_match:true;data_match:true;ctrl:[40, 16, 46, 00, 83];byte_gy:3864;burst_gy:3864",
+      "elapsed_ms": 109.0
+    },
+    {
+      "command": "imu audit",
+      "response": "OK imu requested=audit completion=check_status gauge_source=unchanged request=5",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=5 completed=5 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=16 skipped=46 duplicates=0 errors=0 max_gap_ms=60 age_ms=18 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=config_match:true;data_match:true;ctrl:[40, 16, 46, 00, 83];byte_gy:3853;burst_gy:3853",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=20 counter=90 age_ms=8 ax_g=0.04834 ay_g=0.09326 az_g=-0.98291 gx_dps=-1.69531 gy_dps=30.28125 gz_dps=0.05469 temp_c=32.754 norm_g=0.98851 raw_ax=396 raw_ay=764 raw_az=-8052 raw_gx=-217 raw_gy=3876 raw_gz=7 tilt_pitch_deg=-2.803 tilt_roll_deg=174.580 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.613 pitch_deg=-2.800 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(13487634) gauge_eligible=false",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=28 counter=117 age_ms=28 ax_g=0.04919 ay_g=0.09314 az_g=-0.98340 gx_dps=-1.54688 gy_dps=30.16406 gz_dps=-0.15625 temp_c=32.820 norm_g=0.98902 raw_ax=403 raw_ay=763 raw_az=-8056 raw_gx=-198 raw_gy=3861 raw_gz=-20 tilt_pitch_deg=-2.851 tilt_roll_deg=174.590 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.632 pitch_deg=-2.767 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(13728285) gauge_eligible=false",
+      "elapsed_ms": 93.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=38 counter=151 age_ms=8 ax_g=0.04785 ay_g=0.09253 az_g=-0.98254 gx_dps=-1.81250 gy_dps=30.02344 gz_dps=-0.03906 temp_c=32.770 norm_g=0.98805 raw_ax=392 raw_ay=758 raw_az=-8049 raw_gx=-232 raw_gy=3843 raw_gz=-5 tilt_pitch_deg=-2.776 tilt_roll_deg=174.620 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.643 pitch_deg=-2.814 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14027640) gauge_eligible=false",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=46 counter=178 age_ms=28 ax_g=0.04700 ay_g=0.09277 az_g=-0.98389 gx_dps=-1.51562 gy_dps=29.98438 gz_dps=-0.07812 temp_c=32.824 norm_g=0.98937 raw_ax=385 raw_ay=760 raw_az=-8060 raw_gx=-194 raw_gy=3838 raw_gz=-10 tilt_pitch_deg=-2.723 tilt_roll_deg=174.613 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.633 pitch_deg=-2.780 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14268278) gauge_eligible=false",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=57 counter=216 age_ms=8 ax_g=0.04700 ay_g=0.09290 az_g=-0.98352 gx_dps=-1.64062 gy_dps=30.08594 gz_dps=-0.12500 temp_c=32.836 norm_g=0.98902 raw_ax=385 raw_ay=761 raw_az=-8057 raw_gx=-210 raw_gy=3851 raw_gz=-16 tilt_pitch_deg=-2.724 tilt_roll_deg=174.604 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 109.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.685 pitch_deg=-2.800 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14597641) gauge_eligible=false",
+      "elapsed_ms": 110.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=66 counter=247 age_ms=9 ax_g=0.04675 ay_g=0.09131 az_g=-0.98315 gx_dps=-1.50000 gy_dps=30.23438 gz_dps=-0.14844 temp_c=32.844 norm_g=0.98849 raw_ax=383 raw_ay=748 raw_az=-8054 raw_gx=-192 raw_gy=3870 raw_gz=-19 tilt_pitch_deg=-2.711 tilt_roll_deg=174.694 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 79.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.582 pitch_deg=-2.759 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(14897689) gauge_eligible=false",
+      "elapsed_ms": 125.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=76 counter=281 age_ms=9 ax_g=0.04810 ay_g=0.09338 az_g=-0.98633 gx_dps=-1.46875 gy_dps=30.13281 gz_dps=-0.03125 temp_c=32.848 norm_g=0.99191 raw_ax=394 raw_ay=765 raw_az=-8080 raw_gx=-188 raw_gy=3857 raw_gz=-4 tilt_pitch_deg=-2.779 tilt_roll_deg=174.591 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.659 pitch_deg=-2.803 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(15197647) gauge_eligible=false",
+      "elapsed_ms": 125.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=86 counter=315 age_ms=28 ax_g=0.04797 ay_g=0.09363 az_g=-0.98389 gx_dps=-1.66406 gy_dps=30.16406 gz_dps=-0.08594 temp_c=32.840 norm_g=0.98950 raw_ax=393 raw_ay=767 raw_az=-8060 raw_gx=-213 raw_gy=3861 raw_gz=-11 tilt_pitch_deg=-2.779 tilt_roll_deg=174.564 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.568 pitch_deg=-2.802 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(15468221) gauge_eligible=false",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=96 counter=349 age_ms=18 ax_g=0.04834 ay_g=0.09277 az_g=-0.98511 gx_dps=-1.71875 gy_dps=30.06250 gz_dps=-0.01562 temp_c=32.855 norm_g=0.99065 raw_ax=396 raw_ay=760 raw_az=-8070 raw_gx=-220 raw_gy=3848 raw_gz=-2 tilt_pitch_deg=-2.797 tilt_roll_deg=174.620 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.531 pitch_deg=-2.756 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(15757686) gauge_eligible=false",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=106 counter=381 age_ms=9 ax_g=0.04834 ay_g=0.09351 az_g=-0.98315 gx_dps=-1.62500 gy_dps=30.25000 gz_dps=-0.07031 temp_c=32.863 norm_g=0.98877 raw_ax=396 raw_ay=766 raw_az=-8054 raw_gx=-208 raw_gy=3872 raw_gz=-9 tilt_pitch_deg=-2.802 tilt_roll_deg=174.567 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.557 pitch_deg=-2.769 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16077667) gauge_eligible=false",
+      "elapsed_ms": 125.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=116 counter=415 age_ms=28 ax_g=0.04773 ay_g=0.09277 az_g=-0.98157 gx_dps=-1.62500 gy_dps=29.96094 gz_dps=0.00000 temp_c=32.863 norm_g=0.98710 raw_ax=391 raw_ay=760 raw_az=-8041 raw_gx=-208 raw_gy=3835 raw_gz=0 tilt_pitch_deg=-2.772 tilt_roll_deg=174.601 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.625 pitch_deg=-2.742 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16348466) gauge_eligible=false",
+      "elapsed_ms": 93.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=126 counter=449 age_ms=28 ax_g=0.04761 ay_g=0.09241 az_g=-0.98279 gx_dps=-1.35156 gy_dps=30.22656 gz_dps=-0.19531 temp_c=32.863 norm_g=0.98827 raw_ax=390 raw_ay=757 raw_az=-8051 raw_gx=-173 raw_gy=3869 raw_gz=-25 tilt_pitch_deg=-2.761 tilt_roll_deg=174.629 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 109.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.679 pitch_deg=-2.736 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16648099) gauge_eligible=false",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=135 counter=480 age_ms=28 ax_g=0.04846 ay_g=0.09302 az_g=-0.98315 gx_dps=-1.65625 gy_dps=30.17969 gz_dps=-0.13281 temp_c=32.863 norm_g=0.98873 raw_ax=397 raw_ay=762 raw_az=-8054 raw_gx=-212 raw_gy=3863 raw_gz=-17 tilt_pitch_deg=-2.809 tilt_roll_deg=174.595 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.647 pitch_deg=-2.794 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(16918216) gauge_eligible=false",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=145 counter=514 age_ms=18 ax_g=0.04712 ay_g=0.09338 az_g=-0.98389 gx_dps=-1.77344 gy_dps=30.17188 gz_dps=-0.14062 temp_c=32.859 norm_g=0.98943 raw_ax=386 raw_ay=765 raw_az=-8060 raw_gx=-227 raw_gy=3862 raw_gz=-18 tilt_pitch_deg=-2.730 tilt_roll_deg=174.578 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 109.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.693 pitch_deg=-2.824 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17208309) gauge_eligible=false",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=156 counter=550 age_ms=9 ax_g=0.04822 ay_g=0.09180 az_g=-0.98511 gx_dps=-1.53125 gy_dps=30.21875 gz_dps=-0.01562 temp_c=32.887 norm_g=0.99055 raw_ax=395 raw_ay=752 raw_az=-8070 raw_gx=-196 raw_gy=3868 raw_gz=-2 tilt_pitch_deg=-2.790 tilt_roll_deg=174.676 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 125.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.662 pitch_deg=-2.833 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17537544) gauge_eligible=false",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=164 counter=578 age_ms=28 ax_g=0.04626 ay_g=0.09290 az_g=-0.98206 gx_dps=-1.61719 gy_dps=30.00781 gz_dps=-0.17188 temp_c=32.887 norm_g=0.98752 raw_ax=379 raw_ay=761 raw_az=-8045 raw_gx=-207 raw_gy=3841 raw_gz=-22 tilt_pitch_deg=-2.685 tilt_roll_deg=174.596 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.689 pitch_deg=-2.781 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17778403) gauge_eligible=false",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=174 counter=612 age_ms=9 ax_g=0.05066 ay_g=0.09167 az_g=-0.98193 gx_dps=-1.32812 gy_dps=30.32031 gz_dps=-0.09375 temp_c=32.855 norm_g=0.98750 raw_ax=415 raw_ay=751 raw_az=-8044 raw_gx=-170 raw_gy=3881 raw_gz=-12 tilt_pitch_deg=-2.941 tilt_roll_deg=174.666 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.686 pitch_deg=-2.806 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18077641) gauge_eligible=false",
+      "elapsed_ms": 93.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=183 counter=643 age_ms=18 ax_g=0.05029 ay_g=0.09082 az_g=-0.98340 gx_dps=-1.71094 gy_dps=30.25781 gz_dps=-0.14062 temp_c=32.887 norm_g=0.98886 raw_ax=412 raw_ay=744 raw_az=-8056 raw_gx=-219 raw_gy=3873 raw_gz=-18 tilt_pitch_deg=-2.915 tilt_roll_deg=174.724 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.629 pitch_deg=-2.747 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18338254) gauge_eligible=false",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=193 counter=676 age_ms=9 ax_g=0.04834 ay_g=0.09253 az_g=-0.98389 gx_dps=-1.64844 gy_dps=30.39844 gz_dps=-0.14062 temp_c=32.891 norm_g=0.98941 raw_ax=396 raw_ay=758 raw_az=-8060 raw_gx=-211 raw_gy=3891 raw_gz=-18 tilt_pitch_deg=-2.800 tilt_roll_deg=174.627 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.517 pitch_deg=-2.644 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18637708) gauge_eligible=false",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu read",
+      "response": "OK imu sample=203 counter=710 age_ms=9 ax_g=0.04700 ay_g=0.09351 az_g=-0.98169 gx_dps=-1.60156 gy_dps=30.16406 gz_dps=-0.08594 temp_c=32.887 norm_g=0.98725 raw_ax=385 raw_ay=766 raw_az=-8042 raw_gx=-205 raw_gy=3861 raw_gz=-11 tilt_pitch_deg=-2.729 tilt_roll_deg=174.559 tilt=accel_only frame=sensor calibration=none",
+      "elapsed_ms": 110.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.629 pitch_deg=-2.810 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(18937680) gauge_eligible=false",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu off",
+      "response": "OK imu requested=off completion=check_status gauge_source=unchanged request=6",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=6 completed=6 state=off quality=off detected=true address=0x6b who=0x05 revision=0x7c samples=212 skipped=514 duplicates=0 errors=0 max_gap_ms=60 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=config_match:true;data_match:true;ctrl:[40, 16, 46, 00, 83];byte_gy:3853;burst_gy:3853",
+      "elapsed_ms": 109.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=unavailable input_quality=off roll_deg=none pitch_deg=none yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=None gauge_eligible=false",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu on",
+      "response": "OK imu requested=on completion=check_status gauge_source=unchanged request=7",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=7 completed=0 state=starting quality=starting detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 93.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=7 completed=0 state=starting quality=starting detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 109.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=7 completed=7 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=3 skipped=5 duplicates=0 errors=0 max_gap_ms=30 age_ms=9 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_tilt quality=bench_only input_quality=valid roll_deg=174.645 pitch_deg=-2.820 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=SensorNative calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(19927570) gauge_eligible=false",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=30 ticks=706 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=109 frame_age_ms=110 owner_age_ms=0 render_max_ms=117 transfer_max_ms=46 stack_free_bytes=7928 psram_bytes=8388608 internal_free_bytes=280251 blanked_at_ms=11861 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4520.0)",
+      "elapsed_ms": 94.0
+    },
+    {
+      "command": "imu off",
+      "response": "OK imu requested=off completion=check_status gauge_source=unchanged request=8",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=8 completed=8 state=off quality=off detected=true address=0x6b who=0x05 revision=0x7c samples=17 skipped=39 duplicates=0 errors=0 max_gap_ms=31 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 125.0
+    }
+  ]
+}

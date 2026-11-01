@@ -1,0 +1,35 @@
+[package]
+name = "rfi-console"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+resolver = "2"
+
+[workspace]
+
+[features]
+# Explicit bench-only build. Intentionally stalls and resets repeatedly.
+watchdog-self-test = []
+
+[profile.dev]
+opt-level = "z"
+debug = true
+
+[profile.release]
+opt-level = "s"
+
+# Optimize raster math independently of the control/FFI code.
+[profile.dev.package.instrument-ui]
+opt-level = 3
+
+[dependencies]
+instrument-core = { path = "../../crates/instrument-core" }
+instrument-ui = { path = "../../crates/instrument-ui" }
+console-runtime = { path = "../../crates/console-runtime" }
+imu-service = { path = "../../crates/imu-service" }
+qmi8658 = { path = "../../crates/qmi8658" }
+text-cli = { path = "../../crates/text-cli" }
+esp-idf-svc = { version = "0.53", features = ["critical-section"] }
+
+[build-dependencies]
+embuild = "0.33.5"

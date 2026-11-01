@@ -1,0 +1,297 @@
+{
+  "passed": true,
+  "requests": 57,
+  "max_response_ms": 63.0,
+  "max_owner_gap_ms": 31,
+  "slow_timeout_test": true,
+  "final_status": "OK status protocol=1 source=sim display=managed instrument=attitude sim=paused baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=3474 pressure_altitude_ft=-:stale:1150ms pitch_deg=-:stale:1150ms roll_deg=-:stale:1150ms heading_deg=-:stale:1150ms ias_kt=-:stale:1150ms turn_dps=-:stale:1150ms ball=-:stale:1150ms vsi_fpm=-:stale:1150ms",
+  "transcript": [
+    {
+      "command": "help",
+      "response": "OK help commands: status; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here.",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "instrument list",
+      "response": "OK instruments altimeter attitude airspeed heading turn vsi renderers=altimeter",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim resume",
+      "response": "OK sim=running",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault pressure_altitude_ft off",
+      "response": "OK fault field=pressure_altitude_ft active=false",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim clear pressure_altitude_ft",
+      "response": "OK sim field=pressure_altitude_ft cleared=true",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault pitch_deg off",
+      "response": "OK fault field=pitch_deg active=false",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim clear pitch_deg",
+      "response": "OK sim field=pitch_deg cleared=true",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "fault roll_deg off",
+      "response": "OK fault field=roll_deg active=false",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim clear roll_deg",
+      "response": "OK sim field=roll_deg cleared=true",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "fault heading_deg off",
+      "response": "OK fault field=heading_deg active=false",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim clear heading_deg",
+      "response": "OK sim field=heading_deg cleared=true",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault ias_kt off",
+      "response": "OK fault field=ias_kt active=false",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim clear ias_kt",
+      "response": "OK sim field=ias_kt cleared=true",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault turn_dps off",
+      "response": "OK fault field=turn_dps active=false",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim clear turn_dps",
+      "response": "OK sim field=turn_dps cleared=true",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault ball off",
+      "response": "OK fault field=ball active=false",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim clear ball",
+      "response": "OK sim field=ball cleared=true",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "fault vsi_fpm off",
+      "response": "OK fault field=vsi_fpm active=false",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim clear vsi_fpm",
+      "response": "OK sim field=vsi_fpm cleared=true",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=2239 pressure_altitude_ft=-:missing:none pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim preset level",
+      "response": "OK preset=level applies=next_sample faults=unchanged",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim set ias_kt 0",
+      "response": "OK sim field=ias_kt applies=next_sample",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=2245 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim set ias_kt NaN",
+      "response": "ERR number",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim set ias_kt inf",
+      "response": "ERR number",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim set ias_kt 201",
+      "response": "ERR range",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim set heading_deg 360",
+      "response": "ERR range",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "baro 31.01",
+      "response": "ERR range",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status extra",
+      "response": "ERR syntax",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=2259 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "baro 30.12",
+      "response": "OK baro_inhg=30.12 pressure_altitude=unchanged",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "instrument altimeter",
+      "response": "OK instrument=altimeter display=managed",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2265 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "instrument attitude",
+      "response": "OK instrument=attitude display=managed",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=attitude sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2269 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "instrument airspeed",
+      "response": "OK instrument=airspeed display=managed",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=airspeed sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2273 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "instrument heading",
+      "response": "OK instrument=heading display=managed",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=heading sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2277 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "instrument turn",
+      "response": "OK instrument=turn display=managed",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=turn sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2281 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "instrument vsi",
+      "response": "OK instrument=vsi display=managed",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=vsi sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2285 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault pitch_deg on",
+      "response": "OK fault field=pitch_deg active=true",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=vsi sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2289 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=-:failed:none roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "fault pitch_deg off",
+      "response": "OK fault field=pitch_deg active=false",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=vsi sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2293 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim pause",
+      "response": "OK sim=paused",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=vsi sim=paused baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2336 pressure_altitude_ft=-:stale:1140ms pitch_deg=-:stale:1140ms roll_deg=-:stale:1140ms heading_deg=-:stale:1140ms ias_kt=-:stale:1140ms turn_dps=-:stale:1140ms ball=-:stale:1140ms vsi_fpm=-:stale:1140ms",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim resume",
+      "response": "OK sim=running",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=vsi sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2340 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=vsi sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2344 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=vsi sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=2348 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "instrument attitude",
+      "response": "OK instrument=attitude display=managed",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=attitude sim=running baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=3431 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim pause",
+      "response": "OK sim=paused",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=attitude sim=paused baro_inhg=30.12 timing_fault=false max_gap_ms=31 ticks=3474 pressure_altitude_ft=-:stale:1150ms pitch_deg=-:stale:1150ms roll_deg=-:stale:1150ms heading_deg=-:stale:1150ms ias_kt=-:stale:1150ms turn_dps=-:stale:1150ms ball=-:stale:1150ms vsi_fpm=-:stale:1150ms",
+      "elapsed_ms": 47.0
+    }
+  ],
+  "target": "COM5",
+  "baud": 921600
+}

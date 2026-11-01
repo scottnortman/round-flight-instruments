@@ -1,0 +1,12 @@
+[
+  {
+    "command": "display clock 12",
+    "response": "OK display requested=PixelClock(12000000) completion=check_status",
+    "elapsed_ms": 63.0
+  },
+  {
+    "command": "display status",
+    "response": "OK display pclk_requested_hz=12000000 pclk_applied_hz=12000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=211 frame_age_ms=40 owner_age_ms=0 render_max_ms=117 transfer_max_ms=49 stack_free_bytes=7968 psram_bytes=8388608 internal_free_bytes=279823 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(8500.0)",
+    "elapsed_ms": 31.0
+  }
+]
