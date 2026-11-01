@@ -4,6 +4,10 @@ Repository/documentation milestone: [initial Git baseline](GIT-BASELINE.md).
 Use the [canonical project README](../README.md) for current status; the
 console-only observations below are historical.
 
+Latest installed visual change: [larger black-on-white altitude readout](ALTIMETER-READOUT.md).
+The 60-second sweep measured 32.33 FPS; the user accepted the readout and motion,
+then requested a tighter lower panel margin.
+
 Latest installed architecture: [30 Hz rendering pipeline](RENDERING-30HZ.md).
 The 60-second sweep measured 32.32 FPS with the IMU running and was visually accepted.
 

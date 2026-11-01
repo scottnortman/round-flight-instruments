@@ -289,8 +289,10 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
         c.circle(240., 240., 5., rgb(60, 72, 81));
         let mut a = Text::new();
         let _ = write!(a, "{:.0} FT", m.indicated_ft.unwrap_or(0.));
-        c.rect(175., 292., 130., 28., rgb(9, 14, 19));
-        c.text(240., 306., 20., a.str(), WHITE);
+        // Eight cells cover the full supported signed/baro-corrected range.
+        // Keep padding around the larger readout and clearance below Kollsman.
+        c.rect(124., 284., 232., 40., rgb(255, 255, 255));
+        c.text_bold_on(240., 307., 32., a.str(), (0, rgb(255, 255, 255)));
     } else {
         c.line((155., 185.), (296., 285.), 7., RED);
         c.line((296., 185.), (155., 285.), 7., RED);

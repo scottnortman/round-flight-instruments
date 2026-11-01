@@ -15,6 +15,15 @@ its frame; font size, tick positions and instrument math are unchanged. These
 offsets scale with the viewport. The browser remains the original visual
 reference and does not yet incorporate this Rust-face adjustment.
 
+The lower numeric altitude readout uses 32-unit bold black text on a white
+232-by-40-unit panel, with text centered at (240, 307). This increases the previous
+20-unit text by 60%. The panel accommodates eight character cells, including
+the sign and `FT` suffix at the supported altitude/barometer extremes, and
+clears the Kollsman window and SIM INPUT label. Bold coverage is combined before
+compositing against white; repeated text passes are not used. The shared damage
+tracker includes the panel and glyphs, so a fault removes the numeric readout
+with the pointers. Missing/stale/failed indications retain their red styling.
+
 ## Boundaries
 
 | Component | Responsibility |

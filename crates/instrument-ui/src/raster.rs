@@ -130,6 +130,24 @@ impl<'a, T: Target> Canvas<'a, T> {
         }
     }
     pub fn text(&mut self, x: f32, y: f32, size: f32, text: &str, color: u16) {
+        self.text_style(x, y, size, text, (color, 0), false);
+    }
+    /// Bold glyphs composited against an explicit solid background. Combining
+    /// coverage before drawing avoids dark seams from overlapping glyph passes.
+    /// Colors are (foreground, background); the caller fills the background.
+    pub fn text_bold_on(&mut self, x: f32, y: f32, size: f32, text: &str, colors: (u16, u16)) {
+        self.text_style(x, y, size, text, colors, true);
+    }
+    fn text_style(
+        &mut self,
+        x: f32,
+        y: f32,
+        size: f32,
+        text: &str,
+        colors: (u16, u16),
+        bold: bool,
+    ) {
+        let (color, background) = colors;
         const FONT: &[u8] = include_bytes!("../assets/glyphs-4bit.bin");
         let cell = size * 40. / 48.;
         let h = size * 56. / 48.;
@@ -145,16 +163,35 @@ impl<'a, T: Target> Canvas<'a, T> {
             );
             for dy in 0..ht {
                 for dx in 0..w {
-                    let k = (ch as usize - 32) * 2240
-                        + (dy * 56 / ht) as usize * 40
-                        + (dx * 40 / w) as usize;
-                    let b = FONT[k / 2];
-                    let alpha = if k % 2 == 0 { b >> 4 } else { b & 15 };
+                    let row = (ch as usize - 32) * 2240 + (dy * 56 / ht) as usize * 40;
+                    let sx = (dx * 40 / w) as usize;
+                    let coverage = |x: usize| {
+                        let k = row + x;
+                        let b = FONT[k / 2];
+                        if k % 2 == 0 {
+                            b >> 4
+                        } else {
+                            b & 15
+                        }
+                    };
+                    let mut alpha = coverage(sx);
+                    if bold {
+                        // One source-pixel horizontal dilation, independent of
+                        // viewport size. Never sample outside this glyph cell.
+                        alpha = alpha
+                            .max(coverage(sx.saturating_sub(1)))
+                            .max(coverage((sx + 1).min(39)));
+                    }
                     if alpha > 0 {
                         let a = alpha as u16;
-                        let r = ((color >> 11) & 31) * a / 15;
-                        let g = ((color >> 5) & 63) * a / 15;
-                        let b = (color & 31) * a / 15;
+                        let blend = |shift: u32, mask: u16| {
+                            (((color >> shift) & mask) * a
+                                + ((background >> shift) & mask) * (15 - a))
+                                / 15
+                        };
+                        let r = blend(11, 31);
+                        let g = blend(5, 63);
+                        let b = blend(0, 31);
                         self.target
                             .pixel(left + dx, top + dy, (r << 11) | (g << 5) | b);
                     }

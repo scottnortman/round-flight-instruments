@@ -24,11 +24,12 @@ operational air data, attitude or navigation information.
 *Software-rendered preview from the shared Rust snapshot example; not a photograph
 of the LCD. Font attribution: Leonardo Di Lena / MS33558C, see the asset notice.*
 
-The `graphics-cleanup` branch adjusts the Rust altimeter's numeral spacing and
-raises the Kollsman window; the preview above reflects that layout. Physical
-spacing was accepted on the board, and a 20-second steady check measured
-15.49 FPS without unexpected blanking. See the
-[graphics cleanup verification](verification/GRAPHICS-CLEANUP.md).
+The Rust altimeter has inset dial numerals, a raised Kollsman window and a
+larger bold black altitude readout on a white panel. The preview above reflects
+the current layout. Earlier numeral/window spacing was physically accepted;
+see [graphics cleanup verification](verification/GRAPHICS-CLEANUP.md). The
+subsequent [rendering pipeline milestone](verification/RENDERING-30HZ.md)
+measured 32.32 FPS on the board.
 
 ## Contents
 
