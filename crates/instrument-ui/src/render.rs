@@ -13,6 +13,7 @@ const ALTITUDE_PANEL: u16 = rgb(190, 190, 190);
 // Logical 480-unit face geometry; Canvas scales these for each display size.
 const DIAL_NUMBER_RADIUS: f32 = 169.;
 const KOLLSMAN_TOP: f32 = 211.;
+const KOLLSMAN_PRESSED: u16 = rgb(0, 90, 156);
 /// Optional caller-owned backdrop cache. No allocation or hardware dependence;
 /// every output frame is restored completely before drawing dynamic content.
 pub struct CachedRenderer<'a> {
@@ -234,15 +235,18 @@ fn draw_background<T: Target>(target: &mut T, s: Snapshot) {
     // Widen toward the hub for larger digits, reserving the gap before the
     // right-hand tick marks for the external units label.
     c.rect(270., KOLLSMAN_TOP, 136., 42., rgb(54, 63, 69));
-    c.rect(273., KOLLSMAN_TOP + 3., 130., 36., 0);
     c.text_bold_on(428., KOLLSMAN_TOP + 24., 22., "HG", (WHITE, rgb(9, 14, 19)));
+    draw_kollsman_value(&mut c, s.baro_inhg, 0);
+}
+fn draw_kollsman_value<T: Target>(c: &mut Canvas<T>, baro: f32, background: u16) {
+    c.rect(273., KOLLSMAN_TOP + 3., 130., 36., background);
     let mut b = Text::new();
-    if s.baro_inhg.is_finite() && (28.1..=31.).contains(&s.baro_inhg) {
-        let _ = write!(b, "{:.2}", s.baro_inhg);
+    if baro.is_finite() && (28.1..=31.).contains(&baro) {
+        let _ = write!(b, "{baro:.2}");
     } else {
         let _ = b.write_str("--.--");
     }
-    c.text(338., KOLLSMAN_TOP + 24., 32., b.str(), WHITE);
+    c.text_on(338., KOLLSMAN_TOP + 24., 32., b.str(), (WHITE, background));
 }
 fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
     if s.selected != Instrument::Altimeter {
@@ -251,6 +255,11 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
     let mut c = Canvas::new(target);
     let m = altimeter::model(s.altitude, s.baro_inhg);
     if let Some([hundreds, thousands, tenthousands]) = m.hands_deg {
+        // Dynamic feedback uses the existing damage history, never the backdrop
+        // key. Draw below the hands to preserve the normal face layering.
+        if s.kollsman_pressed && s.editor.is_none() {
+            draw_kollsman_value(&mut c, s.baro_inhg, KOLLSMAN_PRESSED);
+        }
         c.line(
             point(-4., tenthousands),
             point(185., tenthousands),
@@ -324,6 +333,45 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
         c.text(240., 306., 19., q.str(), RED);
     }
     c.text(240., 351., 18., "SIM INPUT", WARN);
+    if m.indicated_ft.is_some() {
+        if let Some(editor) = s.editor {
+            draw_editor(&mut c, editor);
+        }
+    }
+}
+
+fn draw_editor<T: Target>(c: &mut Canvas<T>, editor: crate::interaction::EditorView) {
+    use crate::interaction::Button;
+    let panel = rgb(22, 29, 36);
+    c.rect(80., 128., 320., 240., rgb(145, 155, 165));
+    c.rect(83., 131., 314., 234., panel);
+    c.text(240., 150., 21., "BARO IN HG", WHITE);
+    let mut value = Text::new();
+    let _ = write!(value, "{}.{:02}", editor.cents / 100, editor.cents % 100);
+    c.text(240., 189., 38., value.str(), WHITE);
+    for (button, label, size) in [
+        (Button::Minus, "-", 36.),
+        (Button::Standard, "29.92", 24.),
+        (Button::Plus, "+", 36.),
+        (Button::Cancel, "CANCEL", 19.),
+        (Button::Apply, "APPLY", 19.),
+    ] {
+        let r = button.rect();
+        let background = if editor.pressed == Some(button) {
+            KOLLSMAN_PRESSED
+        } else {
+            rgb(66, 80, 92)
+        };
+        c.rect(r.x as f32, r.y as f32, r.w as f32, r.h as f32, background);
+        c.text_on(
+            r.x as f32 + r.w as f32 / 2.,
+            r.y as f32 + r.h as f32 / 2.,
+            size,
+            label,
+            (WHITE, background),
+        );
+    }
+    c.text(240., 354., 14., "SIM INPUT", WARN);
 }
 
 pub fn test_pattern<T: Target>(target: &mut T) {
@@ -359,12 +407,14 @@ mod tests {
             let mut output = std::vec![0xffff; size * size];
             let mut reference = output.clone();
             let mut snapshot = Snapshot {
+                kollsman_pressed: false,
                 selected: Instrument::Altimeter,
                 altitude: Reading {
                     value: Some(0.),
                     quality: Quality::Valid,
                     age_ms: Some(0),
                 },
+                editor: None,
                 baro_inhg: 29.92,
             };
             for (altitude, quality, baro, instrument, pattern) in [
@@ -426,6 +476,7 @@ mod tests {
             let mut reference = std::vec![0; len];
             for n in 0..60 {
                 let snapshot = Snapshot {
+                    kollsman_pressed: n % 5 < 2,
                     selected: if n % 19 < 3 {
                         Instrument::Attitude
                     } else {
@@ -443,6 +494,18 @@ mod tests {
                             Quality::TimingFault,
                         ][(n / 3) % 7],
                         age_ms: Some(10),
+                    },
+                    editor: if n % 11 < 6 {
+                        Some(crate::interaction::EditorView {
+                            cents: 2810 + n as u16,
+                            pressed: if n % 2 == 0 {
+                                Some(crate::interaction::Button::Plus)
+                            } else {
+                                None
+                            },
+                        })
+                    } else {
+                        None
                     },
                     baro_inhg: if n % 23 < 5 { 30.92 } else { 29.92 },
                 };
@@ -465,6 +528,92 @@ mod tests {
                     frames[slot], reference,
                     "incremental mismatch {w}x{h} frame {n}"
                 );
+            }
+        }
+    }
+    #[test]
+    fn press_feedback_is_local_and_restores_all_three_buffers() {
+        let mut app = instrument_core::App::new();
+        app.apply(instrument_core::Command::LevelPreset).unwrap();
+        app.tick(0);
+        let mut snapshot = Snapshot::from_app(&app);
+        let mut normal = std::vec![0; 480 * 480];
+        assert!(draw_frame(&mut normal, 480, 480, snapshot, false));
+        let mut backdrop = std::vec![0; normal.len()];
+        let mut cached = CachedRenderer::new(&mut backdrop, 480, 480).unwrap();
+        let mut frames = core::array::from_fn::<_, 3, _>(|_| normal.clone());
+        let mut histories = core::array::from_fn::<_, 3, _>(|_| crate::damage::FrameHistory::new());
+        for pressed in [false, true, false, true, true, false] {
+            snapshot.kollsman_pressed = pressed;
+            for (frame, history) in frames.iter_mut().zip(&mut histories) {
+                assert!(cached.draw_incremental(frame, history, snapshot, false));
+                if !pressed {
+                    assert_eq!(frame, &normal);
+                } else {
+                    assert!(frame.iter().filter(|&&p| p == KOLLSMAN_PRESSED).count() > 1000);
+                    for (i, (&actual, &original)) in frame.iter().zip(&normal).enumerate() {
+                        if !crate::interaction::KOLLSMAN
+                            .contains((i % 480) as u16, (i / 480) as u16)
+                        {
+                            assert_eq!(actual, original, "press changed pixels outside window");
+                        }
+                    }
+                }
+            }
+        }
+        snapshot.altitude.quality = Quality::Failed;
+        snapshot.kollsman_pressed = false;
+        assert!(draw_frame(&mut normal, 480, 480, snapshot, false));
+        snapshot.kollsman_pressed = true;
+        assert!(cached.draw_incremental(&mut frames[0], &mut histories[0], snapshot, false));
+        assert_eq!(
+            frames[0], normal,
+            "press feedback must not cover invalid-data warnings"
+        );
+    }
+    #[test]
+    fn every_editor_button_highlight_restores_all_buffers() {
+        use crate::interaction::{Button, EditorView};
+        let mut app = instrument_core::App::new();
+        app.apply(instrument_core::Command::LevelPreset).unwrap();
+        app.tick(0);
+        let mut snapshot = Snapshot::from_app(&app);
+        snapshot.editor = Some(EditorView {
+            cents: 2992,
+            pressed: None,
+        });
+        let mut normal = std::vec![0; 480 * 480];
+        assert!(draw_frame(&mut normal, 480, 480, snapshot, false));
+        let mut backdrop = normal.clone();
+        let mut cached = CachedRenderer::new(&mut backdrop, 480, 480).unwrap();
+        let mut frames = core::array::from_fn::<_, 3, _>(|_| normal.clone());
+        let mut histories = core::array::from_fn::<_, 3, _>(|_| crate::damage::FrameHistory::new());
+        for button in [
+            Button::Minus,
+            Button::Plus,
+            Button::Standard,
+            Button::Cancel,
+            Button::Apply,
+        ] {
+            for pressed in [Some(button), None] {
+                snapshot.editor.as_mut().unwrap().pressed = pressed;
+                for (frame, history) in frames.iter_mut().zip(&mut histories) {
+                    assert!(cached.draw_incremental(frame, history, snapshot, false));
+                    let r = button.rect();
+                    if pressed.is_some() {
+                        assert_eq!(
+                            frame[(r.y as usize + 2) * 480 + r.x as usize + 2],
+                            KOLLSMAN_PRESSED
+                        );
+                        for (i, (&actual, &original)) in frame.iter().zip(&normal).enumerate() {
+                            if !r.contains((i % 480) as u16, (i / 480) as u16) {
+                                assert_eq!(actual, original);
+                            }
+                        }
+                    } else {
+                        assert_eq!(frame, &normal);
+                    }
+                }
             }
         }
     }
@@ -529,12 +678,14 @@ mod tests {
         for size in [240, 480, 720] {
             let mut pixels = std::vec![0u16;size*size];
             let valid = Snapshot {
+                kollsman_pressed: false,
                 selected: Instrument::Altimeter,
                 altitude: Reading {
                     quality: Quality::Valid,
                     value: Some(0.),
                     age_ms: Some(0),
                 },
+                editor: None,
                 baro_inhg: 29.92,
             };
             draw(

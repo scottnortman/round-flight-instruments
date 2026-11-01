@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+use bounded_mailbox::{self as mpsc, TryRecvError, TrySendError};
+
 use attitude_estimator::{
     AttitudeEstimator, Calibration, Estimate, Frame, InputQuality, Observation, Output, Pipeline,
     Quality, ResetReason,
@@ -10,7 +12,6 @@ use std::{
     io,
     sync::{
         atomic::{AtomicU32, Ordering},
-        mpsc::{self, TryRecvError, TrySendError},
         Arc, Mutex, TryLockError,
     },
     thread,
@@ -121,6 +122,19 @@ impl Service {
         bus: B,
         estimator: E,
     ) -> io::Result<Self> {
+        Self::start_with_bus_poll(bus, estimator, |_, _| true)
+    }
+    /// One worker owns the bus. Poll other device addresses only between
+    /// complete IMU operations, including while IMU sampling is off. The hook
+    /// must use bounded I/O; consumers must expire data during long self-tests.
+    /// The second argument is true before a queued IMU command: silence timed
+    /// outputs then. Return false to reject that command if quiescing fails.
+    pub fn start_with_bus_poll<B, E, P>(bus: B, estimator: E, mut poll: P) -> io::Result<Self>
+    where
+        B: Bus + Send + 'static,
+        E: AttitudeEstimator + Send + 'static,
+        P: FnMut(&mut B, bool) -> bool + Send + 'static,
+    {
         let (commands, receiver) = mpsc::sync_channel(2);
         let snapshot = Arc::new(Mutex::new(Snapshot::new()));
         let shared = snapshot.clone();
@@ -135,7 +149,28 @@ impl Service {
                 let mut epoch = 0u32;
                 state.estimator_name = pipeline.name();
                 loop {
-                    match receiver.try_recv() {
+                    poll(driver.bus_mut(), false);
+                    let received = receiver.try_recv();
+                    if let Ok((request, _)) = received {
+                        if !poll(driver.bus_mut(), true) {
+                            state.request = request;
+                            state.completed = request;
+                            state.state = State::Failed;
+                            state.sample = None;
+                            state.estimate = None;
+                            state.errors += 1;
+                            state.last_error = Some(Error::Bus(-1));
+                            pipeline.reset(ResetReason::InvalidInput);
+                            if let Ok(mut s) = shared.lock() {
+                                *s = state;
+                            } else {
+                                return;
+                            }
+                            thread::sleep(Duration::from_millis(20));
+                            continue;
+                        }
+                    }
+                    match received {
                         Ok((request, ImuCommand::SelfTest)) => {
                             pipeline.reset(ResetReason::SourceChanged);
                             epoch = epoch.wrapping_add(1);
@@ -235,7 +270,9 @@ impl Service {
                             state.completed = request;
                         }
                         Err(TryRecvError::Disconnected) => {
-                            let _ = driver.disable();
+                            if poll(driver.bus_mut(), true) {
+                                let _ = driver.disable();
+                            }
                             return;
                         }
                         Err(TryRecvError::Empty) => (),
@@ -278,7 +315,9 @@ impl Service {
                             pipeline.reset(ResetReason::InvalidInput);
                             state.errors += 1;
                             state.last_error = Some(e);
-                            let _ = driver.disable();
+                            if poll(driver.bus_mut(), true) {
+                                let _ = driver.disable();
+                            }
                         }
                     }
                     if let Ok(mut s) = shared.lock() {
@@ -515,6 +554,104 @@ mod tests {
             snapshot_response(s, ImuCommand::Read, t).as_str(),
             "ERR imu_failed\n"
         );
+    }
+    #[test]
+    fn failed_bus_quiesce_rejects_command_before_sensor_io() {
+        struct UntouchedBus(Arc<AtomicU32>);
+        impl Bus for UntouchedBus {
+            fn read(&mut self, _: u8, _: u8, _: &mut [u8]) -> Result<(), Error> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Err(Error::Bus(99))
+            }
+            fn write(&mut self, _: u8, _: u8, _: u8) -> Result<(), Error> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Err(Error::Bus(99))
+            }
+            fn delay_us(&mut self, _: u32) {}
+        }
+        let calls = Arc::new(AtomicU32::new(0));
+        let service =
+            Service::start_with_bus_poll(UntouchedBus(calls.clone()), BenchTilt, |_, quiesce| {
+                !quiesce
+            })
+            .unwrap();
+        assert!(service
+            .handle(ImuCommand::SelfTest)
+            .as_str()
+            .starts_with("OK imu requested=selftest"));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let response = service.handle(ImuCommand::Status);
+            if response.as_str().contains("completed=1") {
+                assert!(response.as_str().contains("state=failed"));
+                assert!(response.as_str().contains("error=Some(Bus(-1))"));
+                break;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(calls.load(Ordering::Relaxed), 0);
+    }
+    #[test]
+    fn sampling_failure_quiesces_before_command_handshake_cleanup() {
+        struct FailingSampleBus {
+            regs: [u8; 128],
+            failed: bool,
+            quiesced: bool,
+            cleanup: Arc<AtomicU32>,
+        }
+        impl Bus for FailingSampleBus {
+            fn read(&mut self, _: u8, reg: u8, bytes: &mut [u8]) -> Result<(), Error> {
+                if reg == 0x2d && self.regs[8] == 0x83 {
+                    self.failed = true;
+                    self.quiesced = false;
+                    return Err(Error::Bus(77));
+                }
+                bytes.copy_from_slice(&self.regs[reg as usize..reg as usize + bytes.len()]);
+                Ok(())
+            }
+            fn write(&mut self, _: u8, reg: u8, value: u8) -> Result<(), Error> {
+                if reg == 0x0a {
+                    if self.failed {
+                        assert!(self.quiesced, "long cleanup ran before buzzer shutoff");
+                        self.cleanup.fetch_add(1, Ordering::Relaxed);
+                    }
+                    self.regs[0x2d] = if value == 0 { 0 } else { 0x80 };
+                }
+                self.regs[reg as usize] = value;
+                Ok(())
+            }
+            fn delay_us(&mut self, _: u32) {}
+        }
+        let cleanup = Arc::new(AtomicU32::new(0));
+        let mut regs = [0; 128];
+        regs[0] = 5;
+        regs[0x4d] = 0x80;
+        let service = Service::start_with_bus_poll(
+            FailingSampleBus {
+                regs,
+                failed: false,
+                quiesced: false,
+                cleanup: cleanup.clone(),
+            },
+            BenchTilt,
+            |bus, quiesce| {
+                if quiesce {
+                    bus.quiesced = true;
+                }
+                true
+            },
+        )
+        .unwrap();
+        assert!(service
+            .handle(ImuCommand::On)
+            .as_str()
+            .starts_with("OK imu requested=on"));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while cleanup.load(Ordering::Relaxed) == 0 {
+            assert!(Instant::now() < deadline, "cleanup did not run");
+            thread::sleep(Duration::from_millis(10));
+        }
     }
     #[test]
     fn blocked_sensor_bus_does_not_block_console_owner() {

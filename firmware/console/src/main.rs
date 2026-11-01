@@ -1,36 +1,28 @@
 use esp_idf_svc::hal::{
     delay::{Ets, TickType},
-    i2c::{I2cConfig, I2cDriver},
     task::thread::ThreadSpawnConfiguration,
-    units::Hertz,
 };
+mod board_bus;
+mod buzzer;
 mod display;
 mod panel_init;
+mod touch;
 use esp_idf_svc::{
     hal::{gpio::PinDriver, peripherals::Peripherals},
     sys,
 };
 use std::{io, sync::Arc, time::Duration};
 
-struct ImuBus(I2cDriver<'static>);
+struct ImuBus(board_bus::Bus);
 impl qmi8658::Bus for ImuBus {
     fn read(&mut self, address: u8, register: u8, bytes: &mut [u8]) -> Result<(), qmi8658::Error> {
         self.0
-            .write_read(
-                address,
-                &[register],
-                bytes,
-                TickType::new_millis(10).ticks(),
-            )
+            .write_read(address, &[register], bytes)
             .map_err(|e| qmi8658::Error::Bus(e.code()))
     }
     fn write(&mut self, address: u8, register: u8, value: u8) -> Result<(), qmi8658::Error> {
         self.0
-            .write(
-                address,
-                &[register, value],
-                TickType::new_millis(10).ticks(),
-            )
+            .write(address, &[register, value])
             .map_err(|e| qmi8658::Error::Bus(e.code()))
     }
     fn delay_us(&mut self, us: u32) {
@@ -69,19 +61,27 @@ fn main() {
     let mut backlight =
         PinDriver::output(peripherals.pins.gpio6).expect("backlight pin unavailable");
     backlight.set_low().expect("cannot disable backlight");
-    // SKU 29086 shared I2C: SDA15 / SCL7. One worker owns this bus; future
-    // touch/RTC adapters must use that owner, not install a second bus driver.
-    let mut bus = I2cDriver::new(
+    // SKU 29086 shared I2C: SDA15 / SCL7. One worker owns IMU and touch polling.
+    let mut bus = board_bus::Bus::new(
         peripherals.i2c0,
         peripherals.pins.gpio15,
         peripherals.pins.gpio7,
-        &I2cConfig::new().baudrate(Hertz(400_000)),
     )
     .map_err(|e| io::Error::other(e.to_string()));
     let panel_ready = match &mut bus {
         Ok(bus) => display::initialize(bus).is_ok(),
         Err(_) => false,
     };
+    let touch_driver = match &mut bus {
+        Ok(bus) => touch::initialize(bus),
+        Err(_) => Err(gt911::Error::Bus(-1)),
+    };
+    let touch = touch::Service::new(&touch_driver);
+    let buzzer = buzzer::Service::new();
+    let mut buzzer_worker = bus
+        .as_mut()
+        .ok()
+        .map(|bus| buzzer::Worker::new(buzzer.clone(), bus));
     let display =
         display::Service::start(backlight, panel_ready).expect("display supervisor startup");
     let imu = bus.and_then(|bus| {
@@ -93,7 +93,31 @@ fn main() {
         let previous_priority = configuration.priority;
         configuration.priority = 6;
         configuration.set().map_err(io::Error::other)?;
-        let result = imu_service::Service::start(ImuBus(bus));
+        let touch_poller = touch.clone();
+        let touch_clock = std::time::Instant::now();
+        let result = imu_service::Service::start_with_bus_poll(
+            ImuBus(bus),
+            imu_service::BenchTilt,
+            move |bus, quiesce| {
+                if quiesce {
+                    return buzzer_worker
+                        .as_mut()
+                        .is_none_or(|worker| worker.quiesce(&mut bus.0));
+                }
+                if let Ok(driver) = &touch_driver {
+                    touch_poller.poll(driver, &mut bus.0);
+                }
+                if let Some(worker) = &mut buzzer_worker {
+                    let now = touch_clock.elapsed().as_millis() as u64;
+                    worker.poll(
+                        &mut bus.0,
+                        now,
+                        touch_poller.snapshot().and_then(|s| s.input(now)),
+                    );
+                }
+                true
+            },
+        );
         configuration.priority = previous_priority;
         configuration
             .set()
@@ -124,12 +148,12 @@ fn main() {
         // (ESP-IDF main defaults to priority 1; pthread workers default to 5).
         sys::vTaskPrioritySet(core::ptr::null_mut(), 10);
     }
-    let result = console_runtime::run_with_devices(
+    let result = console_runtime::run_with_owner_input(
         UartRx,
         io::stdout(),
         Arc::new(console_runtime::Metrics::default()),
         |app| {
-            display.publish(app);
+            display.publish(app, touch.snapshot());
             #[cfg(feature = "watchdog-self-test")]
             if app.tick_count() == 100 {
                 // Bench-only fault injection. The normal build has no stall.
@@ -148,7 +172,11 @@ fn main() {
             Ok(service) => service.handle(command),
             Err(_) => text_cli::reply(format_args!("ERR imu_bus_unavailable")),
         },
-        |command| display.handle(command),
+        |command| {
+            buzzer
+                .handle(command)
+                .unwrap_or_else(|| display.handle(command))
+        },
         console_runtime::Options {
             display_managed: true,
             echo: true,

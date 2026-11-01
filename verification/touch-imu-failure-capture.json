@@ -1,0 +1,52 @@
+[
+  {
+    "command": "imu on",
+    "response": "OK imu requested=on completion=check_status gauge_source=unchanged request=4",
+    "elapsed_ms": 79.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=4 completed=0 state=starting quality=starting detected=false address=0x00 who=0x00 revision=0x00 samples=0 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 62.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=4 completed=4 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=1 skipped=0 duplicates=0 errors=0 max_gap_ms=0 age_ms=9 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 47.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=4 completed=4 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=9 skipped=19 duplicates=0 errors=0 max_gap_ms=32 age_ms=27 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 47.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=4 completed=4 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=18 skipped=39 duplicates=0 errors=0 max_gap_ms=32 age_ms=18 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 47.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=4 completed=4 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=27 skipped=61 duplicates=0 errors=0 max_gap_ms=32 age_ms=9 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 78.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=4 completed=4 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=35 skipped=80 duplicates=0 errors=0 max_gap_ms=32 age_ms=18 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 32.0
+  },
+  {
+    "command": "imu status",
+    "response": "OK imu request=4 completed=4 state=failed quality=failed detected=true address=0x6b who=0x05 revision=0x7c samples=35 skipped=80 duplicates=0 errors=1 max_gap_ms=32 age_ms=none error=Some(Bus(263)) accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+    "elapsed_ms": 47.0
+  },
+  {
+    "command": "touch status",
+    "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(30) polls=5845 reports=3 errors=0 last_error=None",
+    "elapsed_ms": 47.0
+  },
+  {
+    "command": "status",
+    "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=5966 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+    "elapsed_ms": 78.0
+  }
+]

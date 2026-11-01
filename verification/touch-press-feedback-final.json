@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "transcript": [
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=30 ticks=7332 pressure_altitude_ft=10000.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "baro 29.73",
+      "response": "OK baro_inhg=29.73 pressure_altitude=unchanged",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "imu off",
+      "response": "OK imu requested=off completion=check_status gauge_source=unchanged request=2",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=2 completed=2 state=off quality=off detected=true address=0x6b who=0x05 revision=0x7c samples=5690 skipped=13643 duplicates=0 errors=0 max_gap_ms=33 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=500 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(29) polls=7089 reports=638 errors=0 last_error=None",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.73 timing_fault=false max_gap_ms=30 ticks=7347 pressure_altitude_ft=10000.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6489 frame_age_ms=21 owner_age_ms=1 render_max_ms=117 transfer_max_ms=131 stack_free_bytes=3904 psram_bytes=8388608 internal_free_bytes=281275 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(9823.819)",
+      "elapsed_ms": 62.0
+    }
+  ]
+}

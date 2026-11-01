@@ -1,11 +1,12 @@
 #![forbid(unsafe_code)]
 
+use bounded_mailbox::{self as mpsc, TryRecvError, TrySendError};
+
 use instrument_core::{App, Command, DisplayCommand, ImuCommand, SOURCE_PERIOD_MS};
 use std::{
     io::{self, Read, Write},
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
-        mpsc::{self, TryRecvError, TrySendError},
         Arc,
     },
     thread,
@@ -73,6 +74,35 @@ where
     )
 }
 pub fn run_with_devices<R, W, H, I, D>(
+    reader: R,
+    writer: W,
+    metrics: Arc<Metrics>,
+    mut health_hook: H,
+    imu: I,
+    display: D,
+    options: Options,
+) -> io::Result<()>
+where
+    R: Read + Send + 'static,
+    W: Write + Send + 'static,
+    H: FnMut(&App) -> io::Result<()>,
+    I: FnMut(ImuCommand) -> Response,
+    D: FnMut(DisplayCommand) -> Response,
+{
+    run_with_owner_input(
+        reader,
+        writer,
+        metrics,
+        |app| health_hook(app),
+        imu,
+        display,
+        options,
+    )
+}
+/// A bounded, nonblocking physical-input hook runs on the single state owner
+/// every tick, even when UART output is backpressured. It may apply validated
+/// application commands before publishing the snapshot. No hardware I/O here.
+pub fn run_with_owner_input<R, W, H, I, D>(
     mut reader: R,
     mut writer: W,
     metrics: Arc<Metrics>,
@@ -84,7 +114,7 @@ pub fn run_with_devices<R, W, H, I, D>(
 where
     R: Read + Send + 'static,
     W: Write + Send + 'static,
-    H: FnMut(&App) -> io::Result<()>,
+    H: FnMut(&mut App) -> io::Result<()>,
     I: FnMut(ImuCommand) -> Response,
     D: FnMut(DisplayCommand) -> Response,
 {
@@ -177,7 +207,7 @@ where
             app.max_update_gap_ms().min(u32::MAX as u64) as u32,
             Ordering::Relaxed,
         );
-        health_hook(&app)?;
+        health_hook(&mut app)?;
         if tx_failed.load(Ordering::Acquire) {
             return Err(io::Error::new(
                 io::ErrorKind::BrokenPipe,
@@ -271,6 +301,7 @@ fn elapsed_ms(epoch: Instant) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
     use std::{
         io::Cursor,
         sync::{Condvar, Mutex},
@@ -295,12 +326,24 @@ mod tests {
         let metrics = Arc::new(Metrics::default());
         let m = metrics.clone();
         let g = gate.clone();
+        let applied = Arc::new(AtomicBool::new(false));
+        let applied_by_owner = applied.clone();
         let worker = thread::spawn(move || {
-            run(
+            let pressure = m.clone();
+            run_with_owner_input(
                 Cursor::new(b"status\n".repeat(20)),
                 GatedWriter(g),
                 m,
-                |_| Ok(()),
+                move |app| {
+                    if pressure.tx_backpressure_ticks.load(Ordering::Relaxed) >= 5 {
+                        app.apply(Command::Baro(30.01)).unwrap();
+                        applied_by_owner.store(app.baro_inhg() == 30.01, Ordering::Relaxed);
+                    }
+                    Ok(())
+                },
+                |_| unreachable!(),
+                |_| unreachable!(),
+                Options::default(),
             )
         });
         let deadline = Instant::now() + Duration::from_secs(3);
@@ -317,6 +360,10 @@ mod tests {
         worker.join().unwrap().unwrap();
         assert!(blocked >= 5, "test did not create backpressure");
         assert!(after > before, "sampling stalled with console output");
+        assert!(
+            applied.load(Ordering::Relaxed),
+            "physical-input hook blocked on UART output"
+        );
     }
     #[test]
     fn broken_output_terminates_instead_of_silently_losing_control() {

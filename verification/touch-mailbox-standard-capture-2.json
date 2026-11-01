@@ -1,0 +1,1663 @@
+{
+  "passed": false,
+  "target": "COM5",
+  "seconds": 120,
+  "error": "RuntimeError('response exceeds protocol bound')",
+  "transcript": [
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(20) polls=6787 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=6934 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6318 frame_age_ms=25 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(20) polls=6796 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=6943 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6327 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(28) polls=6805 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=6952 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6335 frame_age_ms=16 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(10) polls=6814 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=6961 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6344 frame_age_ms=1 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(31) polls=6823 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=6971 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6353 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(11) polls=6833 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=6981 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6362 frame_age_ms=15 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(20) polls=6842 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=6991 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6371 frame_age_ms=16 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(27) polls=6851 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7000 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6379 frame_age_ms=16 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(29) polls=6860 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7009 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6388 frame_age_ms=1 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(22) polls=6870 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7019 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6397 frame_age_ms=0 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(29) polls=6879 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7028 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6405 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(28) polls=6888 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7037 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6414 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(29) polls=6897 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7047 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6423 frame_age_ms=16 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(29) polls=6907 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7056 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6432 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(20) polls=6917 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7066 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6441 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(20) polls=6926 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7075 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6449 frame_age_ms=17 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(21) polls=6935 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7084 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6458 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(11) polls=6945 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7094 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6467 frame_age_ms=6 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(10) polls=6954 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7103 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6475 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(10) polls=6963 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7113 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6484 frame_age_ms=1 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=6972 reports=3 errors=1 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7123 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6493 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=6981 reports=3 errors=1 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7132 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6502 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=6990 reports=3 errors=1 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7141 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6510 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=6999 reports=3 errors=1 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7150 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6518 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7008 reports=3 errors=1 last_error=Some(Bus(263))",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7160 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6527 frame_age_ms=31 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7017 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7169 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6536 frame_age_ms=2 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7026 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7178 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6544 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7035 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7187 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6552 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7044 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7196 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6560 frame_age_ms=30 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7054 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7206 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6570 frame_age_ms=1 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7063 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7215 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6578 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7072 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7224 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6586 frame_age_ms=25 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7081 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7233 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6594 frame_age_ms=16 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7090 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7243 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6603 frame_age_ms=30 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7099 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7252 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6612 frame_age_ms=2 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7109 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7262 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6621 frame_age_ms=1 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7119 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7272 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6630 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7128 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7281 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6638 frame_age_ms=25 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7137 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7290 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6647 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7147 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7300 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6656 frame_age_ms=1 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7156 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7310 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6665 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7165 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7319 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6674 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7174 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7328 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6682 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7183 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7337 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6690 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7192 reports=3 errors=2 last_error=Some(Bus(263))",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7347 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6699 frame_age_ms=31 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7201 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7356 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6708 frame_age_ms=12 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7210 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7365 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6717 frame_age_ms=1 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7219 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7374 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6725 frame_age_ms=8 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7228 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7383 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6733 frame_age_ms=17 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7238 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7393 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6742 frame_age_ms=21 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7247 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7403 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6751 frame_age_ms=22 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 79.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7257 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7413 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6760 frame_age_ms=25 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7266 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7422 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6769 frame_age_ms=1 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7275 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7431 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6777 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7285 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7441 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6786 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7294 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 79.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7451 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6796 frame_age_ms=1 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7304 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7461 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6805 frame_age_ms=0 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7314 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7471 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6814 frame_age_ms=5 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7323 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7480 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6822 frame_age_ms=16 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7331 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7490 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6831 frame_age_ms=6 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7341 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7499 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6839 frame_age_ms=30 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7350 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7508 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6848 frame_age_ms=12 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7360 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7518 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6857 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7370 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7528 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6866 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7379 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7537 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6874 frame_age_ms=25 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7388 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7546 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6883 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7397 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7555 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6892 frame_age_ms=1 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7407 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7565 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6901 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7416 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7574 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6910 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7425 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7583 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6918 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7434 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7592 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6926 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7443 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7602 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6935 frame_age_ms=31 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7452 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7611 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6944 frame_age_ms=12 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7461 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7620 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6952 frame_age_ms=36 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7470 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7629 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6961 frame_age_ms=8 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7479 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7638 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6969 frame_age_ms=29 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7488 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7647 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6978 frame_age_ms=1 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7497 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7656 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6986 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7507 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7666 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=6995 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7516 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7675 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7003 frame_age_ms=6 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7525 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7684 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7011 frame_age_ms=16 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7533 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7693 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7020 frame_age_ms=2 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7543 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7703 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7028 frame_age_ms=25 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7552 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7712 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7036 frame_age_ms=36 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7561 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7721 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7045 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7570 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7730 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7053 frame_age_ms=28 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7579 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7739 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7062 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7588 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7748 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7070 frame_age_ms=16 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7597 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7757 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7079 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7606 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7766 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7087 frame_age_ms=16 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7615 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7775 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7096 frame_age_ms=1 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7625 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7785 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7105 frame_age_ms=1 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7634 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7794 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7113 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7643 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7803 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7122 frame_age_ms=5 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7652 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7812 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7130 frame_age_ms=15 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7661 reports=3 errors=3 last_error=Some(Bus(263))",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7822 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7139 frame_age_ms=31 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7670 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7831 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7148 frame_age_ms=2 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7680 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7841 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7157 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7689 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7850 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7165 frame_age_ms=8 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7698 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7859 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7173 frame_age_ms=29 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7708 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7869 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7182 frame_age_ms=21 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7716 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7878 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7190 frame_age_ms=23 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7724 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7887 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7198 frame_age_ms=25 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7733 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7897 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7207 frame_age_ms=6 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7743 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7906 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7215 frame_age_ms=16 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7752 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7915 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7224 frame_age_ms=2 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7762 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7925 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7233 frame_age_ms=9 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7772 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7935 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7242 frame_age_ms=16 owner_age_ms=0 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7781 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7944 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7251 frame_age_ms=6 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7790 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=7953 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=7259 frame_age_ms=16 owner_age_ms=1 render_max_ms=102 transfer_max_ms=121 stack_free_bytes=4000 psram_bytes=8388608 internal_free_bytes=280891 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(4603.1377)",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=None age_ms=None polls=7799 reports=3 errors=4 last_error=Some(Bus(263))",
+      "elapsed_ms": 47.0
+    }
+  ]
+}

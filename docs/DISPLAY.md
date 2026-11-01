@@ -5,7 +5,8 @@ The first rendered gauge is a three-pointer altimeter. It retains the handoff's
 pointer periods, barometer window and SIM INPUT marking. It adds an on-face
 numeric bench reference and explicit missing/stale/failed/timing-fault states.
 Other selected instruments show NOT IMPLEMENTED and cannot leave the previous
-altimeter visible. Touch and the second gauge are subsequent stages.
+altimeter visible. [Touch barometer editing](TOUCH.md) is implemented; instrument
+selection by touch and the second gauge are subsequent stages.
 
 The Rust face's graphics cleanup moves the numeral centers inward from radius
 179 to 169 in the logical 480-unit viewport, adding tick clearance especially
@@ -227,7 +228,7 @@ The extracted source is in tmp/imu/demo. Only register data is generated into
 panel_init.rs; driver policy, bounded I/O and ownership are implemented here.
 
 The panel command link uses GPIO1/2 and nine-bit words. TCA9554 at 0x20 supplies
-LCD reset on bit 0 and command CS on bit 2. The buzzer bit 7 is held low. Other
+LCD reset on bit 0 and command CS on bit 2. The buzzer bit 7 starts low; the shared bus worker later drives bounded touch chirps (see TOUCH.md). Other
 expander bits are preserved. This initialization borrows I2C before handing that
 same driver to the IMU worker, so it does not create a competing I2C controller.
 Future touch support still needs coordinated ownership of that bus.

@@ -3,6 +3,8 @@
 
 pub mod altimeter;
 pub mod damage;
+pub mod feedback;
+pub mod interaction;
 pub mod pipeline;
 pub mod raster;
 pub mod render;
@@ -12,6 +14,8 @@ use instrument_core::{App, Field, Instrument, Quality, Reading};
 /// Immutable view input. Source age is retained through transport and rendering.
 #[derive(Clone, Copy, Debug)]
 pub struct Snapshot {
+    pub kollsman_pressed: bool,
+    pub editor: Option<interaction::EditorView>,
     pub selected: Instrument,
     pub altitude: Reading,
     pub baro_inhg: f32,
@@ -19,6 +23,8 @@ pub struct Snapshot {
 impl Snapshot {
     pub fn from_app(app: &App) -> Self {
         Self {
+            kollsman_pressed: false,
+            editor: None,
             selected: app.selected(),
             altitude: app.reading(Field::PressureAltitudeFt, app.now_ms()),
             baro_inhg: app.baro_inhg(),
@@ -72,12 +78,14 @@ mod tests {
         assert!(!presentation_healthy(100, 90, 90, 100, 90));
         assert!(!presentation_healthy(10, 11, 9, 100, 9));
         let s = Snapshot {
+            kollsman_pressed: false,
             selected: Instrument::Altimeter,
             altitude: Reading {
                 value: Some(0.),
                 quality: Quality::Valid,
                 age_ms: Some(990),
             },
+            editor: None,
             baro_inhg: 29.92,
         };
         assert_eq!(s.aged(9).altitude.value, Some(0.));

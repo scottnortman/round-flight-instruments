@@ -10,6 +10,8 @@ fn main() -> std::io::Result<()> {
             ("zero", Quality::Valid, Some(0.), 29.92),
             ("negative", Quality::Valid, Some(-100.), 29.92),
             ("baro", Quality::Valid, Some(4520.), 30.92),
+            ("baro-pressed", Quality::Valid, Some(4520.), 29.92),
+            ("baro-editor", Quality::Valid, Some(4520.), 29.92),
             ("missing", Quality::Missing, None, 29.92),
             ("stale", Quality::Stale, None, 29.92),
             ("failed", Quality::Failed, None, 29.92),
@@ -18,11 +20,20 @@ fn main() -> std::io::Result<()> {
             render::draw(
                 &mut Framebuffer::new(&mut pixels, size, size).unwrap(),
                 Snapshot {
+                    kollsman_pressed: label == "baro-pressed",
                     selected: Instrument::Altimeter,
                     altitude: Reading {
                         value,
                         quality,
                         age_ms: Some(0),
+                    },
+                    editor: if label == "baro-editor" {
+                        Some(instrument_ui::interaction::EditorView {
+                            cents: 2993,
+                            pressed: None,
+                        })
+                    } else {
+                        None
                     },
                     baro_inhg: baro,
                 },

@@ -166,6 +166,11 @@ pub enum Command {
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DisplayCommand {
+    TouchSound(bool),
+    TouchSoundStatus,
+    TouchStatus,
+    TouchHold(u32),
+    TouchCancel,
     Stats,
     StatsReset,
     StatsStop,

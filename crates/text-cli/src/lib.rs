@@ -72,6 +72,18 @@ pub fn parse(line: &str) -> Result<Command, Error> {
             }
             Ok(Command::Takeoff(seconds))
         }
+        ["touch", "status"] => Ok(Command::Display(DisplayCommand::TouchStatus)),
+        ["touch", "sound", "on"] => Ok(Command::Display(DisplayCommand::TouchSound(true))),
+        ["touch", "sound", "off"] => Ok(Command::Display(DisplayCommand::TouchSound(false))),
+        ["touch", "sound", "status"] => Ok(Command::Display(DisplayCommand::TouchSoundStatus)),
+        ["touch", "cancel"] => Ok(Command::Display(DisplayCommand::TouchCancel)),
+        ["touch", "hold", value] => {
+            let ms = value.parse::<u32>().map_err(|_| Error::Range)?;
+            if !(250..=5000).contains(&ms) {
+                return Err(Error::Range);
+            }
+            Ok(Command::Display(DisplayCommand::TouchHold(ms)))
+        }
         ["display", "stats"] => Ok(Command::Display(DisplayCommand::Stats)),
         ["display", "stats", "reset"] => Ok(Command::Display(DisplayCommand::StatsReset)),
         ["display", "stats", "stop"] => Ok(Command::Display(DisplayCommand::StatsStop)),
@@ -294,7 +306,7 @@ pub fn execute_with_display(
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
         Command::Echo(_) | Command::Imu(_) | Command::Display(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: status; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::Help => writeln!(r, "OK help commands: touch status|cancel|hold MS; touch sound on|off|status; status; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
         Command::Instruments => writeln!(r, "OK instruments altimeter attitude airspeed heading turn vsi renderers=altimeter"),
         Command::Status => status(&mut r, app, now,display),
         Command::Set(f, _) => writeln!(r, "OK sim field={} applies=next_sample", f.name()),
@@ -335,6 +347,52 @@ fn status(r: &mut Response, app: &App, now: u64, display: &str) -> fmt::Result {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn touch_controls_are_bounded_and_desktop_cannot_fabricate_touch() {
+        assert_eq!(
+            parse("touch sound on"),
+            Ok(Command::Display(DisplayCommand::TouchSound(true)))
+        );
+        assert_eq!(
+            parse("touch sound off"),
+            Ok(Command::Display(DisplayCommand::TouchSound(false)))
+        );
+        assert_eq!(
+            parse("touch sound status"),
+            Ok(Command::Display(DisplayCommand::TouchSoundStatus))
+        );
+        assert!(parse("touch sound on extra").is_err());
+        assert!(parse("touch sound loud").is_err());
+        use super::*;
+        assert_eq!(
+            parse("touch status"),
+            Ok(Command::Display(DisplayCommand::TouchStatus))
+        );
+        assert_eq!(
+            parse("touch cancel"),
+            Ok(Command::Display(DisplayCommand::TouchCancel))
+        );
+        assert_eq!(
+            parse("touch hold 2000"),
+            Ok(Command::Display(DisplayCommand::TouchHold(2000)))
+        );
+        for line in [
+            "touch hold 249",
+            "touch hold 5001",
+            "touch hold NaN",
+            "touch hold -1",
+            "touch hold 2000 extra",
+            "touch press 338 235",
+        ] {
+            assert!(parse(line).is_err());
+        }
+        let mut app = App::new();
+        assert_eq!(
+            execute(&mut app, parse("touch status"), 0).as_str(),
+            "ERR display_unsupported_target\n"
+        );
+        assert_eq!(app.baro_inhg(), 29.92);
+    }
     use super::*;
     #[test]
     fn takeoff_duration_and_status_are_bounded_and_explicit() {

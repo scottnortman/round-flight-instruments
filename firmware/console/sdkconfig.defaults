@@ -16,3 +16,6 @@ CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y
 CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240=y
 # CONFIG_LCD_RGB_RESTART_IN_VSYNC is not set
+# Rust/IDF linkage retains the legacy conflict constructor even with no legacy
+# I2C functions linked. Build-Console verifies those functions are absent.
+CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=y

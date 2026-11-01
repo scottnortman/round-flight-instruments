@@ -7,9 +7,14 @@ name = "attitude-estimator"
 version = "0.1.0"
 
 [[package]]
+name = "bounded-mailbox"
+version = "0.1.0"
+
+[[package]]
 name = "console-runtime"
 version = "0.1.0"
 dependencies = [
+ "bounded-mailbox",
  "instrument-core",
  "text-cli",
 ]
@@ -22,10 +27,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gt911"
+version = "0.1.0"
+
+[[package]]
 name = "imu-service"
 version = "0.1.0"
 dependencies = [
  "attitude-estimator",
+ "bounded-mailbox",
  "console-runtime",
  "instrument-core",
  "qmi8658",

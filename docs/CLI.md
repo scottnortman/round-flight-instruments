@@ -65,6 +65,17 @@ slow client. Do not treat queued text status as live flight telemetry.
 
 ## Commands
 
+### Touch barometer editor
+
+Hold the Kollsman window for half a second, release, then use −/+ and Apply/Cancel.
+Only Apply changes the active barometer/indicated-altitude offset. See
+[touch behaviour and safety](TOUCH.md) for cancellation and freshness rules.
+
+`touch status` reports sensor/overlay state and last contact age. `touch hold MS`
+sets a volatile threshold from 250 to 5000 milliseconds (default 250) and cancels
+the current edit. `touch cancel` discards the draft. These board-only operations
+return `ERR display_unsupported_target` on desktop. Commands do not inject touches.
+
 ### Animated altitude test
 
 `sim takeoff` selects the altimeter, sets barometer 29.92 inHg, resumes the
@@ -178,3 +189,11 @@ timeout, close/reopen and inspect `status` before changing state; there are no
 request IDs for matching late responses. Link loss does not silently change a
 simulation into a live source. It also does not stop the deliberate onboard
 simulation: issue `sim pause` when you want samples to age out.
+
+## Touch sound
+
+`touch sound on`, `touch sound off`, and `touch sound status` control the short
+screen-press chirp (enabled at boot). Status includes requested enable state,
+hardware readiness, `active_or_unknown`, nominal `pulse_ms`, beep and error
+counts. Mute takes effect on the bus worker; settings are volatile. See
+[TOUCH.md](TOUCH.md) for rate limiting and bus-fault limitations.

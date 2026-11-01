@@ -44,9 +44,20 @@ try {
             'CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y',
             'CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=240'
             '# CONFIG_LCD_RGB_RESTART_IN_VSYNC is not set'
+            'CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=y'
         )) {
             if ($rfiConfig -notcontains $rfiRequired) { throw "Generated SDK config missing: $rfiRequired" }
         }
+        # The IDF legacy constructor is retained by whole-archive linkage even
+        # when no legacy I2C function is used. Replace that startup false positive
+        # with a build-time prohibition on the actual legacy implementation.
+        $rfiNm = 'D:\rfi-e\tools\xtensa-esp-elf\esp-14.2.0_20260121\xtensa-esp-elf\bin\xtensa-esp32s3-elf-nm.exe'
+        $rfiSymbols = & $rfiNm --defined-only $rfiExecutable
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect firmware I2C symbols' }
+        if ($rfiSymbols -match '\b(i2c_driver_install|i2c_param_config|i2c_master_cmd_begin|i2c_isr_handler_default)$') {
+            throw 'Legacy I2C implementation linked alongside master driver'
+        }
+        if (-not ($rfiSymbols -match '\bi2c_new_master_bus$')) { throw 'Current I2C master driver missing' }
         [ordered]@{executable=$rfiExecutable;sdkconfig=$rfiSdk;bootloader=$rfiBoot;watchdog_self_test=[bool]$WatchdogSelfTest;sha256=(Get-FileHash -LiteralPath $rfiExecutable).Hash} | ConvertTo-Json | Set-Content -LiteralPath 'D:\rfi-c\console-build-artifacts.json' -Encoding UTF8
         Write-Output 'Console build and generated SDK safety settings verified.'
     } finally { Pop-Location }

@@ -4,14 +4,15 @@ use esp_idf_svc::{
     hal::{
         delay::{Ets, TickType},
         gpio::{Output, PinDriver},
-        i2c::I2cDriver,
         task::queue::Queue,
     },
     sys,
 };
-use instrument_core::{App, DisplayCommand};
+use instrument_core::{App, Command, DisplayCommand, Field, Instrument, Quality};
+use instrument_ui::interaction::Controller;
 use instrument_ui::{pipeline::FramePipeline, presentation_healthy, render, Snapshot};
 use std::{
+    cell::RefCell,
     io,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
@@ -60,16 +61,15 @@ unsafe extern "C" fn complete(
 
 /// Initialization owns GPIO1/2 and the LCD RGB pins. It borrows I2C before the
 /// bus is moved into its long-lived IMU owner; no competing I2C driver exists.
-pub fn initialize(bus: &mut I2cDriver<'static>) -> io::Result<()> {
-    let read = |bus: &mut I2cDriver<'static>, reg: u8| -> io::Result<u8> {
+pub fn initialize(bus: &mut crate::board_bus::Bus) -> io::Result<()> {
+    let read = |bus: &mut crate::board_bus::Bus, reg: u8| -> io::Result<u8> {
         let mut b = [0];
-        bus.write_read(0x20, &[reg], &mut b, TickType::new_millis(10).ticks())
+        bus.write_read(0x20, &[reg], &mut b)
             .map_err(io::Error::other)?;
         Ok(b[0])
     };
-    let write = |bus: &mut I2cDriver<'static>, reg: u8, value: u8| -> io::Result<()> {
-        bus.write(0x20, &[reg, value], TickType::new_millis(10).ticks())
-            .map_err(io::Error::other)?;
+    let write = |bus: &mut crate::board_bus::Bus, reg: u8, value: u8| -> io::Result<()> {
+        bus.write(0x20, &[reg, value]).map_err(io::Error::other)?;
         if read(bus, reg)? != value {
             return Err(io::Error::other("EXIO readback mismatch"));
         }
@@ -128,10 +128,13 @@ struct Shared {
     blanked_at: AtomicU32,
     shown_quality: AtomicU32,
     shown_altitude: AtomicU32,
+    shown_editor: AtomicBool,
 }
 pub struct Service {
     shared: Arc<Shared>,
     stats: Mutex<Stats>,
+    interaction: RefCell<Controller>,
+    touch_state: RefCell<Option<crate::touch::State>>,
 }
 struct Stats {
     started: u32,
@@ -161,6 +164,7 @@ impl Service {
             blanked_at: AtomicU32::new(0),
             shown_quality: AtomicU32::new(6),
             shown_altitude: AtomicU32::new(0),
+            shown_editor: AtomicBool::new(false),
         });
         let guard = s.clone();
         thread::Builder::new()
@@ -229,6 +233,8 @@ impl Service {
                 })?;
         }
         Ok(Self {
+            interaction: RefCell::new(Controller::default()),
+            touch_state: RefCell::new(None),
             shared: s,
             stats: Mutex::new(Stats {
                 started: now(),
@@ -237,20 +243,62 @@ impl Service {
             }),
         })
     }
-    pub fn publish(&self, app: &App) {
+    pub fn publish(&self, app: &mut App, touch: Option<crate::touch::State>) {
         let s = &self.shared;
+        *self.touch_state.borrow_mut() = touch;
+        let mut interaction = self.interaction.borrow_mut();
+        let allowed = app.selected() == Instrument::Altimeter
+            && app.reading(Field::PressureAltitudeFt, app.now_ms()).quality == Quality::Valid
+            && s.light.load(Ordering::Acquire)
+            && !s.pattern.load(Ordering::Acquire)
+            && s.enabled.load(Ordering::Acquire)
+            && s.stall.load(Ordering::Acquire) == 0
+            && !s.failed.load(Ordering::Acquire);
+        if let Some(value) = interaction.update(
+            app.now_ms(),
+            touch.and_then(|t| t.input(app.now_ms())),
+            allowed,
+            app.baro_inhg(),
+            s.shown_editor.load(Ordering::Acquire),
+        ) {
+            let _ = app.apply(Command::Baro(value));
+        }
         if app.timing_fault() {
             s.failed.store(true, Ordering::Release);
             return;
         }
         if let Ok(mut v) = s.snapshot.try_lock() {
-            *v = Some((Snapshot::from_app(app), Instant::now()));
+            let mut snapshot = Snapshot::from_app(app);
+            snapshot.editor = interaction.view();
+            snapshot.kollsman_pressed = interaction.window_pressed();
+            *v = Some((snapshot, Instant::now()));
             s.owner.store(now(), Ordering::Release);
         }
     }
     pub fn handle(&self, command: DisplayCommand) -> Response {
         let s = &self.shared;
         match command {
+            DisplayCommand::TouchSound(_) | DisplayCommand::TouchSoundStatus => {
+                return reply(format_args!("ERR touch_sound_unavailable"))
+            }
+            DisplayCommand::TouchHold(ms) => {
+                if !self.interaction.borrow_mut().set_hold_ms(ms) {
+                    return reply(format_args!("ERR range"));
+                }
+                return reply(format_args!("OK touch hold_ms={ms} edit=cancelled"));
+            }
+            DisplayCommand::TouchCancel => {
+                self.interaction.borrow_mut().cancel();
+                return reply(format_args!("OK touch edit=cancelled"));
+            }
+            DisplayCommand::TouchStatus => {
+                let ui = self.interaction.borrow();
+                let state = *self.touch_state.borrow();
+                let sample = state.and_then(|s| s.sample);
+                return reply(format_args!("OK touch ready={} hold_ms={} overlay={} draft_cents={:?} contact={:?} age_ms={:?} polls={} reports={} errors={} last_error={:?}",
+                    state.is_some_and(|s|s.ready),ui.hold_ms(),ui.view().is_some(),ui.view().map(|v|v.cents),sample.map(|s|s.0),sample.map(|s|s.1.elapsed().as_millis()),
+                    state.map_or(0,|s|s.polls),state.map_or(0,|s|s.reports),state.map_or(0,|s|s.errors),state.and_then(|s|s.error)));
+            }
             DisplayCommand::Stats | DisplayCommand::StatsReset | DisplayCommand::StatsStop => {
                 let Ok(mut stats) = self.stats.try_lock() else {
                     return reply(format_args!("ERR display_stats_busy"));
@@ -522,6 +570,8 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
         Ordering::Release,
     );
     s.shown_quality.store(quality, Ordering::Release);
+    s.shown_editor
+        .store(quality == 0 && snapshot.editor.is_some(), Ordering::Release);
     s.deadline.store(deadline, Ordering::Release);
     s.presented.store(now(), Ordering::Release);
     s.frames.fetch_add(1, Ordering::Release);

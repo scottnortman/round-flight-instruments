@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "baud": 921600,
+  "exchanges": [
+    {
+      "request_hex": "6563686f207374617475730a",
+      "lines": [
+        "echo status\r\n",
+        "OK echo=on\r\n"
+      ]
+    },
+    {
+      "request_hex": "6563686f206f66660a",
+      "lines": [
+        "echo off\r\n",
+        "OK echo=off\r\n"
+      ]
+    },
+    {
+      "request_hex": "6563686f207374617475730a",
+      "lines": [
+        "OK echo=off\r\n"
+      ]
+    },
+    {
+      "request_hex": "6563686f206f6e0d",
+      "lines": [
+        "OK echo=on\r\n"
+      ]
+    },
+    {
+      "request_hex": "1b5b324a087fff0a",
+      "lines": [
+        "\\x1B[2J\\x08\\x7F\\xFF\r\n",
+        "ERR invalid_byte\r\n"
+      ]
+    },
+    {
+      "request_hex": "7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878780a",
+      "lines": [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx[...]\r\n",
+        "ERR line_too_long\r\n"
+      ]
+    },
+    {
+      "request_hex": "6563686f207374617475730a",
+      "lines": [
+        "echo status\r\n",
+        "OK echo=on\r\n"
+      ]
+    },
+    {
+      "request_hex": "6563686f207374617475730a",
+      "lines": [
+        "echo status\r\n",
+        "OK echo=on\r\n"
+      ]
+    },
+    {
+      "request_hex": "0a",
+      "lines": [
+        "ERR syntax\r\n"
+      ]
+    },
+    {
+      "request_hex": "6563686f207374617475730a",
+      "lines": [
+        "OK echo=off\r\n"
+      ]
+    },
+    {
+      "request_hex": "6563686f206f6e0a",
+      "lines": [
+        "OK echo=on\r\n"
+      ]
+    }
+  ],
+  "character_echo_ms": [
+    15.0,
+    16.0,
+    15.0,
+    32.0,
+    15.0,
+    16.0
+  ],
+  "client_status": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=32 ticks=4946 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms"
+}

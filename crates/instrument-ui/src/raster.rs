@@ -147,6 +147,10 @@ impl<'a, T: Target> Canvas<'a, T> {
     pub fn text(&mut self, x: f32, y: f32, size: f32, text: &str, color: u16) {
         self.text_style(x, y, size, text, (color, 0), false);
     }
+    /// Regular glyphs composited against a caller-filled solid background.
+    pub fn text_on(&mut self, x: f32, y: f32, size: f32, text: &str, colors: (u16, u16)) {
+        self.text_style(x, y, size, text, colors, false);
+    }
     /// Bold glyphs composited against an explicit solid background. Combining
     /// coverage before drawing avoids dark seams from overlapping glyph passes.
     /// Colors are (foreground, background); the caller fills the background.

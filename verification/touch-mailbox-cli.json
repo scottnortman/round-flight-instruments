@@ -1,0 +1,83 @@
+{
+  "passed": true,
+  "target": "COM5",
+  "touch": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(21) polls=4784 reports=3 errors=0 last_error=None",
+  "final_status": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=4859 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+  "transcript": [
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=4824 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(29) polls=4753 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "help",
+      "response": "OK help commands: touch status|cancel|hold MS; status; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here.",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch cancel",
+      "response": "OK touch edit=cancelled",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "touch hold 1500",
+      "response": "OK touch hold_ms=1500 edit=cancelled",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "touch hold 0",
+      "response": "ERR range",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch hold 499",
+      "response": "ERR range",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch hold 5001",
+      "response": "ERR range",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch hold NaN",
+      "response": "ERR range",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch hold 2000 extra",
+      "response": "ERR syntax",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch press 338 235",
+      "response": "ERR syntax",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=1500 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(30) polls=4773 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch hold 2000",
+      "response": "OK touch hold_ms=2000 edit=cancelled",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=2000 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(21) polls=4784 reports=3 errors=0 last_error=None",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=30.01 timing_fault=false max_gap_ms=32 ticks=4859 pressure_altitude_ft=4520.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=120.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+      "elapsed_ms": 63.0
+    }
+  ]
+}

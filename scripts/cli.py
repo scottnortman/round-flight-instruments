@@ -22,6 +22,7 @@ class Link:
         self.process = None
         self.serial = None
         self.responses = []
+        self.device_lines = []
         self.restore_echo = False
         self.in_flight = False
         if port:
@@ -70,6 +71,8 @@ class Link:
             if self.serial:
                 partial.extend(self.serial.read_until(b'\n', 1025 - len(partial)))
                 if len(partial) > 1024:
+                    self.device_lines.append(partial[:1024].decode('ascii', errors='backslashreplace'))
+                    self.device_lines = self.device_lines[-256:]
                     raise RuntimeError('response exceeds protocol bound')
                 if not partial.endswith(b'\n'):
                     continue
@@ -91,6 +94,8 @@ class Link:
                 self.in_flight = False
                 return line
             if line:
+                self.device_lines.append(line)
+                self.device_lines = self.device_lines[-256:]
                 print(f'[device] {line.encode("ascii", errors="backslashreplace").decode("ascii")}', flush=True)
         raise TimeoutError('no complete CLI response within deadline')
 

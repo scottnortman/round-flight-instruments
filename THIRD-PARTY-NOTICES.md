@@ -37,6 +37,12 @@ integration boundary are recorded in [docs/DISPLAY.md](docs/DISPLAY.md).
 Downloaded vendor demo trees, schematics and SDK installations are not vendored
 in this repository.
 
+The original Rust GT911 driver and board touch adapter were implemented from
+the register/reset behaviour documented in the Waveshare demo's GT911 driver
+(Espressif Apache-2.0 source). References and the integration boundary are in
+[docs/TOUCH.md](docs/TOUCH.md); no LVGL or vendor driver source is copied into
+the firmware.
+
 `tools/toolchain-check` was generated from the esp-rs/esp-idf-template at commit
 `b814c2b968f84949707ed0a6ab72d262e3fbfbc4`; see [tools/README.md](tools/README.md).
 Copyright 2021-2024 Contributors to esp-idf-template. The upstream template's

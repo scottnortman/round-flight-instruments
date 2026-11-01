@@ -4,7 +4,14 @@ Repository/documentation milestone: [initial Git baseline](GIT-BASELINE.md).
 Use the [canonical project README](../README.md) for current status; the
 console-only observations below are historical.
 
-Latest installed visual change: [light-grey panel and orange hand edges](ALTIMETER-CONTRAST.md).
+Current feature: [touch Kollsman editor](TOUCH.md), with the
+[message-queue](TOUCH-QUEUE-RESET.md) and [I2C reset](TOUCH-I2C-RESET.md)
+corrections. The user accepted reset/Apply and ad hoc interactions; the 60-second
+climb measured 32.32 FPS with touch polling and IMU enabled. The v0.1 release
+adds blue popup buttons, screen-press sound and a 250 ms default hold. See the
+[final release verification](RELEASE-v0.1.md).
+
+Previous accepted visual change: [light-grey panel and orange hand edges](ALTIMETER-CONTRAST.md).
 The 20-second sweep measured 32.35 FPS; the user accepted the final appearance.
 
 Previous visual change: [larger Kollsman digits and external HG label](KOLLSMAN-READABILITY.md).

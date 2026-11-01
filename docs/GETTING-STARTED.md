@@ -1,5 +1,8 @@
 # Getting started
 
+**Have Waveshare SKU 29086 and want to run the release?** Start with the
+[prebuilt firmware installation guide](INSTALL-WAVESHARE.md); no Rust compiler is needed.
+
 This guide accompanies the [canonical README](../README.md). Start with a PC
 workflow; no board or ESP toolchain is needed to explore the browser gauges or
 run Rust core tests. Windows PowerShell is the tested environment. The browser
@@ -150,7 +153,7 @@ accepted ranges and state transitions.
 cargo run -p instrument-ui --example snapshots --locked
 ```
 
-Expect 24 binary PPM files in `output/gauge/`. Use a PPM-capable viewer, or convert
+Expect 30 binary PPM files in `output/gauge/`. Use a PPM-capable viewer, or convert
 one to PNG using the optional Pillow package:
 
 ```powershell
@@ -187,8 +190,8 @@ wait. It ends with simulation paused. The takeoff check exercises cancellation,
 manual override, faults and completion. Reports should contain `passed: true`.
 These test separate desktop processes and do not open the UART.
 
-53 Rust unit tests currently cover state/quality, framing, backpressure, sensor
-register behavior, estimator contracts, gauge math and cached/full raster
+72 Rust unit tests currently cover state/quality, framing, backpressure, sensor
+register behavior, touch gestures, estimator contracts, gauge math and cached/full raster
 agreement. They do not measure optical LCD health or certify hardware timing.
 
 ## 6. Control the installed board
@@ -233,7 +236,15 @@ limits. Exact results vary with load. Check
 edges, needle movement and absence of unintended blanking directly; counters
 alone cannot establish that the physical image is clean.
 
-For optional sensor diagnostics:
+First, try the touch barometer control while the altimeter has valid data. Hold
+the Kollsman window for half a second and release. Tap + once, then Apply: the
+barometer increases by 0.01 inHg and the displayed altitude changes accordingly.
+Tap 29.92 to reset the draft to standard pressure, then Apply to commit.
+Reopen, adjust and Cancel to verify that the committed value stays unchanged.
+Use `touch status` for coordinates/errors and `touch hold 250` for the hold
+threshold. See [TOUCH.md](TOUCH.md) for limits, timeout and shared-bus behaviour.
+
+For optional IMU diagnostics:
 
 ```text
 imu on

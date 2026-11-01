@@ -108,6 +108,11 @@ impl<B: Bus> Driver<B> {
     pub fn identity(&self) -> Option<Identity> {
         self.identity
     }
+    /// Borrow the bus between complete sensor operations. The single bus owner
+    /// may service other device addresses; it must not alter this IMU's state.
+    pub fn bus_mut(&mut self) -> &mut B {
+        &mut self.bus
+    }
     fn read_byte(&mut self, reg: u8) -> Result<u8, Error> {
         let mut b = [0];
         self.bus

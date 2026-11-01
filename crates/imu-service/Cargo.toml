@@ -5,6 +5,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
+bounded-mailbox = { path = "../bounded-mailbox" }
 attitude-estimator = { path = "../attitude-estimator" }
 qmi8658 = { path = "../qmi8658" }
 instrument-core = { path = "../instrument-core" }
