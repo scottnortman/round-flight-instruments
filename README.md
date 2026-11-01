@@ -24,9 +24,9 @@ operational air data, attitude or navigation information.
 *Software-rendered preview from the shared Rust snapshot example; not a photograph
 of the LCD. Font attribution: Leonardo Di Lena / MS33558C, see the asset notice.*
 
-The Rust altimeter has inset dial numerals, a raised Kollsman window and a
-larger bold black altitude readout on a white panel. The preview above reflects
-the current layout. Earlier numeral/window spacing was physically accepted;
+The Rust altimeter has inset dial numerals, larger Kollsman digits with an
+external HG label, and a bold black altitude readout on a white panel. The
+preview above reflects the current layout. Earlier numeral/window spacing was physically accepted;
 see [graphics cleanup verification](verification/GRAPHICS-CLEANUP.md). The
 subsequent [rendering pipeline milestone](verification/RENDERING-30HZ.md)
 measured 32.32 FPS on the board.

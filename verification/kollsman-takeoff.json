@@ -1,0 +1,805 @@
+{
+  "passed": true,
+  "target": "COM5",
+  "samples": 70,
+  "stats": {
+    "state": "stopped",
+    "frames": "679",
+    "elapsed_ms": "21009",
+    "rendered_fps": "32.32",
+    "render_max_ms": "20",
+    "transfer_max_ms": "38",
+    "backlight": "true",
+    "failed": "false",
+    "measurement": "completed_presentations"
+  },
+  "display": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=973 frame_age_ms=11 owner_age_ms=1 render_max_ms=20 transfer_max_ms=40 stack_free_bytes=4144 psram_bytes=8388608 internal_free_bytes=279611 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(10000.0)",
+  "final_status": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=1068 pressure_altitude_ft=10000.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+  "transcript": [
+    {
+      "command": "fault pressure_altitude_ft off",
+      "response": "OK fault field=pressure_altitude_ft active=false",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff 5",
+      "response": "OK takeoff state=running elapsed_ms=0 total_ms=6000 climb_ms=5000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff stop",
+      "response": "OK takeoff state=stopped elapsed_ms=1650 total_ms=6000 climb_ms=5000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=280 pressure_altitude_ft=1300.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=288 pressure_altitude_ft=1300.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff 5",
+      "response": "OK takeoff state=running elapsed_ms=0 total_ms=6000 climb_ms=5000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim set pressure_altitude_ft 8500",
+      "response": "OK sim field=pressure_altitude_ft applies=next_sample",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=stopped elapsed_ms=60 total_ms=6000 climb_ms=5000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=299 pressure_altitude_ft=8500.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault pressure_altitude_ft on",
+      "response": "OK fault field=pressure_altitude_ft active=true",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff",
+      "response": "ERR not_ready timing_or_altitude_fault=true",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "fault pressure_altitude_ft off",
+      "response": "OK fault field=pressure_altitude_ft active=false",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff 0",
+      "response": "ERR range",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff 20",
+      "response": "OK takeoff state=running elapsed_ms=0 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=311 pressure_altitude_ft=0.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=120 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=322 pressure_altitude_ft=0.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=440 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=333 pressure_altitude_ft=0.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=750 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=343 pressure_altitude_ft=0.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=1050 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=354 pressure_altitude_ft=150.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=1360 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=365 pressure_altitude_ft=305.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=1670 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=375 pressure_altitude_ft=455.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=1970 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=386 pressure_altitude_ft=610.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=2280 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=397 pressure_altitude_ft=765.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=2590 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=408 pressure_altitude_ft=920.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=2890 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=420 pressure_altitude_ft=1075.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=3210 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=431 pressure_altitude_ft=1230.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=3520 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=442 pressure_altitude_ft=1385.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=3830 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=453 pressure_altitude_ft=1540.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=4141 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=464 pressure_altitude_ft=1695.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=4450 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=475 pressure_altitude_ft=1845.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=4750 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=486 pressure_altitude_ft=2005.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=5070 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=497 pressure_altitude_ft=2165.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=5390 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=507 pressure_altitude_ft=2315.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=5690 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=517 pressure_altitude_ft=2465.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=5980 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=528 pressure_altitude_ft=2620.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=6300 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=539 pressure_altitude_ft=2780.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=6620 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=549 pressure_altitude_ft=2930.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=6920 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=560 pressure_altitude_ft=3090.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=7240 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=570 pressure_altitude_ft=3240.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=7540 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=581 pressure_altitude_ft=3395.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=7840 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=592 pressure_altitude_ft=3545.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=8150 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=603 pressure_altitude_ft=3695.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=8451 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=613 pressure_altitude_ft=3845.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=8751 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=624 pressure_altitude_ft=4000.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=9060 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=635 pressure_altitude_ft=4150.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=9360 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=646 pressure_altitude_ft=4310.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=9680 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=657 pressure_altitude_ft=4465.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=9991 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=667 pressure_altitude_ft=4615.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=10291 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=678 pressure_altitude_ft=4765.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=10590 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=689 pressure_altitude_ft=4920.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=10901 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=700 pressure_altitude_ft=5075.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=11210 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=711 pressure_altitude_ft=5235.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=11531 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=722 pressure_altitude_ft=5385.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=11830 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=733 pressure_altitude_ft=5545.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=12151 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=744 pressure_altitude_ft=5705.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=12470 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=754 pressure_altitude_ft=5855.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=12771 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=765 pressure_altitude_ft=6015.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=13091 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=775 pressure_altitude_ft=6165.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=13391 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=786 pressure_altitude_ft=6325.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=13710 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=797 pressure_altitude_ft=6475.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=14011 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=808 pressure_altitude_ft=6635.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=14331 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=818 pressure_altitude_ft=6785.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=14631 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=828 pressure_altitude_ft=6935.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=14930 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=838 pressure_altitude_ft=7085.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=15230 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=849 pressure_altitude_ft=7240.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=15541 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=860 pressure_altitude_ft=7400.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=15861 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=871 pressure_altitude_ft=7555.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=16170 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=882 pressure_altitude_ft=7715.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=16491 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=893 pressure_altitude_ft=7875.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=16810 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=904 pressure_altitude_ft=8025.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=17111 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=915 pressure_altitude_ft=8175.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=17411 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=926 pressure_altitude_ft=8335.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=17731 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=936 pressure_altitude_ft=8485.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=18031 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=946 pressure_altitude_ft=8635.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=18330 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=957 pressure_altitude_ft=8785.500:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=18630 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=967 pressure_altitude_ft=8930.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=18920 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=978 pressure_altitude_ft=9090.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=19240 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=988 pressure_altitude_ft=9240.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=19540 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=999 pressure_altitude_ft=9395.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=19850 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=1010 pressure_altitude_ft=9550.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=20160 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=1021 pressure_altitude_ft=9705.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=20460 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=1032 pressure_altitude_ft=9855.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=running elapsed_ms=20770 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=1043 pressure_altitude_ft=10000.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "sim takeoff status",
+      "response": "OK takeoff state=complete elapsed_ms=21000 total_ms=21000 climb_ms=20000 from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=1047 pressure_altitude_ft=10000.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "display stats",
+      "response": "OK display_stats state=stopped frames=679 elapsed_ms=21009 rendered_fps=32.32 render_max_ms=20 transfer_max_ms=38 backlight=true failed=false measurement=completed_presentations",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "display stats",
+      "response": "OK display_stats state=stopped frames=679 elapsed_ms=21009 rendered_fps=32.32 render_max_ms=20 transfer_max_ms=38 backlight=true failed=false measurement=completed_presentations",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=973 frame_age_ms=11 owner_age_ms=1 render_max_ms=20 transfer_max_ms=40 stack_free_bytes=4144 psram_bytes=8388608 internal_free_bytes=279611 blanked_at_ms=0 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(10000.0)",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=1068 pressure_altitude_ft=10000.000:valid:0ms pitch_deg=-:missing:none roll_deg=-:missing:none heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 62.0
+    }
+  ]
+}

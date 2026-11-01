@@ -8,12 +8,15 @@ Other selected instruments show NOT IMPLEMENTED and cannot leave the previous
 altimeter visible. Touch and the second gauge are subsequent stages.
 
 The Rust face's graphics cleanup moves the numeral centers inward from radius
-179 to 169 and raises the Kollsman window from y=217 to y=203 in the logical
-480-unit viewport. This adds tick clearance, especially at 9 and 0, and keeps
-the window clear of 3 while leaving space below 2. Window contents move with
-its frame; font size, tick positions and instrument math are unchanged. These
-offsets scale with the viewport. The browser remains the original visual
-reference and does not yet incorporate this Rust-face adjustment.
+179 to 169 in the logical 480-unit viewport, adding tick clearance especially
+at 9 and 0. The Kollsman window is now 136 by 42 units at (270, 211), widened
+toward the hub to fit 32-unit regular-weight pressure digits (previously 20 units).
+The internal IN HG caption is removed; a static 22-unit bold HG label sits at
+(428, 235), to the right between dial numerals 2 and 3 and inside the ticks.
+The black window and white digits retain two decimal places and the invalid
+`--.--` placeholder. Tick positions and instrument math are unchanged. Geometry
+scales with the viewport. The browser remains the original visual reference
+and does not yet incorporate these Rust-face adjustments.
 
 The lower numeric altitude readout uses 32-unit bold black text on a white
 232-by-40-unit panel, with text centered at (240, 307). This increases the previous

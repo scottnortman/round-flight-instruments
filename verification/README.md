@@ -4,7 +4,11 @@ Repository/documentation milestone: [initial Git baseline](GIT-BASELINE.md).
 Use the [canonical project README](../README.md) for current status; the
 console-only observations below are historical.
 
-Latest installed visual change: [larger black-on-white altitude readout](ALTIMETER-READOUT.md).
+Latest installed visual change: [larger Kollsman digits and external HG label](KOLLSMAN-READABILITY.md).
+The 20-second sweep measured 32.32 FPS; the user accepted the larger text and
+requested a tighter lower window margin, now implemented.
+
+Previous visual change: [larger black-on-white altitude readout](ALTIMETER-READOUT.md).
 The 60-second sweep measured 32.33 FPS; the user accepted the readout and motion,
 then requested a tighter lower panel margin.
 
