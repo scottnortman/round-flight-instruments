@@ -1,0 +1,5 @@
+{
+  "status": "OK status protocol=1 source=sim display=managed instrument=altimeter sim=running baro_inhg=29.92 timing_fault=false max_gap_ms=31 ticks=13491 pressure_altitude_ft=10000.000:valid:0ms pitch_deg=0.000:valid:0ms roll_deg=0.000:valid:0ms heading_deg=0.000:valid:0ms ias_kt=0.000:valid:0ms turn_dps=0.000:valid:0ms ball=0.000:valid:0ms vsi_fpm=0.000:valid:0ms",
+  "display": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=12259 frame_age_ms=1 owner_age_ms=0 render_max_ms=108 transfer_max_ms=124 stack_free_bytes=4096 psram_bytes=8388608 internal_free_bytes=279619 blanked_at_ms=65791 source=sim renderer=altimeter shown_quality=valid shown_alt_ft=Some(10000.0)",
+  "imu": "OK imu request=7 completed=7 state=off quality=off detected=true address=0x6b who=0x05 revision=0x7c samples=5421 skipped=13003 duplicates=0 errors=0 max_gap_ms=32 age_ms=none error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run"
+}

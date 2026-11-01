@@ -187,7 +187,7 @@ wait. It ends with simulation paused. The takeoff check exercises cancellation,
 manual override, faults and completion. Reports should contain `passed: true`.
 These test separate desktop processes and do not open the UART.
 
-49 Rust unit tests currently cover state/quality, framing, backpressure, sensor
+53 Rust unit tests currently cover state/quality, framing, backpressure, sensor
 register behavior, estimator contracts, gauge math and cached/full raster
 agreement. They do not measure optical LCD health or certify hardware timing.
 
@@ -227,8 +227,9 @@ sim takeoff
 ```
 
 Watch the climb, then query `display stats` and `sim takeoff status`. A final
-10000 ft and frozen measurement are expected. The previously measured 15.47 FPS
-is a reference observation, not a required exact result for every run. Check
+10000 ft and frozen measurement are expected. The preferred target is 30 FPS; the current pipelined renderer exceeds it on
+the altimeter. See verification/RENDERING-30HZ.md for the measured workload and
+limits. Exact results vary with load. Check
 edges, needle movement and absence of unintended blanking directly; counters
 alone cannot establish that the physical image is clean.
 

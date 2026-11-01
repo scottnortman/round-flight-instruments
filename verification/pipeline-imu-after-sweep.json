@@ -1,0 +1,1 @@
+{"status": "OK imu request=6 completed=6 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=5419 skipped=12998 duplicates=0 errors=0 max_gap_ms=32 age_ms=8 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run"}

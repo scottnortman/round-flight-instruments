@@ -4,7 +4,10 @@ Repository/documentation milestone: [initial Git baseline](GIT-BASELINE.md).
 Use the [canonical project README](../README.md) for current status; the
 console-only observations below are historical.
 
-Latest installed feature: [animated altitude sweep and faster rendering](TAKEOFF.md).
+Latest installed architecture: [30 Hz rendering pipeline](RENDERING-30HZ.md).
+The 60-second sweep measured 32.32 FPS with the IMU running and was visually accepted.
+
+Previous performance baseline: [animated altitude sweep and faster rendering](TAKEOFF.md).
 The user confirmed smoother, clean movement; the full climb measured 15.47 fps.
 
 Current verified fix: [physical scanout corruption](DISPLAY-SCANOUT.md).

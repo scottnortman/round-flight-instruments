@@ -5,11 +5,12 @@ use esp_idf_svc::{
         delay::{Ets, TickType},
         gpio::{Output, PinDriver},
         i2c::I2cDriver,
+        task::queue::Queue,
     },
     sys,
 };
 use instrument_core::{App, DisplayCommand};
-use instrument_ui::{presentation_healthy, render, Snapshot};
+use instrument_ui::{pipeline::FramePipeline, presentation_healthy, render, Snapshot};
 use std::{
     io,
     sync::{
@@ -33,7 +34,8 @@ fn check(code: i32) -> io::Result<()> {
         Err(io::Error::other(format!("display ESP error {code}")))
     }
 }
-// ISR callbacks perform only lock-free 32-bit atomics; no allocation/locks/logs.
+// ISR callbacks use lock-free atomics and a bounded ISR-safe wake queue.
+// No allocation, blocking waits or logging in the callbacks.
 unsafe extern "C" fn vsync(
     _: sys::esp_lcd_panel_handle_t,
     _: *const sys::esp_lcd_rgb_panel_event_data_t,
@@ -45,10 +47,15 @@ unsafe extern "C" fn vsync(
 unsafe extern "C" fn complete(
     _: sys::esp_lcd_panel_handle_t,
     _: *const sys::esp_lcd_rgb_panel_event_data_t,
-    _: *mut core::ffi::c_void,
+    context: *mut core::ffi::c_void,
 ) -> bool {
     COMPLETE.fetch_add(1, Ordering::Release);
-    false
+    // Queue is allocated before registration and retained until reset, even if
+    // the worker exits. No task-handle or stack-pointer lifetime crosses the ISR.
+    let token = 1u32;
+    let mut woken = 0;
+    sys::xQueueGenericSendFromISR(context.cast(), (&token as *const u32).cast(), &mut woken, 0);
+    woken != 0
 }
 
 /// Initialization owns GPIO1/2 and the LCD RGB pins. It borrows I2C before the
@@ -311,7 +318,7 @@ fn run_display(s: &Shared) -> io::Result<()> {
     cfg.clk_src = sys::soc_periph_lcd_clk_src_t_LCD_CLK_SRC_DEFAULT;
     cfg.data_width = 16;
     cfg.bits_per_pixel = 16;
-    cfg.num_fbs = 2;
+    cfg.num_fbs = 3;
     cfg.bounce_buffer_size_px = 480 * 10;
     cfg.sram_trans_align = 4;
     cfg.__bindgen_anon_1.dma_burst_size = 64;
@@ -333,14 +340,17 @@ fn run_display(s: &Shared) -> io::Result<()> {
     cfg.flags.set_fb_in_psram(1);
     let mut panel = core::ptr::null_mut();
     check(unsafe { sys::esp_lcd_new_rgb_panel(&cfg, &mut panel) })?;
-    let mut buffers = [core::ptr::null_mut::<core::ffi::c_void>(); 2];
-    check(unsafe {
-        sys::esp_lcd_rgb_panel_get_frame_buffer(panel, 2, &mut buffers[0], &mut buffers[1])
-    })?;
-    if buffers.iter().any(|p| p.is_null()) || buffers[0] == buffers[1] {
+    let mut buffers = [core::ptr::null_mut::<core::ffi::c_void>(); 3];
+    let [fb0, fb1, fb2] = &mut buffers;
+    check(unsafe { sys::esp_lcd_rgb_panel_get_frame_buffer(panel, 3, fb0, fb1, fb2) })?;
+    if buffers.iter().any(|p| p.is_null())
+        || buffers[0] == buffers[1]
+        || buffers[0] == buffers[2]
+        || buffers[1] == buffers[2]
+    {
         return Err(io::Error::other("invalid LCD framebuffers"));
     }
-    // A third, CPU-only PSRAM buffer caches the static face. It is never given
+    // An additional CPU-only PSRAM buffer caches the static face. It is never given
     // to the panel driver, and its mutable slice never aliases either DMA frame.
     let backdrop = unsafe {
         sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
@@ -351,22 +361,39 @@ fn run_display(s: &Shared) -> io::Result<()> {
     let backdrop = unsafe { core::slice::from_raw_parts_mut(backdrop.cast::<u16>(), 480 * 480) };
     let mut renderer = render::CachedRenderer::new(backdrop, 480, 480)
         .ok_or_else(|| io::Error::other("LCD backdrop size"))?;
-    // Before scanout starts both allocated RGB565 buffers are exclusively CPU owned.
+    // Before scanout starts all allocated RGB565 buffers are exclusively CPU owned.
     for &p in &buffers {
         unsafe { core::ptr::write_bytes(p, 0, 480 * 480 * 2) };
     }
+    // A single token coalesces wakeups. COMPLETE, not queue depth, establishes
+    // buffer ownership. Keep the queue allocation alive with the panel on errors.
+    let wake_handle = unsafe { sys::xQueueGenericCreate(1, core::mem::size_of::<u32>() as u32, 0) };
+    if wake_handle.is_null() {
+        return Err(io::Error::other("LCD wake queue allocation"));
+    }
+    let wake = unsafe { Queue::<u32>::new_borrowed(wake_handle) };
     let mut cbs = sys::esp_lcd_rgb_panel_event_callbacks_t::default();
     cbs.on_vsync = Some(vsync);
     cbs.__bindgen_anon_1.on_frame_buf_complete = Some(complete);
     check(unsafe {
-        sys::esp_lcd_rgb_panel_register_event_callbacks(panel, &cbs, core::ptr::null_mut())
+        sys::esp_lcd_rgb_panel_register_event_callbacks(panel, &cbs, wake_handle.cast())
     })?;
     check(unsafe { sys::esp_lcd_panel_reset(panel) })?;
     check(unsafe { sys::esp_lcd_panel_init(panel) })?;
     let mut applied_pclk = 18_000_000;
     s.applied_pclk.store(applied_pclk, Ordering::Release);
-    let mut back = 1;
+    let mut histories =
+        core::array::from_fn::<_, 3, _>(|_| instrument_ui::damage::FrameHistory::new());
+    let mut pipeline = FramePipeline::<RenderedFrame>::new();
+    let mut idle_budget = Instant::now();
     loop {
+        // Completed transfers can overlap all CPU work. Independently budget
+        // idle time even when no completion wait blocks; keep both idle-task
+        // watchdog subscriptions enabled. Never spin continuously on the CPU.
+        if idle_budget.elapsed() >= Duration::from_millis(100) {
+            thread::sleep(Duration::from_millis(10));
+            idle_budget = Instant::now();
+        }
         let requested_pclk = s.requested_pclk.load(Ordering::Acquire);
         if requested_pclk != applied_pclk {
             check(unsafe { sys::esp_lcd_rgb_panel_set_pclk(panel, requested_pclk) })?;
@@ -405,13 +432,14 @@ fn run_display(s: &Shared) -> io::Result<()> {
         } else {
             snapshot.numeric_lifetime_ms()
         };
-        // Safe CPU ownership: first back=1 while DMA starts on 0; subsequent
-        // iterations follow two completed bounce-frame callbacks after submission.
+        // The pipeline exposes only the spare CPU buffer. Rendering overlaps
+        // the previous submission, while its front/pending buffers stay immutable.
+        let back = pipeline.drawing();
         // The mutable slice is scoped to drawing and gone before submitting to DMA.
         {
             let pixels =
                 unsafe { core::slice::from_raw_parts_mut(buffers[back].cast::<u16>(), 480 * 480) };
-            if !renderer.draw(pixels, snapshot, pattern) {
+            if !renderer.draw_incremental(pixels, &mut histories[back], snapshot, pattern) {
                 return Err(io::Error::other("frame size"));
             }
         }
@@ -420,59 +448,86 @@ fn run_display(s: &Shared) -> io::Result<()> {
         while s.stall.load(Ordering::Acquire) == 2 {
             thread::sleep(Duration::from_millis(20));
         }
-        // Do not submit numeric data whose source lifetime expired while drawing.
+        // Retire the previous frame only after two POST-submission completions.
+        // The next frame has already been drawn in independent storage. Queue
+        // waits wake immediately from ISR, removing 10 ms polling quantization.
+        while pipeline.is_pending() {
+            if let Some((frame, elapsed)) =
+                pipeline
+                    .poll(COMPLETE.load(Ordering::Acquire), now())
+                    .map_err(|_| io::Error::other("LCD completion timeout"))?
+            {
+                record_presentation(s, frame, elapsed);
+            } else {
+                wake.recv_front(TickType::new_millis(10).ticks());
+            }
+        }
+        // Aging includes drawing AND waiting for the earlier frame. Discard an
+        // expired prepared frame; never refresh its source timestamp to keep it.
         if lifetime.is_some_and(|ttl| now().wrapping_sub(stamp) as u64 >= ttl) {
             continue;
         }
-        let transfer = Instant::now();
-        let before = COMPLETE.load(Ordering::Acquire);
         check(unsafe { sys::esp_lcd_panel_draw_bitmap(panel, 0, 0, 480, 480, buffers[back]) })?;
-        // With bounce buffers callback is emitted at each complete frame copy.
-        // Wait for TWO advances, avoiding a callback racing just before submission.
-        // This also permits the new frame's scanout, not merely copy completion.
-        loop {
-            // Always yield at least one RTOS tick. The completed-frame wait
-            // provides pacing; a second fixed sleep after it only adds latency.
-            thread::sleep(Duration::from_millis(10));
-            if COMPLETE.load(Ordering::Acquire).wrapping_sub(before) >= 2 {
-                break;
-            }
-            if transfer.elapsed() > Duration::from_millis(100) {
-                return Err(io::Error::other("LCD completion timeout"));
-            }
-        }
-        s.transfer_max
-            .fetch_max(transfer.elapsed().as_millis() as u32, Ordering::Relaxed);
-        let deadline = lifetime
-            .map(|ttl| stamp.saturating_add(ttl as u32))
-            .unwrap_or(u32::MAX);
-        let model = instrument_ui::altimeter::model(snapshot.altitude, snapshot.baro_inhg);
-        let quality = if pattern {
-            6
-        } else if snapshot.selected != instrument_core::Instrument::Altimeter {
-            5
-        } else {
-            match model.quality {
-                instrument_core::Quality::Valid => 0,
-                instrument_core::Quality::Missing => 1,
-                instrument_core::Quality::Stale => 2,
-                instrument_core::Quality::Failed => 3,
-                instrument_core::Quality::TimingFault => 4,
-            }
-        };
-        s.shown_altitude.store(
-            model.indicated_ft.unwrap_or(0.).to_bits(),
-            Ordering::Release,
-        );
-        s.shown_quality.store(quality, Ordering::Release);
-        s.deadline.store(deadline, Ordering::Release);
-        s.presented.store(now(), Ordering::Release);
-        s.frames.fetch_add(1, Ordering::Release);
-        s.ready.store(true, Ordering::Release);
-        s.stack_min.fetch_min(
-            unsafe { sys::uxTaskGetStackHighWaterMark(core::ptr::null_mut()) },
-            Ordering::Relaxed,
-        );
-        back ^= 1;
+        let after_submit = COMPLETE.load(Ordering::Acquire);
+        pipeline
+            .submitted(
+                after_submit,
+                now(),
+                RenderedFrame {
+                    snapshot,
+                    pattern,
+                    stamp,
+                    lifetime,
+                },
+            )
+            .map_err(|_| io::Error::other("LCD pipeline busy"))?;
     }
+}
+
+#[derive(Clone, Copy)]
+struct RenderedFrame {
+    snapshot: Snapshot,
+    pattern: bool,
+    stamp: u32,
+    lifetime: Option<u64>,
+}
+
+fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
+    let RenderedFrame {
+        snapshot,
+        pattern,
+        stamp,
+        lifetime,
+    } = frame;
+    s.transfer_max.fetch_max(elapsed, Ordering::Relaxed);
+    let deadline = lifetime
+        .map(|ttl| stamp.saturating_add(ttl as u32))
+        .unwrap_or(u32::MAX);
+    let model = instrument_ui::altimeter::model(snapshot.altitude, snapshot.baro_inhg);
+    let quality = if pattern {
+        6
+    } else if snapshot.selected != instrument_core::Instrument::Altimeter {
+        5
+    } else {
+        match model.quality {
+            instrument_core::Quality::Valid => 0,
+            instrument_core::Quality::Missing => 1,
+            instrument_core::Quality::Stale => 2,
+            instrument_core::Quality::Failed => 3,
+            instrument_core::Quality::TimingFault => 4,
+        }
+    };
+    s.shown_altitude.store(
+        model.indicated_ft.unwrap_or(0.).to_bits(),
+        Ordering::Release,
+    );
+    s.shown_quality.store(quality, Ordering::Release);
+    s.deadline.store(deadline, Ordering::Release);
+    s.presented.store(now(), Ordering::Release);
+    s.frames.fetch_add(1, Ordering::Release);
+    s.ready.store(true, Ordering::Release);
+    s.stack_min.fetch_min(
+        unsafe { sys::uxTaskGetStackHighWaterMark(core::ptr::null_mut()) },
+        Ordering::Relaxed,
+    );
 }

@@ -2,6 +2,12 @@
 pub trait Target {
     fn size(&self) -> (u32, u32);
     fn pixel(&mut self, x: i32, y: i32, color: u16);
+    /// Horizontal run, end-exclusive. Backends may batch contiguous stores.
+    fn span(&mut self, y: i32, start: i32, end: i32, color: u16) {
+        for x in start..end {
+            self.pixel(x, y, color);
+        }
+    }
 }
 pub const fn rgb(r: u8, g: u8, b: u8) -> u16 {
     ((r as u16 >> 3) << 11) | ((g as u16 >> 2) << 5) | (b as u16 >> 3)
@@ -37,6 +43,14 @@ impl Target for Framebuffer<'_> {
             self.pixels[y as usize * self.width as usize + x as usize] = color;
         }
     }
+    fn span(&mut self, y: i32, start: i32, end: i32, color: u16) {
+        let start = start.max(0).min(self.width as i32) as usize;
+        let end = end.max(0).min(self.width as i32) as usize;
+        if y >= 0 && y < self.height as i32 && start < end {
+            let row = y as usize * self.width as usize;
+            self.pixels[row + start..row + end].fill(color);
+        }
+    }
 }
 /// Logical 480-unit centered viewport, scaled uniformly, with physical bounds.
 pub struct Canvas<'a, T: Target> {
@@ -66,9 +80,7 @@ impl<'a, T: Target> Canvas<'a, T> {
         let (a, b) = self.point(x, y);
         let (d, e) = self.point(x + w, y + h);
         for py in b..e {
-            for px in a..d {
-                self.target.pixel(px, py, c);
-            }
+            self.target.span(py, a, d, c);
         }
     }
     pub fn circle(&mut self, x: f32, y: f32, r: f32, c: u16) {
@@ -76,9 +88,7 @@ impl<'a, T: Target> Canvas<'a, T> {
         let r = (r * self.scale) as i32;
         for dy in -r..=r {
             let dx = libm::sqrtf((r * r - dy * dy) as f32) as i32;
-            for x in cx - dx..=cx + dx {
-                self.target.pixel(x, cy + dy, c);
-            }
+            self.target.span(cy + dy, cx - dx, cx + dx + 1, c);
         }
     }
     pub fn line(&mut self, a: (f32, f32), b: (f32, f32), width: f32, c: u16) {
@@ -115,9 +125,7 @@ impl<'a, T: Target> Canvas<'a, T> {
                 }
             }
             if lo <= hi {
-                for x in lo..=hi {
-                    self.target.pixel(x, y, c);
-                }
+                self.target.span(y, lo, hi + 1, c);
             }
         }
     }

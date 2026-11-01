@@ -54,7 +54,15 @@ def main():
                 break
             time.sleep(.2)
         require(sweep['state'] == 'complete', 'Sweep did not complete')
-        require(altitudes and altitudes[0] == 0 and altitudes[-1] == 10000, str(altitudes))
+        # The sweep may complete between the preceding status and sweep-status
+        # commands. Read the endpoint AFTER observing completion; do not require
+        # two separate request/response snapshots to describe the same instant.
+        endpoint = fields(ok('status'))
+        require(endpoint['timing_fault'] == 'false', str(endpoint))
+        value, quality, _ = endpoint['pressure_altitude_ft'].split(':')
+        require(quality == 'valid' and float(value) == 10000, str(endpoint))
+        require(altitudes and altitudes[0] == 0, str(altitudes))
+        altitudes.append(float(value))
         result['samples'] = len(altitudes)
         if args.port:
             stats = fields(ok('display stats'))

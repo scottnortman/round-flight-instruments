@@ -92,6 +92,13 @@ includes the ground hold and boundary frames; completion of the source ramp can
 precede presentation of its final frame. Statistics are queried explicitly;
 there are no unsolicited completion messages. Desktop supports the same sweep
 but has no board display statistics.
+With pipelined rendering, `transfer_max_ms` is submission-to-observed-completion
+latency, including overlapped drawing and any deliberate diagnostic stall. It is
+not time spent blocked on the hardware. It can exceed 100 ms after a bench stall
+when completion already occurred; the 100 ms timeout applies to transfers still
+incomplete when checked. Compare measurements with reset/frozen windows, not
+lifetime maxima left over from fault tests.
+
 Draw-time maxima include a backdrop rebuild if the view or barometer changes
 during the measurement. `state=complete` means the simulation reached its endpoint,
 not that a hardware self-test certified the display or sensors.

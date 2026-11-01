@@ -27,24 +27,42 @@ reference and does not yet incorporate this Rust-face adjustment.
 | firmware/console/src/display.rs | SKU-specific panel initialization, ESP-IDF RGB buffers, presentation worker and independent backlight supervisor |
 | console-runtime/text-cli | Typed commands and nonblocking snapshot publication; no drawing in the state owner |
 
-The UI crate is no_std and forbids unsafe code. Its pixel target does not require
-a framebuffer. The board backend uses two 480x480 RGB565 framebuffers in PSRAM
-(921,600 bytes total), plus two internal 10-line bounce buffers (19,200 bytes).
-No per-frame allocation occurs in the application renderer. Driver/platform
-allocations occur during initialization; this is not a claim about every library
-or console formatting path.
+The UI crate is no_std and forbids unsafe code. Its pixel target supports both
+individual pixels and batched horizontal spans. Framebuffer spans clip once and
+fill contiguous storage. The board uses three 480x480 RGB565 framebuffers in
+PSRAM (1,382,400 bytes), two internal 10-line bounce buffers (19,200 bytes), and
+a separate 460800-byte CPU-only backdrop: 1,843,200 bytes of image PSRAM in total.
+No per-frame application allocation occurs. Platform initialization and console
+formatting have separate allocation behavior.
 
-An additional 460800-byte CPU-only PSRAM backdrop caches the static dial face
-and barometer window. Its key includes view, barometer bits and test-pattern
-mode; each frame restores the complete backdrop before drawing pointers, numeric
-altitude, fault indication and the SIM INPUT overlay. Invalid readings cannot
-retain previous pointers. The cache is optional and caller-owned in the portable
-UI layer; cached/full rendering is compared pixel-for-pixel at 240/480/720 pixels.
-Only the original two scanout buffers are ever submitted to DMA.
+The static backdrop key includes view, barometer bits and test-pattern mode.
+`FrameHistory` belongs to exactly one framebuffer and records every dynamic write
+in a fixed 16x16 tile map. On reuse, all previously written tiles are restored
+before the new overlay is drawn. First use or a background-key change restores
+the entire backdrop. History must be reset if a caller changes pixels outside
+this renderer. Missing/stale/fault overlays use the same tracking, so invalid
+readings cannot retain old hands. This mechanism tracks actual writes rather
+than hand-maintained per-gauge damage rectangles. Full-redraw fallback remains
+available. Rotating three-buffer output is tested pixel-for-pixel against full
+redraw across motion, failures, view/barometer/pattern changes and multiple sizes.
 
-Normal presentation is paced by the two-completion wait, which always yields
-at least one 10 ms RTOS tick. There is no extra fixed sleep after presentation.
-Guard deadlines, owner/IMU priorities and transfer timeouts are unchanged.
+The gauge-independent `FramePipeline` keeps a front buffer, at most one pending
+submission and one CPU drawing buffer. Drawing the next frame overlaps the
+previous frame's completion wait. One bounded ISR-safe wake queue replaces
+10 ms completion polling; the atomic completion counter remains authoritative.
+Wake tokens may coalesce. The worker also yields for one 10 ms RTOS tick after
+at least 100 ms between explicit yields, checked between renders, so continuous
+CPU work cannot indefinitely starve idle tasks. Both idle-task watchdog checks
+remain enabled. A first candidate without this yield failed its idle watchdog
+and was rejected. Owner/guard/IMU priorities and safety deadlines are unchanged.
+
+The preferred target for EVERY implemented gauge is at least 30 completed
+presentations/second during normal animated operation, subject to measured
+hardware capability. It is not a certified 33.33 ms worst-case deadline. Cold
+background rebuilds, mode changes and safety responses may take longer. Future
+gauges must pass their own full-motion and fault tests: a moving attitude
+background may dirty most tiles and cannot assume the altimeter's savings.
+See [rendering performance](../verification/RENDERING-30HZ.md).
 
 The original font is unchanged; rendered glyph coverage is generated offline.
 See [font attribution](../crates/instrument-ui/assets/NOTICE.md). The desktop
@@ -100,14 +118,23 @@ Raster code alone is optimized for speed; control/FFI stays on the
 validated size profile. These choices were tested after the default main-task
 priority allowed a long render to starve the owner and trigger its watchdog.
 
-Two PSRAM buffers isolate drawing from scanout. The driver starts on buffer 0;
-the CPU starts on buffer 1. After submitting, the worker waits for two complete
-bounce-frame callbacks before reusing the former front buffer. The extra callback
-avoids a completion racing just before submission. No mutable Rust slice survives
-submission. Each wait is limited to 100 ms; timeout latches failure and the guard
-blanks. Buffers/driver remain allocated until reset on failures, avoiding DMA
-use-after-free. The backend follows the pinned IDF 5.5.5 source's buffer-complete
-semantics, not merely the draw-call return value.
+The driver starts scanning buffer 0, and the CPU starts drawing buffer 1;
+buffer 2 allows the next draw to overlap scanout. After a successful submission,
+the worker samples the completion counter and requires TWO later bounce-frame
+completions before retiring the previous front. Sampling after the API return
+also excludes a callback racing before submission. Only the spare buffer is
+writable, and no mutable pixel slice survives submission. At most one submission
+is pending; stale prepared frames are dropped rather than queued indefinitely.
+Their source lifetime is checked again after both rendering and the pending-frame
+wait. Metadata retains the original snapshot, timestamp and numeric expiry.
+
+An incomplete pending transfer observed past 100 ms latches failure and blanks.
+An already completed transfer observed late after an injected bench stall may
+retire, but its numeric expiry is never renewed. Driver buffers and the wake
+queue remain allocated until reset even if the worker fails, preventing callbacks
+or DMA from touching freed memory. The wake queue stores no task handle or
+stack reference. This follows the pinned IDF 5.5.5 bounce-buffer source and its
+frame-copy completion semantics; API return alone is not presentation completion.
 
 Scanout callbacks show peripheral progress, not optical panel correctness. Color,
 orientation, tearing and actual darkness require physical observation. Shared

@@ -30,6 +30,26 @@ impl<'a> CachedRenderer<'a> {
         })
     }
     pub fn draw(&mut self, pixels: &mut [u16], snapshot: Snapshot, pattern: bool) -> bool {
+        self.draw_inner(pixels, None, snapshot, pattern)
+    }
+    /// History belongs exclusively to this pixel buffer. A new history forces
+    /// complete initialization; layout/view/barometer changes force full restore.
+    pub fn draw_incremental(
+        &mut self,
+        pixels: &mut [u16],
+        history: &mut crate::damage::FrameHistory,
+        snapshot: Snapshot,
+        pattern: bool,
+    ) -> bool {
+        self.draw_inner(pixels, Some(history), snapshot, pattern)
+    }
+    fn draw_inner(
+        &mut self,
+        pixels: &mut [u16],
+        history: Option<&mut crate::damage::FrameHistory>,
+        snapshot: Snapshot,
+        pattern: bool,
+    ) -> bool {
         if pixels.len() != self.background.len() {
             return false;
         }
@@ -46,6 +66,41 @@ impl<'a> CachedRenderer<'a> {
                 draw_background(&mut fb, snapshot);
             }
             self.key = Some(key);
+        }
+        if let Some(history) = history {
+            let frame_key = (
+                self.width,
+                self.height,
+                snapshot.selected,
+                snapshot.baro_inhg.to_bits(),
+                pattern,
+            );
+            if history.key == Some(frame_key) {
+                history.restore(
+                    pixels,
+                    self.background,
+                    self.width as usize,
+                    self.height as usize,
+                );
+            } else {
+                pixels.copy_from_slice(self.background);
+                history.clear();
+                history.key = Some(frame_key);
+            }
+            if !pattern {
+                let Some(fb) = crate::raster::Framebuffer::new(pixels, self.width, self.height)
+                else {
+                    return false;
+                };
+                draw_overlay(
+                    &mut crate::damage::Tracked {
+                        target: fb,
+                        history,
+                    },
+                    snapshot,
+                );
+            }
+            return true;
         }
         pixels.copy_from_slice(self.background);
         if !pattern {
@@ -333,6 +388,61 @@ mod tests {
                 assert_eq!(
                     output, reference,
                     "cache mismatch at {size}: {snapshot:?}, pattern={pattern}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn incremental_triple_buffers_match_full_redraw_through_motion_and_failures() {
+        for (w, h) in [(240, 240), (480, 480), (720, 720), (241, 239), (1024, 64)] {
+            let len = w * h;
+            let mut background = std::vec![0; len];
+            let mut cached = CachedRenderer::new(&mut background, w as u32, h as u32).unwrap();
+            let mut frames: [std::vec::Vec<u16>; 3] =
+                core::array::from_fn(|_| std::vec![0xaaaa; len]);
+            let mut histories =
+                core::array::from_fn::<_, 3, _>(|_| crate::damage::FrameHistory::new());
+            let mut reference = std::vec![0; len];
+            for n in 0..60 {
+                let snapshot = Snapshot {
+                    selected: if n % 19 < 3 {
+                        Instrument::Attitude
+                    } else {
+                        Instrument::Altimeter
+                    },
+                    altitude: Reading {
+                        value: Some(n as f32 * 1137. - 100.),
+                        quality: [
+                            Quality::Valid,
+                            Quality::Valid,
+                            Quality::Valid,
+                            Quality::Missing,
+                            Quality::Stale,
+                            Quality::Failed,
+                            Quality::TimingFault,
+                        ][(n / 3) % 7],
+                        age_ms: Some(10),
+                    },
+                    baro_inhg: if n % 23 < 5 { 30.92 } else { 29.92 },
+                };
+                let pattern = n % 17 < 4;
+                let slot = n % 3;
+                assert!(cached.draw_incremental(
+                    &mut frames[slot],
+                    &mut histories[slot],
+                    snapshot,
+                    pattern
+                ));
+                assert!(draw_frame(
+                    &mut reference,
+                    w as u32,
+                    h as u32,
+                    snapshot,
+                    pattern
+                ));
+                assert_eq!(
+                    frames[slot], reference,
+                    "incremental mismatch {w}x{h} frame {n}"
                 );
             }
         }

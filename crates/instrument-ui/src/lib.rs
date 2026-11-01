@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 
 pub mod altimeter;
+pub mod damage;
+pub mod pipeline;
 pub mod raster;
 pub mod render;
 

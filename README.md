@@ -270,7 +270,7 @@ flowchart LR
 | `instrument-core` | Dependency-free `no_std` state, units, validation, quality, monotonic timing and takeoff source |
 | `text-cli` | Bounded `no_std` framing, parser and replies |
 | `console-runtime` | State-owner loop, separate blocking RX/TX workers, bounded queues and snapshots |
-| `instrument-ui` | `no_std` instrument math, geometry, RGB565 raster, optional caller-owned backdrop cache; forbids unsafe code |
+| `instrument-ui` | `no_std` instrument math, RGB565 spans, backdrop/tile history, and triple-buffer ownership; forbids unsafe code |
 | `qmi8658` | Portable bounded register driver, read locking, identity/readback checks, self-test and audit |
 | `attitude-estimator` | Pure filter contract, timestamp/quality checks, resets and optional covariance/bias hooks for future Kalman work |
 | `imu-service` | Sensor worker and diagnostic snapshots, replaceable estimator; currently bench tilt only |
@@ -295,7 +295,7 @@ boundary, not a claim that a second hardware target has been validated.
 - The backlight guard checks owner progress, source lifetime, completed
   presentation and scanout activity. A stalled renderer is blanked; a healthy
   renderer can draw an explicit stale/missing/failure face.
-- Two scanout buffers and bounded completion waits protect DMA ownership. The
+- Three scanout buffers and bounded completion waits protect DMA ownership. The
   static backdrop is CPU-only and never submitted to scanout.
 
 These are implemented safeguards with bench evidence, not proof against every
@@ -304,6 +304,16 @@ hardware fail-dark guarantee. Healthy frame counters cannot prove optical
 correctness. See [display contracts and limits](docs/DISPLAY.md).
 
 ## Rendering performance and known issues
+
+**30 Hz is the preferred presentation target for every gauge.** The
+`rendering-30hz` branch adds a portable three-buffer pipeline, ISR-driven wakeups,
+per-buffer tile restoration and batched pixel spans. The altimeter has exceeded
+30 FPS on the board; see [current measurements and limits](verification/RENDERING-30HZ.md).
+The target must be measured separately for each future gauge. A moving attitude
+background has different costs from an altimeter. It is not a certified maximum
+frame-latency guarantee.
+
+The following numbers describe the previous baseline for comparison:
 
 The verified 60-second sweep completed **944 presentations in 61019 ms
 (15.47 FPS)**, versus 6.13 FPS before static-face caching and pacing changes.
@@ -321,8 +331,8 @@ to prevent re-enabling that setting; conditional SDK recovery remains enabled.
 The optional IMU responds, but stationary Y gyro readings near +30 degrees/s
 remain unresolved. Diagnostic tilt is not calibrated attitude and is not routed
 to gauges. Kalman extension hooks exist; no validated fusion solution is claimed.
-The current application consumes 898224 of a 1048576-byte application partition
-(85.66%), despite 16 MiB physical flash. Budget partition capacity before adding
+The pipelined application consumes 910880 of a 1048576-byte application partition
+(86.87%), despite 16 MiB physical flash. Budget partition capacity before adding
 substantial features. Board touch, persistence and binary transport remain open.
 
 ## Development and verification
@@ -337,7 +347,8 @@ python scripts/check-takeoff.py --seconds 5 --report output/desktop-takeoff.json
 ```
 
 Create `output/` first if needed (`New-Item -ItemType Directory -Force output`).
-Desktop checks were rerun for the initial Git baseline: 49 Rust tests and five
+The rendering branch passes 53 Rust tests; the initial Git baseline passed 49
+Rust tests and five
 browser suites pass. Hardware acceptance is recorded separately and is not
 implied by host tests. Hardware test scripts change board state; some inject
 faults and blank the display. The watchdog script flashes a deliberately

@@ -1,0 +1,12 @@
+{
+  "passed": false,
+  "target": "COM5",
+  "error": "RuntimeError('response exceeds protocol bound')",
+  "transcript": [
+    {
+      "command": "fault pressure_altitude_ft off",
+      "response": "OK fault field=pressure_altitude_ft active=false",
+      "elapsed_ms": 47.0
+    }
+  ]
+}
