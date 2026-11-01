@@ -8,6 +8,9 @@ use instrument_core::Instrument;
 const WHITE: u16 = rgb(238, 240, 230);
 const WARN: u16 = rgb(255, 191, 70);
 const RED: u16 = rgb(255, 85, 85);
+// Logical 480-unit face geometry; Canvas scales these for each display size.
+const DIAL_NUMBER_RADIUS: f32 = 169.;
+const KOLLSMAN_TOP: f32 = 203.;
 /// Optional caller-owned backdrop cache. No allocation or hardware dependence;
 /// every output frame is restored completely before drawing dynamic content.
 pub struct CachedRenderer<'a> {
@@ -153,23 +156,23 @@ fn draw_background<T: Target>(target: &mut T, s: Snapshot) {
         );
     }
     for i in 0..10 {
-        let (x, y) = point(179., i as f32 * 36.);
+        let (x, y) = point(DIAL_NUMBER_RADIUS, i as f32 * 36.);
         let mut n = Text::new();
         let _ = write!(n, "{i}");
         c.text(x, y, 46., n.str(), WHITE);
     }
     c.text(240., 142., 25., "ALT", WHITE);
     c.text(240., 171., 18., "100 FEET", rgb(175, 185, 192));
-    c.rect(311., 217., 95., 64., rgb(54, 63, 69));
-    c.rect(314., 220., 89., 58., 0);
-    c.text(358., 232., 12., "IN HG", WHITE);
+    c.rect(311., KOLLSMAN_TOP, 95., 64., rgb(54, 63, 69));
+    c.rect(314., KOLLSMAN_TOP + 3., 89., 58., 0);
+    c.text(358., KOLLSMAN_TOP + 15., 12., "IN HG", WHITE);
     let mut b = Text::new();
     if s.baro_inhg.is_finite() && (28.1..=31.).contains(&s.baro_inhg) {
         let _ = write!(b, "{:.2}", s.baro_inhg);
     } else {
         let _ = b.write_str("--.--");
     }
-    c.text(358., 257., 20., b.str(), WHITE);
+    c.text(358., KOLLSMAN_TOP + 40., 20., b.str(), WHITE);
 }
 fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
     if s.selected != Instrument::Altimeter {

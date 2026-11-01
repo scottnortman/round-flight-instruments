@@ -7,6 +7,14 @@ numeric bench reference and explicit missing/stale/failed/timing-fault states.
 Other selected instruments show NOT IMPLEMENTED and cannot leave the previous
 altimeter visible. Touch and the second gauge are subsequent stages.
 
+The Rust face's graphics cleanup moves the numeral centers inward from radius
+179 to 169 and raises the Kollsman window from y=217 to y=203 in the logical
+480-unit viewport. This adds tick clearance, especially at 9 and 0, and keeps
+the window clear of 3 while leaving space below 2. Window contents move with
+its frame; font size, tick positions and instrument math are unchanged. These
+offsets scale with the viewport. The browser remains the original visual
+reference and does not yet incorporate this Rust-face adjustment.
+
 ## Boundaries
 
 | Component | Responsibility |
