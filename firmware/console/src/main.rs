@@ -94,7 +94,6 @@ fn main() {
         configuration.priority = 6;
         configuration.set().map_err(io::Error::other)?;
         let touch_poller = touch.clone();
-        let touch_clock = std::time::Instant::now();
         let result = imu_service::Service::start_with_bus_poll(
             ImuBus(bus),
             imu_service::BenchTilt,
@@ -108,12 +107,7 @@ fn main() {
                     touch_poller.poll(driver, &mut bus.0);
                 }
                 if let Some(worker) = &mut buzzer_worker {
-                    let now = touch_clock.elapsed().as_millis() as u64;
-                    worker.poll(
-                        &mut bus.0,
-                        now,
-                        touch_poller.snapshot().and_then(|s| s.input(now)),
-                    );
+                    worker.poll(&mut bus.0);
                 }
                 true
             },
@@ -153,7 +147,9 @@ fn main() {
         io::stdout(),
         Arc::new(console_runtime::Metrics::default()),
         |app| {
-            display.publish(app, touch.snapshot());
+            if display.publish(app, touch.snapshot()) {
+                buzzer.request_press();
+            }
             #[cfg(feature = "watchdog-self-test")]
             if app.tick_count() == 100 {
                 // Bench-only fault injection. The normal build has no stall.

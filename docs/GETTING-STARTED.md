@@ -190,7 +190,7 @@ wait. It ends with simulation paused. The takeoff check exercises cancellation,
 manual override, faults and completion. Reports should contain `passed: true`.
 These test separate desktop processes and do not open the UART.
 
-72 Rust unit tests currently cover state/quality, framing, backpressure, sensor
+74 Rust unit tests currently cover state/quality, framing, backpressure, sensor
 register behavior, touch gestures, estimator contracts, gauge math and cached/full raster
 agreement. They do not measure optical LCD health or certify hardware timing.
 

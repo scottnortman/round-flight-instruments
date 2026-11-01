@@ -11,6 +11,9 @@ climb measured 32.32 FPS with touch polling and IMU enabled. The v0.1 release
 adds blue popup buttons, screen-press sound and a 250 ms default hold. See the
 [final release verification](RELEASE-v0.1.md).
 
+Current patch: [v0.1.1 active-control sound fix](RELEASE-v0.1.1.md). Sound now
+follows UI-accepted control presses, so inactive screen areas stay silent.
+
 Previous accepted visual change: [light-grey panel and orange hand edges](ALTIMETER-CONTRAST.md).
 The 20-second sweep measured 32.35 FPS; the user accepted the final appearance.
 

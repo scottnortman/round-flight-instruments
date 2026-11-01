@@ -3,7 +3,7 @@
 use crate::board_bus::Bus;
 use esp_idf_svc::sys::EspError;
 use instrument_core::DisplayCommand;
-use instrument_ui::{feedback::PressSound, interaction::Input};
+use instrument_ui::feedback::PressSound;
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering},
@@ -24,10 +24,20 @@ struct Shared {
     beeps: AtomicU32,
     errors: AtomicU32,
     last_error: AtomicI32,
+    pending_press: AtomicU32,
 }
 #[derive(Clone)]
 pub struct Service(Arc<Shared>);
 impl Service {
+    /// UI-accepted presses only. One atomic slot coalesces rather than queues
+    /// sound; bit 0 marks pending, remaining bits are a 2 ms timestamp.
+    pub fn request_press(&self) {
+        if self.0.enabled.load(Ordering::Acquire) && self.0.ready.load(Ordering::Acquire) {
+            self.0
+                .pending_press
+                .store(clock_ms() | 1, Ordering::Release);
+        }
+    }
     pub fn new() -> Self {
         let shared = Shared::default();
         shared.enabled.store(true, Ordering::Relaxed);
@@ -35,7 +45,10 @@ impl Service {
     }
     pub fn handle(&self, command: DisplayCommand) -> Option<Response> {
         match command {
-            DisplayCommand::TouchSound(enabled) => self.0.enabled.store(enabled, Ordering::Release),
+            DisplayCommand::TouchSound(enabled) => {
+                self.0.pending_press.store(0, Ordering::Release);
+                self.0.enabled.store(enabled, Ordering::Release);
+            }
             DisplayCommand::TouchSoundStatus => (),
             _ => return None,
         }
@@ -48,6 +61,9 @@ pub struct Worker {
     service: Service,
     press: PressSound,
     deadline: Option<Instant>,
+}
+fn clock_ms() -> u32 {
+    unsafe { (esp_idf_svc::sys::esp_timer_get_time() / 1000) as u32 }
 }
 fn read(bus: &mut Bus, register: u8) -> Result<u8, EspError> {
     let mut value = [0];
@@ -94,7 +110,7 @@ impl Worker {
     /// Stop before potentially long IMU commands; no new sound until a release.
     /// False prevents the command from occupying the bus while shutoff is uncertain.
     pub fn quiesce(&mut self, bus: &mut Bus) -> bool {
-        self.press.update(0, None, false);
+        self.service.0.pending_press.store(0, Ordering::Release);
         if self.service.0.active_or_unknown.load(Ordering::Acquire) {
             match modify(bus, 1, false) {
                 Ok(()) => {
@@ -112,7 +128,7 @@ impl Worker {
         }
         true
     }
-    pub fn poll(&mut self, bus: &mut Bus, now_ms: u64, input: Option<Input>) {
+    pub fn poll(&mut self, bus: &mut Bus) {
         let enabled = self.service.0.enabled.load(Ordering::Acquire);
         let ready = self.service.0.ready.load(Ordering::Acquire);
         let now = Instant::now();
@@ -120,7 +136,7 @@ impl Worker {
             .deadline
             .is_some_and(|at| now >= at || (!enabled && ready))
         {
-            // Keep the contact state here: ending a pulse must not re-arm it.
+            // Pulse expiration does not create another request.
             match modify(bus, 1, false) {
                 Ok(()) => {
                     self.service
@@ -132,9 +148,10 @@ impl Worker {
                 Err(error) => self.fault(error),
             }
         }
+        let pending = self.service.0.pending_press.swap(0, Ordering::AcqRel);
         if self.press.update(
-            now_ms,
-            input,
+            clock_ms(),
+            (pending != 0).then_some(pending & !1),
             enabled && self.service.0.ready.load(Ordering::Acquire),
         ) && self.deadline.is_none()
         {

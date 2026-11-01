@@ -1,4 +1,4 @@
-# Round Flight Instruments v0.1
+# Round Flight Instruments v0.1.1
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This release provides a simulated
@@ -18,7 +18,7 @@ IMU is available for diagnostics; it does not drive the gauge.
 You need the exact board above, a data-capable USB cable, and a Windows PC with
 Python 3.11. **The prebuilt firmware does not require Rust.**
 
-1. Download and extract **[round-instruments-v0.1-waveshare-29086.zip](https://github.com/scottnortman/round-flight-instruments/releases/download/v0.1/round-instruments-v0.1-waveshare-29086.zip)** from the [v0.1 release](https://github.com/scottnortman/round-flight-instruments/releases/tag/v0.1).
+1. Download and extract **[round-instruments-v0.1.1-waveshare-29086.zip](https://github.com/scottnortman/round-flight-instruments/releases/download/v0.1.1/round-instruments-v0.1.1-waveshare-29086.zip)** from the [v0.1.1 release](https://github.com/scottnortman/round-flight-instruments/releases/tag/v0.1.1).
 2. Connect the board's **UART USB** port. Identify its CH343 COM port in Device
    Manager. The other USB connector does not provide this firmware's CLI.
 3. Follow the **[board installation guide](docs/INSTALL-WAVESHARE.md)** (also
@@ -49,7 +49,7 @@ Release, then use **−/+** for 0.01 inHg steps or **29.92** to reset the draft.
 leaves the active value unchanged. [Touch details](docs/TOUCH.md).
 
 Popup buttons also turn blue while pressed. A short chirp acknowledges each new
-screen press; use `touch sound off` to mute or `touch sound on` to re-enable it.
+active-control press; use `touch sound off` to mute or `touch sound on` to re-enable it.
 
 | CLI command | Result |
 | --- | --- |
@@ -58,7 +58,7 @@ screen press; use `touch sound off` to mute or `touch sound on` to re-enable it.
 | `sim takeoff 60` / `sim takeoff stop` | Start/stop the climb demonstration |
 | `baro 30.01` | Change the indicated-altitude offset |
 | `touch status` / `touch hold 250` | Touch diagnostics / hold time in milliseconds |
-| `touch sound on` / `touch sound off` / `touch sound status` | Screen-press chirp controls and diagnostics |
+| `touch sound on` / `touch sound off` / `touch sound status` | Active-control chirp controls and diagnostics |
 | `display stats` | Last rendering measurement; the climb records this automatically |
 | `imu on`, `imu read`, `imu off` | Optional sensor diagnostics; gauge stays simulated |
 
@@ -73,7 +73,7 @@ Clone this repository and run these commands from its root:
 ```powershell
 git clone https://github.com/scottnortman/round-flight-instruments.git
 cd round-flight-instruments
-git checkout v0.1
+git checkout v0.1.1
 ```
 
 **Interactive browser gauges** (Node.js and Python):
@@ -109,7 +109,7 @@ validated commands; input freshness, display supervision and watchdogs remain
 independent of rendering. See [architecture](docs/DISPLAY.md) and
 [control contracts](docs/BASELINE.md).
 
-- **72 Rust tests** and five browser regression suites pass. Normal hardware
+- **74 Rust tests** and five browser regression suites pass. Normal hardware
   animation measured **32.33 FPS** with IMU polling; repeated popup/setting
   activity measured **29.22 FPS**. These are measured workloads, not minimum-rate
   guarantees. [Verification and reset investigations](verification/TOUCH.md).
@@ -129,7 +129,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 
 This README is the canonical release overview. Detailed setup, contracts and
 dated evidence live in `docs/` and `verification/`. Older handoff notes are
-historical. [Release notes](docs/releases/v0.1.md).
+historical. [Release notes](docs/releases/v0.1.1.md).
 
 ## License and AI assistance
 

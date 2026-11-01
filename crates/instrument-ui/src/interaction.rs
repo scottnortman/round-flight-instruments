@@ -109,6 +109,7 @@ pub struct Controller {
     holding: Option<(u64, u8, u16, u16)>,
     edit: Option<Edit>,
     last_tick: Option<u64>,
+    press_started: bool,
 }
 impl Default for Controller {
     fn default() -> Self {
@@ -118,6 +119,7 @@ impl Default for Controller {
             holding: None,
             edit: None,
             last_tick: None,
+            press_started: false,
         }
     }
 }
@@ -143,10 +145,15 @@ impl Controller {
     pub fn window_pressed(&self) -> bool {
         self.holding.is_some()
     }
+    /// True only on the update that accepts a new press on an active control.
+    pub fn press_started(&self) -> bool {
+        self.press_started
+    }
     pub fn cancel(&mut self) {
         self.edit = None;
         self.holding = None;
         self.armed = false;
+        self.press_started = false;
     }
     pub fn update(
         &mut self,
@@ -156,6 +163,7 @@ impl Controller {
         baro: f32,
         editor_presented: bool,
     ) -> Option<f32> {
+        self.press_started = false;
         let gap_bad = self.last_tick.is_some_and(|last| {
             now.checked_sub(last)
                 .is_none_or(|gap| gap >= TOUCH_STALE_MS)
@@ -223,6 +231,7 @@ impl Controller {
                         }
                     } else if self.armed {
                         e.pressed = Button::hit(x, y).map(|b| (b, id));
+                        self.press_started = e.pressed.is_some();
                         e.activity = now;
                     }
                     self.armed = false;
@@ -245,6 +254,7 @@ impl Controller {
                     }
                 } else if self.armed && KOLLSMAN.contains(x, y) {
                     self.holding = Some((input.at_ms, id, x, y));
+                    self.press_started = true;
                     self.armed = false;
                 } else {
                     self.armed = false;
@@ -551,20 +561,26 @@ mod tests {
             let r = button.rect();
             let contact = down(r.x + r.w / 2, r.y + r.h / 2);
             feed(&mut c, t + 20, contact);
+            assert!(!c.press_started());
             assert_eq!(c.view().unwrap().pressed, None); // opening finger is disarmed
             feed(&mut c, t + 40, Contact::Up);
             assert_eq!(feed(&mut c, t + 60, contact), None);
+            assert!(c.press_started());
             assert_eq!(c.view().unwrap().pressed, Some(button));
             assert_eq!(c.view().unwrap().cents, 2992); // feedback never activates
             feed(&mut c, t + 80, down(50, 50));
+            assert!(!c.press_started());
             assert_eq!(c.view().unwrap().pressed, None);
             feed(&mut c, t + 100, contact);
+            assert!(!c.press_started());
             assert_eq!(c.view().unwrap().pressed, None); // dragging back cannot re-arm
             assert_eq!(feed(&mut c, t + 120, Contact::Up), None);
             assert_eq!(c.view().unwrap().cents, 2992);
             feed(&mut c, t + 140, contact);
+            assert!(c.press_started());
             assert_eq!(c.view().unwrap().pressed, Some(button));
             let applied = feed(&mut c, t + 160, Contact::Up);
+            assert!(!c.press_started());
             match button {
                 Button::Apply => {
                     assert_eq!(applied, Some(29.92));
@@ -577,5 +593,72 @@ mod tests {
                 _ => assert_eq!(c.view().unwrap().pressed, None),
             }
         }
+    }
+    #[test]
+    fn only_active_controls_emit_sound_events_and_holds_do_not_repeat() {
+        let mut c = Controller::default();
+        feed(&mut c, 0, Contact::Up);
+        // Dial centre and hidden popup buttons are inactive on the main gauge.
+        for (n, (x, y)) in [(240, 240), (140, 245), (240, 245), (140, 310), (300, 310)]
+            .into_iter()
+            .enumerate()
+        {
+            let t = 20 + n as u64 * 60;
+            feed(&mut c, t, down(x, y));
+            assert!(!c.press_started());
+            feed(&mut c, t + 20, down(338, 235)); // entering a control from outside is not a new press
+            assert!(!c.press_started());
+            feed(&mut c, t + 40, Contact::Up);
+        }
+        feed(&mut c, 320, down(338, 235));
+        assert!(c.press_started());
+        for t in (340..=580).step_by(20) {
+            feed(&mut c, t, down(338, 235));
+            assert!(!c.press_started());
+        }
+        assert!(c.view().is_some());
+        feed(&mut c, 600, Contact::Up);
+        feed(&mut c, 620, down(240, 190)); // popup value is not a button
+        assert!(!c.press_started());
+        feed(&mut c, 640, down(340, 245));
+        assert!(!c.press_started());
+    }
+    #[test]
+    fn unavailable_stale_or_unpresented_controls_never_emit_sound_events() {
+        for mode in 0..4 {
+            let mut c = Controller::default();
+            feed(&mut c, 0, Contact::Up);
+            c.update(
+                20,
+                if mode == 0 {
+                    None
+                } else {
+                    Some(Input {
+                        at_ms: if mode == 1 { 21 } else { 20 },
+                        contact: down(338, 235),
+                    })
+                },
+                mode != 2,
+                if mode == 3 { f32::NAN } else { 29.92 },
+                true,
+            );
+            assert!(!c.press_started());
+        }
+        let mut c = Controller::default();
+        let t = open(&mut c);
+        feed(&mut c, t + 20, Contact::Up);
+        c.update(
+            t + 40,
+            Some(Input {
+                at_ms: t + 40,
+                contact: down(340, 245),
+            }),
+            true,
+            29.92,
+            false,
+        );
+        assert!(!c.press_started());
+        c.cancel();
+        assert!(!c.press_started());
     }
 }

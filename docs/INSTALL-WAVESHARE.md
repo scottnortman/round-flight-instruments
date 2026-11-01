@@ -1,4 +1,4 @@
-# Install v0.1 on Waveshare SKU 29086
+# Install v0.1.1 on Waveshare SKU 29086
 
 This guide installs the prebuilt Round Flight Instruments firmware on the
 **ESP32-S3-Touch-LCD-2.8C**, Waveshare **SKU 29086**, with 16 MiB flash and 8 MiB
@@ -7,11 +7,11 @@ require different firmware even if they use an ESP32-S3.
 
 ## 1. Download and connect
 
-Download `round-instruments-v0.1-waveshare-29086.zip` and `SHA256SUMS.txt` from
-[the v0.1 release](https://github.com/scottnortman/round-flight-instruments/releases/tag/v0.1).
-Compare `Get-FileHash .\round-instruments-v0.1-waveshare-29086.zip -Algorithm SHA256`
+Download `round-instruments-v0.1.1-waveshare-29086.zip` and `SHA256SUMS.txt` from
+[the v0.1.1 release](https://github.com/scottnortman/round-flight-instruments/releases/tag/v0.1.1).
+Compare `Get-FileHash .\round-instruments-v0.1.1-waveshare-29086.zip -Algorithm SHA256`
 with the ZIP entry in `SHA256SUMS.txt`. Stop if they differ. Extract the ZIP and
-open PowerShell in its `round-instruments-v0.1-waveshare-29086` folder.
+open PowerShell in its `round-instruments-v0.1.1-waveshare-29086` folder.
 
 Connect a data USB cable to the board's **UART** connector. Windows Device
 Manager should show a **CH343** serial port. Install the vendor's USB driver
@@ -58,8 +58,8 @@ area. It is not a whole-device backup and does not contain another board's
 factory data. The original recovery image remains your way back.
 
 ```powershell
-.\.venv\Scripts\python.exe -m esptool --chip esp32s3 --port COM5 --baud 460800 write_flash 0x0 round-instruments-v0.1-waveshare-29086.bin
-.\.venv\Scripts\python.exe -m esptool --chip esp32s3 --port COM5 --baud 460800 verify_flash 0x0 round-instruments-v0.1-waveshare-29086.bin
+.\.venv\Scripts\python.exe -m esptool --chip esp32s3 --port COM5 --baud 460800 write_flash 0x0 round-instruments-v0.1.1-waveshare-29086.bin
+.\.venv\Scripts\python.exe -m esptool --chip esp32s3 --port COM5 --baud 460800 verify_flash 0x0 round-instruments-v0.1.1-waveshare-29086.bin
 ```
 
 Wait for successful verification. Press RESET if the application does not start.
@@ -97,7 +97,7 @@ opening press. Use −/+ or **29.92**, followed by **Apply**; Cancel or 30 secon
 of inactivity discards the draft. Input requires an observed finger release;
 after startup, lift and retry if the first hold is ignored. Settings are volatile.
 
-Popup buttons turn blue while pressed. Screen presses chirp once; mute with
+Popup buttons turn blue while pressed. Active control presses chirp once; mute with
 `touch sound off`, re-enable with `touch sound on`, or inspect `touch sound status`.
 
 Boot diagnostics use 115200 baud and can appear garbled in a 921600 terminal.
@@ -112,7 +112,7 @@ a different board. Factory recovery has not been exercised on the development
 unit; the original image has two checksum-verified copies.
 
 For source builds, PC simulations, all commands and known limitations, see the
-[project README](https://github.com/scottnortman/round-flight-instruments/tree/v0.1)
-and [development guide](https://github.com/scottnortman/round-flight-instruments/blob/v0.1/docs/GETTING-STARTED.md).
+[project README](https://github.com/scottnortman/round-flight-instruments/tree/v0.1.1)
+and [development guide](https://github.com/scottnortman/round-flight-instruments/blob/v0.1.1/docs/GETTING-STARTED.md).
 `scripts/Flash-Console.ps1` in the source tree deliberately guards the original
 development board and its backup; it is not the installer for a new owner's board.

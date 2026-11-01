@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "transcript": [
+    {
+      "command": "touch cancel",
+      "response": "OK touch edit=cancelled",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "baro 29.92",
+      "response": "OK baro_inhg=29.92 pressure_altitude=unchanged",
+      "elapsed_ms": 63.0
+    },
+    {
+      "command": "touch sound off",
+      "response": "OK touch sound enabled=false ready=true active_or_unknown=false pulse_ms=40 beeps=25 errors=0 last_error=0",
+      "elapsed_ms": 46.0
+    },
+    {
+      "command": "touch sound on",
+      "response": "OK touch sound enabled=true ready=true active_or_unknown=false pulse_ms=40 beeps=25 errors=0 last_error=0",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch sound status",
+      "response": "OK touch sound enabled=true ready=true active_or_unknown=false pulse_ms=40 beeps=25 errors=0 last_error=0",
+      "elapsed_ms": 47.0
+    },
+    {
+      "command": "touch status",
+      "response": "OK touch ready=true hold_ms=250 overlay=false draft_cents=None contact=Some(Up) age_ms=Some(10) polls=3454 reports=389 errors=0 last_error=None",
+      "elapsed_ms": 78.0
+    },
+    {
+      "command": "touch sound status",
+      "response": "OK touch sound enabled=true ready=true active_or_unknown=false pulse_ms=40 beeps=25 errors=0 last_error=0",
+      "elapsed_ms": 63.0
+    }
+  ]
+}

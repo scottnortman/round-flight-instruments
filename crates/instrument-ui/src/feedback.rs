@@ -1,79 +1,49 @@
-//! Portable press-to-chirp policy; board code owns pulse timing and transport.
-use crate::interaction::{Contact, Input, TOUCH_STALE_MS};
+//! Rate/freshness policy for UI-accepted press events, never raw contacts.
+use crate::interaction::TOUCH_STALE_MS;
 
 #[derive(Default)]
 pub struct PressSound {
-    armed: bool,
-    last_beep: Option<u64>,
+    last_beep: Option<u32>,
 }
 impl PressSound {
-    pub fn update(&mut self, now: u64, input: Option<Input>, enabled: bool) -> bool {
-        let contact = input
-            .filter(|i| {
-                now.checked_sub(i.at_ms)
-                    .is_some_and(|age| age < TOUCH_STALE_MS)
-            })
-            .map(|i| i.contact);
-        if !enabled {
-            self.armed = false;
-            return false;
+    /// The caller consumes each request once. Wrapping clocks are milliseconds;
+    /// pending requests expire long before a complete 32-bit clock cycle.
+    pub fn update(&mut self, now: u32, requested_at: Option<u32>, enabled: bool) -> bool {
+        let fresh = requested_at.is_some_and(|at| now.wrapping_sub(at) < TOUCH_STALE_MS as u32);
+        let ready = self
+            .last_beep
+            .is_none_or(|last| now.wrapping_sub(last) >= 150);
+        if enabled && fresh && ready {
+            self.last_beep = Some(now);
+            true
+        } else {
+            false
         }
-        match contact {
-            Some(Contact::Up) => self.armed = true,
-            Some(Contact::Down { .. }) => {
-                let beep = self.armed
-                    && self.last_beep.is_none_or(|last| {
-                        now.checked_sub(last).is_some_and(|elapsed| elapsed >= 150)
-                    });
-                self.armed = false;
-                if beep {
-                    self.last_beep = Some(now);
-                }
-                return beep;
-            }
-            _ => self.armed = false,
-        }
-        false
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn input(at_ms: u64, contact: Contact) -> Option<Input> {
-        Some(Input { at_ms, contact })
-    }
-    const DOWN: Contact = Contact::Down {
-        id: 0,
-        x: 240,
-        y: 240,
-    };
     #[test]
-    fn sound_requires_release_and_does_not_repeat_or_queue_rapid_taps() {
+    fn requests_expire_are_rate_limited_and_never_repeat_without_an_event() {
         let mut sound = PressSound::default();
-        assert!(!sound.update(0, input(0, DOWN), true));
-        assert!(!sound.update(20, input(20, Contact::Up), true));
-        assert!(sound.update(40, input(40, DOWN), true));
-        assert!(!sound.update(60, input(60, DOWN), true));
-        sound.update(80, input(80, Contact::Up), true);
-        assert!(!sound.update(100, input(100, DOWN), true));
-        assert!(!sound.update(200, input(200, DOWN), true));
-        sound.update(220, input(220, Contact::Up), true);
-        assert!(sound.update(240, input(240, DOWN), true));
+        assert!(!sound.update(0, None, true));
+        assert!(sound.update(20, Some(0), true));
+        assert!(!sound.update(40, Some(40), true));
+        assert!(!sound.update(200, None, true));
+        assert!(!sound.update(220, Some(100), true));
+        assert!(!sound.update(240, Some(260), true));
+        assert!(!sound.update(260, Some(260), false));
+        assert!(!sound.update(280, None, true));
+        assert!(sound.update(300, Some(290), true));
     }
     #[test]
-    fn muted_stale_unknown_and_multiple_contacts_disarm_sound() {
-        for mode in 0..5 {
-            let mut sound = PressSound::default();
-            sound.update(0, input(0, Contact::Up), true);
-            match mode {
-                0 => assert!(!sound.update(20, input(20, DOWN), false)),
-                1 => assert!(!sound.update(120, input(0, DOWN), true)),
-                2 => assert!(!sound.update(20, None, true)),
-                3 => assert!(!sound.update(20, input(20, Contact::Multiple), true)),
-                _ => assert!(!sound.update(20, input(30, DOWN), true)),
-            }
-            assert!(!sound.update(200, input(200, DOWN), true));
-        }
+    fn request_age_and_cooldown_handle_clock_wrap() {
+        let mut sound = PressSound::default();
+        assert!(sound.update(u32::MAX - 10, Some(u32::MAX - 20), true));
+        assert!(!sound.update(10, Some(0), true));
+        assert!(sound.update(160, Some(150), true));
+        assert!(!sound.update(300, Some(u32::MAX - 10), true));
     }
 }

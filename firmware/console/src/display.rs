@@ -243,7 +243,7 @@ impl Service {
             }),
         })
     }
-    pub fn publish(&self, app: &mut App, touch: Option<crate::touch::State>) {
+    pub fn publish(&self, app: &mut App, touch: Option<crate::touch::State>) -> bool {
         let s = &self.shared;
         *self.touch_state.borrow_mut() = touch;
         let mut interaction = self.interaction.borrow_mut();
@@ -265,7 +265,7 @@ impl Service {
         }
         if app.timing_fault() {
             s.failed.store(true, Ordering::Release);
-            return;
+            return false;
         }
         if let Ok(mut v) = s.snapshot.try_lock() {
             let mut snapshot = Snapshot::from_app(app);
@@ -274,6 +274,7 @@ impl Service {
             *v = Some((snapshot, Instant::now()));
             s.owner.store(now(), Ordering::Release);
         }
+        interaction.press_started()
     }
     pub fn handle(&self, command: DisplayCommand) -> Response {
         let s = &self.shared;

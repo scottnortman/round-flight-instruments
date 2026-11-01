@@ -18,9 +18,10 @@ All five popup buttons turn the same blue while a valid press is held. Sliding
 off clears the highlight and cancels that tap; sliding back does not re-arm it.
 White text is composited against the button's current background.
 
-Screen presses also produce one short chirp, enabled by default. It acknowledges
-a fresh single-finger contact anywhere on the screen, not a successful setting
-change. Holding or dragging does not repeat; presses less than 150 ms apart may
+Accepted presses on the active Kollsman window or a visible popup button produce
+one short chirp, enabled by default. Blank areas, hidden controls, popup labels,
+and disabled/invalid gauge states stay silent. A chirp acknowledges the press,
+not a successful setting change. Holding or dragging does not repeat; presses less than 150 ms apart may
 be silent. `touch sound off` mutes it; `touch sound on` enables it again. This
 preference is volatile. An observed release is required before the next chirp.
 
@@ -42,7 +43,7 @@ The simulation correction is not a calibrated operational air-data model.
 | `touch status` | Controller identity readiness, hold duration, overlay/draft, last contact and age, polling/report/error counters |
 | `touch hold 250` | Set hold threshold in whole milliseconds, 250–5000; cancels any edit |
 | `touch cancel` | Discard the draft; the committed setting is unchanged |
-| `touch sound on\|off\|status` | Enable/mute sound or inspect readiness, activity, beep/error counts |
+| `touch sound on\|off\|status` | Enable/mute control feedback or inspect readiness, activity, beep/error counts |
 
 These commands are parsed by the shared CLI and use the board display service;
 desktop returns `ERR display_unsupported_target`. The pure interaction state
@@ -61,7 +62,11 @@ python scripts/capture-touch.py --port COM5 --seconds 30 --report output/touch.j
 The active buzzer uses TCA9554 output bit 7 (vendor EXIO8), active high, as shown
 in the [Waveshare schematic](https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-2.8C/ESP32-S3-Touch-LCD-2.8C_schematic_diagram.pdf)
 and vendor demo. Read/modify/write and readback preserve the other expander pins.
-Only the shared I²C worker drives it; the owner and CLI use atomics. A nominal
+Only the shared I²C worker drives it. The UI owner emits an event only when its
+interaction controller accepts a new press, using the same validation and hit
+testing as blue feedback. A single atomic slot coalesces requests; events expire
+after 120 ms and are consumed once. Mute and long-operation quiescing discard
+pending requests. The worker no longer interprets raw touch contacts. A nominal
 40 ms deadline turns it off on a subsequent worker poll, without sleeping for
 the pulse. Long IMU commands and automatic cleanup first quiesce sound; failure
 to confirm shutoff rejects a queued IMU command. Ordinary drawing adds no sound

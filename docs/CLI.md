@@ -193,7 +193,7 @@ simulation: issue `sim pause` when you want samples to age out.
 ## Touch sound
 
 `touch sound on`, `touch sound off`, and `touch sound status` control the short
-screen-press chirp (enabled at boot). Status includes requested enable state,
+active-control chirp (enabled at boot). Status includes requested enable state,
 hardware readiness, `active_or_unknown`, nominal `pulse_ms`, beep and error
 counts. Mute takes effect on the bus worker; settings are volatile. See
 [TOUCH.md](TOUCH.md) for rate limiting and bus-fault limitations.
