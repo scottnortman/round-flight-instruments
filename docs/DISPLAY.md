@@ -18,14 +18,22 @@ The black window and white digits retain two decimal places and the invalid
 scales with the viewport. The browser remains the original visual reference
 and does not yet incorporate these Rust-face adjustments.
 
-The lower numeric altitude readout uses 32-unit bold black text on a white
+The lower numeric altitude readout uses 32-unit bold black text on a light-grey
 232-by-40-unit panel, with text centered at (240, 307). This increases the previous
 20-unit text by 60%. The panel accommodates eight character cells, including
 the sign and `FT` suffix at the supported altitude/barometer extremes, and
 clears the Kollsman window and SIM INPUT label. Bold coverage is combined before
-compositing against white; repeated text passes are not used. The shared damage
+compositing against the panel colour; repeated text passes are not used. The shared damage
 tracker includes the panel and glyphs, so a fault removes the numeric readout
 with the pointers. Missing/stale/failed indications retain their red styling.
+
+The panel colour is RGB (190, 190, 190), converted to RGB565. The hundreds and
+thousands hands have bright-orange RGB (255, 128, 0) edges drawn at 2 logical
+units, scaling with the viewport. Their original fills, angles and shapes
+remain; the thin ten-thousands pointer and its triangular marker are unchanged.
+Edges use the same tracked target as the hand fills, so buffer restoration and
+invalid-data handling include them. This orange is a fixed readability accent,
+not a new warning or quality state.
 
 ## Boundaries
 

@@ -25,7 +25,8 @@ operational air data, attitude or navigation information.
 of the LCD. Font attribution: Leonardo Di Lena / MS33558C, see the asset notice.*
 
 The Rust altimeter has inset dial numerals, larger Kollsman digits with an
-external HG label, and a bold black altitude readout on a white panel. The
+external HG label, a bold black altitude readout on a light-grey panel, and thin
+bright-orange edges on the hundreds and thousands hands. The
 preview above reflects the current layout. Earlier numeral/window spacing was physically accepted;
 see [graphics cleanup verification](verification/GRAPHICS-CLEANUP.md). The
 subsequent [rendering pipeline milestone](verification/RENDERING-30HZ.md)

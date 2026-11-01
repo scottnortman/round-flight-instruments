@@ -4,7 +4,10 @@ Repository/documentation milestone: [initial Git baseline](GIT-BASELINE.md).
 Use the [canonical project README](../README.md) for current status; the
 console-only observations below are historical.
 
-Latest installed visual change: [larger Kollsman digits and external HG label](KOLLSMAN-READABILITY.md).
+Latest installed visual change: [light-grey panel and orange hand edges](ALTIMETER-CONTRAST.md).
+The 20-second sweep measured 32.35 FPS; the user accepted the final appearance.
+
+Previous visual change: [larger Kollsman digits and external HG label](KOLLSMAN-READABILITY.md).
 The 20-second sweep measured 32.32 FPS; the user accepted the larger text and
 requested a tighter lower window margin, now implemented.
 

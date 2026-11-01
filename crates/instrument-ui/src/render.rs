@@ -8,6 +8,8 @@ use instrument_core::Instrument;
 const WHITE: u16 = rgb(238, 240, 230);
 const WARN: u16 = rgb(255, 191, 70);
 const RED: u16 = rgb(255, 85, 85);
+const HAND_EDGE: u16 = rgb(255, 128, 0);
+const ALTITUDE_PANEL: u16 = rgb(190, 190, 190);
 // Logical 480-unit face geometry; Canvas scales these for each display size.
 const DIAL_NUMBER_RADIUS: f32 = 169.;
 const KOLLSMAN_TOP: f32 = 211.;
@@ -161,7 +163,13 @@ fn point(radius: f32, deg: f32) -> (f32, f32) {
     let a = deg * core::f32::consts::PI / 180.;
     (240. + radius * libm::sinf(a), 240. - radius * libm::cosf(a))
 }
-fn hand<T: Target>(c: &mut Canvas<T>, points: &[(f32, f32)], angle: f32, color: u16) {
+fn hand<T: Target>(
+    c: &mut Canvas<T>,
+    points: &[(f32, f32)],
+    angle: f32,
+    color: u16,
+    edge: Option<u16>,
+) {
     let a = angle * core::f32::consts::PI / 180.;
     let (s, co) = (libm::sinf(a), libm::cosf(a));
     let mut out = [(0., 0.); 8];
@@ -170,6 +178,11 @@ fn hand<T: Target>(c: &mut Canvas<T>, points: &[(f32, f32)], angle: f32, color: 
         out[i] = (240. + x * co - y * s, 240. + x * s + y * co);
     }
     c.polygon(&out[..points.len()], color);
+    if let Some(edge) = edge {
+        for i in 0..points.len() {
+            c.stroke(out[i], out[(i + 1) % points.len()], 2., edge);
+        }
+    }
 }
 pub fn draw<T: Target>(target: &mut T, s: Snapshot) {
     draw_background(target, s);
@@ -249,6 +262,7 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
             &[(231., 41.), (249., 41.), (240., 57.)],
             tenthousands,
             WHITE,
+            None,
         );
         hand(
             &mut c,
@@ -261,6 +275,7 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
             ],
             thousands,
             rgb(226, 231, 230),
+            Some(HAND_EDGE),
         );
         hand(
             &mut c,
@@ -273,6 +288,7 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
             ],
             thousands,
             rgb(137, 149, 158),
+            None,
         );
         hand(
             &mut c,
@@ -285,6 +301,7 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
             ],
             hundreds,
             WHITE,
+            Some(HAND_EDGE),
         );
         c.circle(240., 240., 17., rgb(85, 98, 110));
         c.circle(240., 240., 15., rgb(16, 23, 29));
@@ -293,8 +310,8 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
         let _ = write!(a, "{:.0} FT", m.indicated_ft.unwrap_or(0.));
         // Eight cells cover the full supported signed/baro-corrected range.
         // Keep padding around the larger readout and clearance below Kollsman.
-        c.rect(124., 284., 232., 40., rgb(255, 255, 255));
-        c.text_bold_on(240., 307., 32., a.str(), (0, rgb(255, 255, 255)));
+        c.rect(124., 284., 232., 40., ALTITUDE_PANEL);
+        c.text_bold_on(240., 307., 32., a.str(), (0, ALTITUDE_PANEL));
     } else {
         c.line((155., 185.), (296., 285.), 7., RED);
         c.line((296., 185.), (155., 285.), 7., RED);

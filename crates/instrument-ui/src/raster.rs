@@ -98,6 +98,21 @@ impl<'a, T: Target> Canvas<'a, T> {
             self.circle(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, width / 2., c);
         }
     }
+    /// Pixel-aligned square-brush stroke. Unlike the circular line brush, this
+    /// supports even pixel widths without rounding a two-pixel edge to three.
+    pub fn stroke(&mut self, a: (f32, f32), b: (f32, f32), width: f32, c: u16) {
+        let (ax, ay) = self.point(a.0, a.1);
+        let (bx, by) = self.point(b.0, b.1);
+        let steps = (bx - ax).abs().max((by - ay).abs()).max(1);
+        let side = (libm::roundf(width * self.scale) as i32).max(1);
+        for i in 0..=steps {
+            let x = ax + (bx - ax) * i / steps - side / 2;
+            let y = ay + (by - ay) * i / steps - side / 2;
+            for row in y..y + side {
+                self.target.span(row, x, x + side, c);
+            }
+        }
+    }
     pub fn polygon(&mut self, points: &[(f32, f32)], c: u16) {
         // Convex hand shapes only; fixed stack storage and bounded scan conversion.
         if points.len() < 3 || points.len() > 8 {
