@@ -4,6 +4,59 @@
 //! buffer. Two later frame-copy completions retire the old front buffer. Only
 //! `drawing()` may be written; front/pending buffers remain read-only to the CPU.
 
+use core::sync::atomic::{AtomicU32, Ordering};
+
+/// Single-producer/single-consumer presentation fence. The renderer arms after
+/// submission; the completion ISR consumes after two later events. Payload is
+/// immutable while armed. Publish the backend's completion counter only AFTER
+/// consuming this fence, so retirement cannot race ahead of its health update.
+pub struct PresentationFence {
+    state: AtomicU32, // 0 empty, 1 producer writing, 2 armed
+    counter: AtomicU32,
+    deadline: AtomicU32,
+}
+impl Default for PresentationFence {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl PresentationFence {
+    pub const fn new() -> Self {
+        Self {
+            state: AtomicU32::new(0),
+            counter: AtomicU32::new(0),
+            deadline: AtomicU32::new(0),
+        }
+    }
+    pub fn pending(&self) -> bool {
+        self.state.load(Ordering::Acquire) != 0
+    }
+    pub fn arm(&self, counter: u32, original_deadline: u32) -> bool {
+        if self
+            .state
+            .compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed)
+            .is_err()
+        {
+            return false;
+        }
+        self.counter.store(counter, Ordering::Relaxed);
+        self.deadline.store(original_deadline, Ordering::Relaxed);
+        self.state.store(2, Ordering::Release);
+        true
+    }
+    /// One consumer only. No allocation, waits, clock reads or deadline renewal.
+    pub fn complete(&self, counter: u32) -> Option<u32> {
+        if self.state.load(Ordering::Acquire) != 2
+            || counter.wrapping_sub(self.counter.load(Ordering::Relaxed)) < 2
+        {
+            return None;
+        }
+        let deadline = self.deadline.load(Ordering::Relaxed);
+        self.state.store(0, Ordering::Release);
+        Some(deadline)
+    }
+}
+
 pub const COMPLETION_TIMEOUT_MS: u32 = 100;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -75,11 +128,21 @@ impl<T> FramePipeline<T> {
     /// poll may observe an already completed transfer (e.g. after a bench stall).
     /// The backend must retain the frame's ORIGINAL numeric expiry on retirement.
     pub fn poll(&mut self, counter: u32, now: u32) -> Result<Option<(T, u32)>, PipelineError> {
+        self.poll_confirmed(counter, now, true)
+    }
+    /// Optional backend presentation fence may delay retirement, never advance it.
+    /// The same timeout applies even if physical events arrive before arming.
+    pub fn poll_confirmed(
+        &mut self,
+        counter: u32,
+        now: u32,
+        confirmed: bool,
+    ) -> Result<Option<(T, u32)>, PipelineError> {
         let Some(p) = self.pending.as_ref() else {
             return Ok(None);
         };
         let elapsed = now.wrapping_sub(p.submitted_at);
-        if counter.wrapping_sub(p.counter) < 2 {
+        if counter.wrapping_sub(p.counter) < 2 || !confirmed {
             return if elapsed > COMPLETION_TIMEOUT_MS {
                 Err(PipelineError::CompletionTimeout)
             } else {
@@ -98,6 +161,42 @@ mod tests {
     use super::*;
 
     #[test]
+    fn presentation_fence_requires_two_events_and_never_renews_deadlines() {
+        let f = PresentationFence::new();
+        assert!(f.arm(u32::MAX, 123));
+        assert!(!f.arm(10, 999));
+        assert_eq!(f.complete(0), None);
+        assert_eq!(f.complete(1), Some(123));
+        assert!(!f.pending());
+        assert_eq!(f.complete(2), None);
+        assert!(f.arm(2, 200));
+        assert_eq!(f.complete(100), Some(200)); // delayed consumer retains expiry
+    }
+    #[test]
+    fn presentation_fence_publishes_immutable_payload_between_threads() {
+        extern crate std;
+        let f = std::sync::Arc::new(PresentationFence::new());
+        let consumer = f.clone();
+        let task = std::thread::spawn(move || {
+            for expected in 1..=10000 {
+                loop {
+                    if let Some(deadline) = consumer.complete(2) {
+                        assert_eq!(deadline, expected);
+                        break;
+                    }
+                    std::thread::yield_now();
+                }
+            }
+        });
+        for deadline in 1..=10000 {
+            while !f.arm(0, deadline) {
+                std::thread::yield_now();
+            }
+        }
+        task.join().unwrap();
+        assert!(!f.pending());
+    }
+    #[test]
     fn drawing_never_aliases_front_or_pending_and_queue_is_bounded() {
         let mut p = FramePipeline::new();
         for n in 0..100u32 {
@@ -108,6 +207,8 @@ mod tests {
             assert_ne!(p.drawing(), drawn);
             assert_eq!(p.submitted(0, 0, 999), Err(PipelineError::Busy));
             assert_eq!(p.poll(n * 2 + 1, n * 30 + 15), Ok(None));
+            assert_eq!(p.poll_confirmed(n * 2 + 2, n * 30 + 29, false), Ok(None));
+            assert_ne!(p.drawing(), drawn);
             assert_eq!(p.poll(n * 2 + 2, n * 30 + 30), Ok(Some((n, 30))));
             assert_eq!(p.front, drawn);
             assert_eq!(p.poll(n * 2 + 2, n * 30 + 30), Ok(None));

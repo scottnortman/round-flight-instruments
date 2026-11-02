@@ -1,10 +1,10 @@
-# Round Flight Instruments v0.2.0-rc.1
+# Round Flight Instruments v0.2.0-rc.2
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
 three-pointer altimeter, touch barometer adjustment, a text CLI and a smooth
-0–10,000 ft demonstration. The full six-pack is planned; only the altimeter
-has a hardware renderer today. MSFS 2020 input and optional two-way barometer
+0–10,000 ft demonstration. The full six-pack is planned; this development branch
+also adds a standalone attitude renderer. MSFS 2020 input and optional two-way barometer
 control are bench-tested on the Just Flight Piper Warrior. See the
 [MSFS setup guide](docs/MSFS-TWO-WAY-TEST.md).
 
@@ -47,6 +47,28 @@ The gauge holds zero for one second, climbs to 10,000 ft over 60 seconds, then
 holds there. On a fresh boot, missing altitude and a red X are expected until
 you supply simulated data. Settings and simulated values reset on reboot.
 
+## Attitude gauge development
+
+`feature/attitude-gauge` adds the standalone phone-reference attitude face,
+shared pitch/roll CLI inputs and `sim attitude 60`. The board passes a 60-second
+motion test at **32.33 completed FPS**, with no observed deadline misses or
+unexpected blanking. The hardware motion was visually accepted: smooth, with no
+tearing or artifacts. This source tag has no prebuilt firmware release package.
+After building/flashing this branch, enter:
+
+```text
+source sim
+sim preset level
+instrument attitude
+display on
+sim attitude 60
+```
+
+Use `sim set pitch_deg 10` or `sim set roll_deg 30` for manual poses and
+`instrument altimeter` to return. See the [attitude guide](docs/ATTITUDE.md)
+and [verification record](verification/ATTITUDE.md). Current MSFS telemetry and
+onboard IMU diagnostics do not yet drive the attitude face.
+
 ## Control the gauge
 
 Hold the Kollsman pressure window for **0.25 seconds**; it turns blue while pressed.
@@ -79,7 +101,7 @@ Clone this repository and run these commands from its root:
 ```powershell
 git clone https://github.com/scottnortman/round-flight-instruments.git
 cd round-flight-instruments
-git checkout v0.2.0-rc.1
+git checkout v0.2.0-rc.2
 ```
 
 **Interactive browser gauges** (Node.js and Python):
@@ -129,7 +151,8 @@ replaces Python with a Rust executable and USB-identity enrollment. Desktop test
 and the native UART climb pass. Aircraft switches now recover automatically into
 a fresh session: the new aircraft's altitude and QNH automatically replace the
 gauge values, with no restart or `--writeback` flag required. Optional two-way mode
-persists across switches. Live MSFS recovery acceptance and tray UI remain pending.
+persists across switches. Live MSFS recovery failed after an aircraft switch and remains under investigation;
+the simulator-PC session logs are needed to resume. Tray UI remains pending.
 Leave optional diagnostic queries
 off for normal use to avoid their visible timing impact.
 [Two-way setup and test guide](docs/MSFS-TWO-WAY-TEST.md) ·

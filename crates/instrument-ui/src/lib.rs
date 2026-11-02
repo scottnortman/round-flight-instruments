@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod altimeter;
+pub mod attitude;
 pub mod damage;
 pub mod feedback;
 pub mod interaction;
@@ -9,7 +10,7 @@ pub mod pipeline;
 pub mod raster;
 pub mod render;
 
-use instrument_core::{App, Instrument, Quality, Reading};
+use instrument_core::{App, Field, Instrument, Quality, Reading};
 
 /// Immutable view input. Source age is retained through transport and rendering.
 #[derive(Clone, Copy, Debug)]
@@ -25,11 +26,30 @@ pub struct Snapshot {
     pub editor: Option<interaction::EditorView>,
     pub selected: Instrument,
     pub altitude: Reading,
+    pub pitch: Reading,
+    pub roll: Reading,
     pub baro_inhg: f32,
 }
 impl Snapshot {
     pub fn model(self) -> altimeter::Altimeter {
         altimeter::model_with_semantics(self.altitude, self.baro_inhg, self.external)
+    }
+    pub fn attitude_model(self) -> attitude::Attitude {
+        attitude::model(self.pitch, self.roll)
+    }
+    pub fn displayed_quality(self) -> Option<Quality> {
+        match self.selected {
+            Instrument::Altimeter => Some(self.model().quality),
+            Instrument::Attitude => Some(self.attitude_model().quality),
+            _ => None,
+        }
+    }
+    pub fn displayed_age_ms(self) -> Option<u64> {
+        match self.selected {
+            Instrument::Altimeter => self.altitude.age_ms,
+            Instrument::Attitude => Some(self.pitch.age_ms?.max(self.roll.age_ms?)),
+            _ => None,
+        }
     }
     pub fn from_app(app: &App) -> Self {
         Self {
@@ -43,12 +63,23 @@ impl Snapshot {
             editor: None,
             selected: app.selected(),
             altitude: app.altimeter_reading(app.now_ms()),
+            pitch: app.reading(Field::PitchDeg, app.now_ms()),
+            roll: app.reading(Field::RollDeg, app.now_ms()),
             baro_inhg: app
                 .external_baro(app.now_ms())
                 .map_or_else(|| app.baro_inhg(), |r| r.value.unwrap_or(f32::NAN)),
         }
     }
     pub fn aged(mut self, elapsed_ms: u64) -> Self {
+        for reading in [&mut self.pitch, &mut self.roll] {
+            reading.age_ms = reading.age_ms.map(|age| age.saturating_add(elapsed_ms));
+            if reading.quality == Quality::Valid
+                && reading.age_ms.is_none_or(|age| age >= attitude::STALE_MS)
+            {
+                reading.value = None;
+                reading.quality = Quality::Stale;
+            }
+        }
         if self.external {
             self.baro_age_ms = self.baro_age_ms.map(|a| a.saturating_add(elapsed_ms));
             if self.baro_age_ms.is_none_or(|a| a >= 1000) {
@@ -72,6 +103,12 @@ impl Snapshot {
     /// Remaining lifetime of displayed numeric data. Invalid-data/placeholder
     /// frames have no numeric expiry, but still require owner/render health.
     pub fn numeric_lifetime_ms(self) -> Option<u64> {
+        if self.selected == Instrument::Attitude {
+            return self.attitude_model().angles.map(|_| {
+                attitude::STALE_MS
+                    .saturating_sub(self.displayed_age_ms().unwrap_or(attitude::STALE_MS))
+            });
+        }
         if self.selected != Instrument::Altimeter {
             return None;
         }
@@ -104,6 +141,32 @@ pub fn presentation_healthy(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn attitude_expires_at_100ms_using_the_older_axis_and_never_uses_demo_for_external() {
+        use instrument_core::Command;
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.apply(Command::Select(Instrument::Attitude)).unwrap();
+        app.tick(0);
+        let mut s = Snapshot::from_app(&app);
+        s.pitch.age_ms = Some(70);
+        s.roll.age_ms = Some(90);
+        assert_eq!(s.numeric_lifetime_ms(), Some(10));
+        assert!(s.aged(9).attitude_model().angles.is_some());
+        let expired = s.aged(10);
+        assert!(expired.attitude_model().angles.is_none());
+        assert_eq!(expired.attitude_model().quality, Quality::Stale);
+        assert_eq!(expired.numeric_lifetime_ms(), None);
+        app.apply(Command::SourceExternal(
+            instrument_core::simulator_link::Provider::Msfs2020,
+            1,
+        ))
+        .unwrap();
+        let external = Snapshot::from_app(&app);
+        assert!(external.attitude_model().angles.is_none());
+        assert_eq!(external.pitch.value, None);
+        assert_eq!(external.roll.value, None);
+    }
     #[test]
     fn external_barometer_expires_even_without_altitude() {
         let mut app = App::new();
@@ -138,6 +201,16 @@ mod tests {
         assert!(!presentation_healthy(100, 90, 90, 100, 90));
         assert!(!presentation_healthy(10, 11, 9, 100, 9));
         let s = Snapshot {
+            pitch: Reading {
+                value: Some(0.),
+                quality: Quality::Valid,
+                age_ms: Some(0),
+            },
+            roll: Reading {
+                value: Some(0.),
+                quality: Quality::Valid,
+                age_ms: Some(0),
+            },
             external: false,
             source_session: 0,
             source_sequence: 0,

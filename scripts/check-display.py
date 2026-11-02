@@ -72,7 +72,7 @@ def main():
             result[stall]={'blank_observed_ms':round(elapsed*1000,1),'before':before,'dark':dark}
             link.command('display recover','OK ')
             wait(link,backlight='true',shown_quality='valid')
-        link.command('instrument attitude','OK ')
+        link.command('instrument airspeed','OK ')
         wait(link,shown_quality='placeholder',shown_alt_ft='None')
         link.command('instrument altimeter','OK ')
         wait(link,shown_quality='valid',shown_alt_ft='Some(4520.0)')

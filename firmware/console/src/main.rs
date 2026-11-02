@@ -174,6 +174,16 @@ fn main() {
                 .unwrap_or_else(|| display.handle(command))
         },
         console_runtime::Options {
+            // std nanosleep adds an extra RTOS tick. Use the platform scheduler
+            // directly, blocking at least one configured 1 ms tick.
+            owner_wait: Some(|remaining| unsafe {
+                let ticks = remaining
+                    .as_micros()
+                    .div_ceil(1000)
+                    .max(1)
+                    .min(u32::MAX as u128) as u32;
+                sys::vTaskDelay(ticks);
+            }),
             display_managed: true,
             echo: true,
         },

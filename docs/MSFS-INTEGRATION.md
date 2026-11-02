@@ -235,7 +235,7 @@ an existing Export.lua or assume all aircraft expose the same controls.
 
 1. **Live-source contract.** Add a distinct external-simulator source and atomic,
    validated sample updates. The current `sim set` path intentionally republishes
-   held values every 20 ms; feeding MSFS into that path would hide a lost link.
+   held values every 10 ms; feeding MSFS into that path would hide a lost link.
    Only newly received source samples refresh live data. Keep telemetry freshness,
    bridge/link liveness and rendering health separate.
 2. **Altimeter semantics.** Use MSFS indicated altitude as authoritative for the

@@ -1,12 +1,15 @@
 #![no_std]
 #![forbid(unsafe_code)]
+pub mod attitude_demo;
 mod baro_control;
 pub mod external;
 pub mod takeoff;
 pub use simulator_link;
 
 /// Bench verification limits, not validated aircraft operating limits.
-pub const SOURCE_PERIOD_MS: u64 = 20;
+// Generate bench-source samples at 100 Hz to budget acquisition age separately
+// from rendering and confirmed LCD transfer. External timestamps are unchanged.
+pub const SOURCE_PERIOD_MS: u64 = 10;
 pub const MAX_UPDATE_GAP_MS: u64 = 100;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -153,6 +156,9 @@ pub enum Command {
     SourceExternal(simulator_link::Provider, u64),
     SourceStatus,
     Telemetry(simulator_link::Frame),
+    AttitudeDemo(u32),
+    AttitudeDemoStop,
+    AttitudeDemoStatus,
     Takeoff(u32),
     TakeoffStop,
     TakeoffStatus,
@@ -209,6 +215,7 @@ pub struct App {
     highest_session: u64,
     control: baro_control::BaroControl,
     takeoff: takeoff::Takeoff,
+    attitude_demo: attitude_demo::Demo,
     selected: Instrument,
     running: bool,
     baro_inhg: f32,
@@ -219,7 +226,7 @@ pub struct App {
     samples: [Option<Sample>; 8],
     faults: [bool; 8],
     last_tick: Option<u64>,
-    last_publish: Option<u64>,
+    publish_phase_ms: Option<u64>,
 }
 
 impl Default for App {
@@ -228,6 +235,9 @@ impl Default for App {
     }
 }
 impl App {
+    pub fn attitude_demo(&self) -> attitude_demo::Demo {
+        self.attitude_demo
+    }
     pub fn external(&self) -> Option<external::External> {
         self.external
     }
@@ -320,6 +330,7 @@ impl App {
                 pending: None,
             },
             takeoff: takeoff::Takeoff::new(),
+            attitude_demo: attitude_demo::Demo::new(),
             selected: Instrument::Altimeter,
             running: true,
             baro_inhg: 29.92,
@@ -330,7 +341,7 @@ impl App {
             samples: [None; 8],
             faults: [false; 8],
             last_tick: None,
-            last_publish: None,
+            publish_phase_ms: None,
         }
     }
     pub fn tick(&mut self, now: u64) {
@@ -350,13 +361,18 @@ impl App {
         self.tick_count = self.tick_count.saturating_add(1);
         if self.timing_fault || !self.running || self.external.is_some() {
             self.takeoff.stop(self.timing_fault);
+            self.attitude_demo.stop(self.timing_fault);
             return;
+        }
+        if let Some([pitch, roll]) = self.attitude_demo.advance(now) {
+            self.held[Field::PitchDeg as usize] = Some(pitch);
+            self.held[Field::RollDeg as usize] = Some(roll);
         }
         if let Some(altitude) = self.takeoff.advance(now) {
             self.held[Field::PressureAltitudeFt as usize] = Some(altitude);
         }
         if self
-            .last_publish
+            .publish_phase_ms
             .is_none_or(|last| now.saturating_sub(last) >= SOURCE_PERIOD_MS)
         {
             for f in Field::ALL {
@@ -365,7 +381,11 @@ impl App {
                     self.samples[i] = self.held[i].map(|value| Sample { value, at_ms: now });
                 }
             }
-            self.last_publish = Some(now);
+            // Preserve cadence across scheduler jitter. Publish only the current
+            // sample, stamped above with actual acquisition time; never replay
+            // missed slots or backdate data to this scheduling phase.
+            let phase = self.publish_phase_ms.unwrap_or(now);
+            self.publish_phase_ms = Some(now - (now - phase) % SOURCE_PERIOD_MS);
         }
     }
     pub fn reading(&self, field: Field, now: u64) -> Reading {
@@ -406,7 +426,9 @@ impl App {
         if self.external.is_some()
             && matches!(
                 command,
-                Command::Takeoff(_)
+                Command::AttitudeDemo(_)
+                    | Command::AttitudeDemoStop
+                    | Command::Takeoff(_)
                     | Command::TakeoffStop
                     | Command::Set(..)
                     | Command::Clear(_)
@@ -424,9 +446,10 @@ impl App {
                 self.control = Default::default();
                 self.samples = [None; 8];
                 self.held = [None; 8];
-                self.last_publish = None;
+                self.publish_phase_ms = None;
                 self.running = true;
                 self.takeoff.stop(false);
+                self.attitude_demo.stop(false);
             }
             Command::SourceExternal(provider, session) => {
                 if self.timing_fault {
@@ -441,6 +464,7 @@ impl App {
                 self.samples = [None; 8];
                 self.held = [None; 8];
                 self.takeoff.stop(false);
+                self.attitude_demo.stop(false);
             }
             Command::Telemetry(frame) => {
                 if self.timing_fault {
@@ -455,6 +479,28 @@ impl App {
                     self.baro_inhg = v;
                 }
             }
+            Command::AttitudeDemo(seconds) => {
+                if !(5..=600).contains(&seconds) {
+                    return Err(ApplyError::OutOfRange);
+                }
+                if self.timing_fault
+                    || self.faults[Field::PitchDeg as usize]
+                    || self.faults[Field::RollDeg as usize]
+                {
+                    return Err(ApplyError::NotReady);
+                }
+                self.takeoff.stop(false);
+                self.attitude_demo.start(self.now_ms(), seconds);
+                self.selected = Instrument::Attitude;
+                self.running = true;
+                for field in [Field::PitchDeg, Field::RollDeg] {
+                    self.held[field as usize] = Some(0.);
+                    self.samples[field as usize] = None;
+                }
+                self.publish_phase_ms = None;
+            }
+            Command::AttitudeDemoStop => self.attitude_demo.stop(false),
+            Command::AttitudeDemoStatus => (),
             Command::Takeoff(seconds) => {
                 if !(5..=600).contains(&seconds) {
                     return Err(ApplyError::OutOfRange);
@@ -462,6 +508,7 @@ impl App {
                 if self.timing_fault || self.faults[Field::PressureAltitudeFt as usize] {
                     return Err(ApplyError::NotReady);
                 }
+                self.attitude_demo.stop(false);
                 self.takeoff.start(self.now_ms(), seconds);
                 self.selected = Instrument::Altimeter;
                 self.baro_inhg = 29.92;
@@ -469,7 +516,7 @@ impl App {
                 self.held[Field::PressureAltitudeFt as usize] = Some(0.);
                 // Never present the previous altitude as the new sweep's zero.
                 self.samples[Field::PressureAltitudeFt as usize] = None;
-                self.last_publish = None;
+                self.publish_phase_ms = None;
             }
             Command::TakeoffStop => self.takeoff.stop(false),
             Command::TakeoffStatus => (),
@@ -484,22 +531,30 @@ impl App {
                 if f == Field::PressureAltitudeFt {
                     self.takeoff.stop(false);
                 }
+                if matches!(f, Field::PitchDeg | Field::RollDeg) {
+                    self.attitude_demo.stop(false);
+                }
                 self.held[f as usize] = Some(v);
             }
             Command::Clear(f) => {
                 if f == Field::PressureAltitudeFt {
                     self.takeoff.stop(false);
                 }
+                if matches!(f, Field::PitchDeg | Field::RollDeg) {
+                    self.attitude_demo.stop(false);
+                }
                 self.held[f as usize] = None;
                 self.samples[f as usize] = None;
             }
             Command::Pause => {
                 self.takeoff.stop(false);
+                self.attitude_demo.stop(false);
                 self.running = false;
             }
             Command::Resume => self.running = true,
             Command::LevelPreset => {
                 self.takeoff.stop(false);
+                self.attitude_demo.stop(false);
                 self.held = [
                     Some(4520.0),
                     Some(0.0),
@@ -519,6 +574,9 @@ impl App {
                 }
                 if f == Field::PressureAltitudeFt && active {
                     self.takeoff.stop(true);
+                }
+                if matches!(f, Field::PitchDeg | Field::RollDeg) && active {
+                    self.attitude_demo.stop(true);
                 }
                 self.faults[f as usize] = active;
                 self.samples[f as usize] = None;
@@ -544,6 +602,83 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn source_jitter_preserves_cadence_and_actual_acquisition_age() {
+        let mut app = App::new();
+        app.apply(Command::Set(Field::PitchDeg, 0.)).unwrap();
+        app.tick(0);
+        app.apply(Command::Set(Field::PitchDeg, 9.)).unwrap();
+        app.tick(9);
+        assert_eq!(app.reading(Field::PitchDeg, 9).value, Some(0.));
+        for now in [19, 29, 39, 59, 69] {
+            app.apply(Command::Set(Field::PitchDeg, now as f32))
+                .unwrap();
+            app.tick(now);
+            let reading = app.reading(Field::PitchDeg, now + 1);
+            assert_eq!(reading.value, Some(now as f32));
+            assert_eq!(reading.age_ms, Some(1));
+        }
+        app.apply(Command::Pause).unwrap();
+        app.tick(79);
+        assert_eq!(app.reading(Field::PitchDeg, 79).age_ms, Some(10));
+        app.tick(89);
+        assert_eq!(app.reading(Field::PitchDeg, 89).age_ms, Some(20));
+        app.apply(Command::Resume).unwrap();
+        app.tick(99);
+        assert_eq!(app.reading(Field::PitchDeg, 99).age_ms, Some(0));
+    }
+    #[test]
+    fn attitude_demo_is_bounded_and_manual_pause_fault_and_source_changes_stop_it() {
+        let mut a = App::new();
+        a.tick(0);
+        for seconds in [0, 4, 601, u32::MAX] {
+            assert_eq!(
+                a.apply(Command::AttitudeDemo(seconds)),
+                Err(ApplyError::OutOfRange)
+            );
+        }
+        a.apply(Command::AttitudeDemo(5)).unwrap();
+        for now in (20..=5000).step_by(20) {
+            a.tick(now);
+            let pitch = a.reading(Field::PitchDeg, now).value.unwrap();
+            let roll = a.reading(Field::RollDeg, now).value.unwrap();
+            assert!((-6.001..=8.001).contains(&pitch) && (-30.001..=30.001).contains(&roll));
+        }
+        assert_eq!(a.attitude_demo().state, takeoff::State::Complete);
+        assert_eq!(a.reading(Field::PitchDeg, 5000).value, Some(0.));
+        assert_eq!(a.reading(Field::RollDeg, 5000).value, Some(0.));
+        for command in [
+            Command::Set(Field::PitchDeg, 5.),
+            Command::Clear(Field::RollDeg),
+            Command::Pause,
+            Command::LevelPreset,
+        ] {
+            a.apply(Command::AttitudeDemo(5)).unwrap();
+            a.apply(command).unwrap();
+            assert!(!a.attitude_demo().running());
+        }
+        a.apply(Command::AttitudeDemo(5)).unwrap();
+        a.apply(Command::Set(Field::RollDeg, f32::NAN)).unwrap_err();
+        assert!(a.attitude_demo().running());
+        a.apply(Command::Fault(Field::RollDeg, true)).unwrap();
+        assert_eq!(a.attitude_demo().state, takeoff::State::Faulted);
+        assert_eq!(a.apply(Command::AttitudeDemo(5)), Err(ApplyError::NotReady));
+        a.apply(Command::Fault(Field::RollDeg, false)).unwrap();
+        a.apply(Command::AttitudeDemo(5)).unwrap();
+        a.apply(Command::SourceExternal(simulator_link::Provider::Replay, 1))
+            .unwrap();
+        assert!(!a.attitude_demo().running());
+        assert_eq!(
+            a.apply(Command::AttitudeDemo(5)),
+            Err(ApplyError::Unsupported)
+        );
+        assert!(a.reading(Field::PitchDeg, 5000).value.is_none());
+        let mut a = App::new();
+        a.tick(0);
+        a.apply(Command::AttitudeDemo(5)).unwrap();
+        a.tick(101);
+        assert_eq!(a.attitude_demo().state, takeoff::State::Faulted);
+    }
     #[test]
     fn takeoff_has_ground_hold_monotonic_climb_and_exact_endpoint() {
         let mut a = App::new();

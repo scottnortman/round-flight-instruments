@@ -27,6 +27,9 @@ enum Input {
 pub struct Options {
     pub display_managed: bool,
     pub echo: bool,
+    /// Platform scheduler adapter. Must block for at least one scheduler tick;
+    /// immediate yields cannot provide the idle watchdog a scheduling window.
+    pub owner_wait: Option<fn(Duration)>,
 }
 
 #[derive(Default)]
@@ -292,8 +295,15 @@ where
                 }
             }
         }
-        if let Some(rest) = Duration::from_millis(SOURCE_PERIOD_MS).checked_sub(started.elapsed()) {
-            thread::sleep(rest);
+        // Sub-tick platform sleeps can become a non-blocking yield and starve
+        // idle tasks. The platform adapter guarantees at least one actual tick,
+        // even when work consumes the entire source period.
+        // Tick lateness remains measured by App; this never fabricates samples.
+        let rest = Duration::from_millis(SOURCE_PERIOD_MS).saturating_sub(started.elapsed());
+        if let Some(wait) = options.owner_wait {
+            wait(rest);
+        } else {
+            thread::sleep(rest.max(Duration::from_millis(10)));
         }
     }
 }
@@ -423,6 +433,7 @@ mod tests {
                 |_| unreachable!(),
                 |_| unreachable!(),
                 Options {
+                    owner_wait: None,
                     display_managed: false,
                     echo: true,
                 },
@@ -473,6 +484,7 @@ mod tests {
                 |_| unreachable!(),
                 |_| unreachable!(),
                 Options {
+                    owner_wait: None,
                     display_managed: false,
                     echo: true,
                 },

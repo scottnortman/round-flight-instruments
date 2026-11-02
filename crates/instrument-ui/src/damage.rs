@@ -1,5 +1,5 @@
 //! Caller-owned damage history for ONE framebuffer. Any overlay write marks a
-//! 16x16 tile, including clears, text alpha, faults and needle pixels. The next
+//! 16x8 tile, including clears, text alpha, faults and needle pixels. The next
 //! draw restores every marked tile from the static backdrop before drawing.
 use crate::raster::{Framebuffer, Target};
 use instrument_core::Instrument;
@@ -7,8 +7,9 @@ use instrument_core::Instrument;
 pub(crate) type Key = (u32, u32, Instrument, bool);
 pub struct FrameHistory {
     pub(crate) key: Option<Key>,
-    // One u64 per tile row supports the framebuffer's maximum 1024x1024 size.
-    rows: [u64; 64],
+    // One u64 per 8-pixel row supports the maximum 1024x1024 framebuffer.
+    rows: [u64; 128],
+    pub(crate) attitude: Option<crate::attitude::Angles>,
 }
 impl Default for FrameHistory {
     fn default() -> Self {
@@ -19,11 +20,16 @@ impl FrameHistory {
     pub const fn new() -> Self {
         Self {
             key: None,
-            rows: [0; 64],
+            rows: [0; 128],
+            attitude: None,
         }
+    }
+    pub(crate) fn dirty_row(&self, y: i32) -> u64 {
+        self.rows[y as usize / 8]
     }
     pub(crate) fn clear(&mut self) {
         self.rows.fill(0);
+        self.attitude = None;
     }
     pub(crate) fn restore(
         &mut self,
@@ -32,14 +38,14 @@ impl FrameHistory {
         width: usize,
         height: usize,
     ) {
-        for ty in 0..height.div_ceil(16) {
+        for ty in 0..height.div_ceil(8) {
             let mut tiles = self.rows[ty];
             while tiles != 0 {
                 let tx = tiles.trailing_zeros() as usize;
                 tiles &= tiles - 1;
                 let x0 = tx * 16;
                 let x1 = (x0 + 16).min(width);
-                for y in ty * 16..((ty + 1) * 16).min(height) {
+                for y in ty * 8..((ty + 1) * 8).min(height) {
                     let range = y * width + x0..y * width + x1;
                     pixels[range.clone()].copy_from_slice(&background[range]);
                 }
@@ -52,13 +58,37 @@ impl FrameHistory {
 pub(crate) struct Tracked<'a, 'b> {
     pub target: Framebuffer<'a>,
     pub history: &'b mut FrameHistory,
+    pub last_pixel_tile: u16,
 }
 impl Target for Tracked<'_, '_> {
     fn size(&self) -> (u32, u32) {
         self.target.size()
     }
     fn pixel(&mut self, x: i32, y: i32, color: u16) {
-        self.span(y, x, x.saturating_add(1), color);
+        let (w, h) = self.size();
+        if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 {
+            return;
+        }
+        let tile = ((y as u16 / 8) * 64) + (x as u16 / 16);
+        if self.last_pixel_tile != tile {
+            self.history.rows[y as usize / 8] |= 1u64 << (x as usize / 16);
+            self.last_pixel_tile = tile;
+        }
+        self.target.pixel(x, y, color);
+    }
+    fn pixels(&mut self, y: i32, start: i32, colors: &[Option<u16>]) {
+        let (w, h) = self.size();
+        let lo = start.max(0).min(w as i32);
+        let hi = (start.saturating_add(colors.len().min(i32::MAX as usize) as i32))
+            .max(0)
+            .min(w as i32);
+        if y < 0 || y >= h as i32 || lo >= hi {
+            return;
+        }
+        let first = lo as u32 / 16;
+        let last = (hi as u32 - 1) / 16;
+        self.history.rows[y as usize / 8] |= (u64::MAX << first) & (u64::MAX >> (63 - last));
+        self.target.pixels(y, start, colors);
     }
     fn span(&mut self, y: i32, start: i32, end: i32, color: u16) {
         let (w, h) = self.size();
@@ -69,7 +99,7 @@ impl Target for Tracked<'_, '_> {
         }
         let first = start as u32 / 16;
         let last = (end as u32 - 1) / 16;
-        self.history.rows[y as usize / 16] |= (u64::MAX << first) & (u64::MAX >> (63 - last));
+        self.history.rows[y as usize / 8] |= (u64::MAX << first) & (u64::MAX >> (63 - last));
         self.target.span(y, start, end, color);
     }
 }
@@ -86,6 +116,7 @@ mod tests {
             let mut history = FrameHistory::new();
             {
                 let mut target = Tracked {
+                    last_pixel_tile: u16::MAX,
                     target: Framebuffer::new(&mut pixels, w as u32, h as u32).unwrap(),
                     history: &mut history,
                 };

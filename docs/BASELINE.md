@@ -49,7 +49,7 @@ before settling the eventual execution model.
    valid staged inputs. Rejected text never partially applies a command.
 2. Each quantity has its own acquisition timestamp and quality. Reading status
    cannot refresh it. Failed/stale/timing-fault readings contain no usable value.
-3. The owner aims for 20 ms updates. A gap over 100 ms or a clock regression
+3. The owner aims for 10 ms updates. A gap over 100 ms or a clock regression
    latches a timing fault. Resume cannot clear it; restart creates a new session.
 4. Blocking RX/TX and output backpressure do not block the owner. Bounded channel
    allocations occur at startup; this does not prove all platform library calls

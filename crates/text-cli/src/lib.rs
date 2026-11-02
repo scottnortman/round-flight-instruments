@@ -111,6 +111,16 @@ pub fn parse(line: &str) -> Result<Command, Error> {
             }
             Ok(Command::Display(DisplayCommand::TouchHold(ms)))
         }
+        ["sim", "attitude"] => Ok(Command::AttitudeDemo(60)),
+        ["sim", "attitude", "stop"] => Ok(Command::AttitudeDemoStop),
+        ["sim", "attitude", "status"] => Ok(Command::AttitudeDemoStatus),
+        ["sim", "attitude", seconds] => {
+            let seconds = seconds.parse::<u32>().map_err(|_| Error::Number)?;
+            if !(5..=600).contains(&seconds) {
+                return Err(Error::Range);
+            }
+            Ok(Command::AttitudeDemo(seconds))
+        }
         ["display", "stats"] => Ok(Command::Display(DisplayCommand::Stats)),
         ["display", "stats", "reset"] => Ok(Command::Display(DisplayCommand::StatsReset)),
         ["display", "stats", "stop"] => Ok(Command::Display(DisplayCommand::StatsStop)),
@@ -348,8 +358,12 @@ pub fn execute_with_display(
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
         Command::Echo(_) | Command::Imu(_) | Command::Display(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: source sim|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch sound on|off|status; status; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
-        Command::Instruments => writeln!(r, "OK instruments altimeter attitude airspeed heading turn vsi renderers=altimeter"),
+        Command::Help => writeln!(r, "OK help commands: source sim|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch sound on|off|status; status; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::AttitudeDemo(_) | Command::AttitudeDemoStop | Command::AttitudeDemoStatus => {
+            let d=app.attitude_demo();
+            writeln!(r,"OK attitude_demo state={} elapsed_ms={} duration_ms={} source=sim",d.state.name(),d.elapsed_ms,d.duration_ms)
+        }
+        Command::Instruments => writeln!(r, "OK instruments altimeter attitude airspeed heading turn vsi renderers=altimeter,attitude"),
         Command::Status => status(&mut r, app, now,display),
         Command::Set(f, _) => writeln!(r, "OK sim field={} applies=next_sample", f.name()),
         Command::Clear(f) => writeln!(r, "OK sim field={} cleared=true", f.name()),
@@ -390,6 +404,33 @@ fn status(r: &mut Response, app: &App, now: u64, display: &str) -> fmt::Result {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn attitude_demo_cli_is_strict_and_reports_bounded_state() {
+        assert_eq!(parse("sim attitude"), Ok(Command::AttitudeDemo(60)));
+        assert_eq!(parse("sim attitude 5"), Ok(Command::AttitudeDemo(5)));
+        assert_eq!(parse("sim attitude 600"), Ok(Command::AttitudeDemo(600)));
+        assert_eq!(parse("sim attitude stop"), Ok(Command::AttitudeDemoStop));
+        assert_eq!(
+            parse("sim attitude status"),
+            Ok(Command::AttitudeDemoStatus)
+        );
+        for input in [
+            "sim attitude 4",
+            "sim attitude 601",
+            "sim attitude -1",
+            "sim attitude NaN",
+            "sim attitude 1.5",
+            "sim attitude 5 extra",
+        ] {
+            assert!(parse(input).is_err());
+        }
+        let mut app = App::new();
+        app.tick(0);
+        let result = execute_with_display(&mut app, parse("sim attitude 5"), 0, "off");
+        assert!(result
+            .as_str()
+            .contains("state=running elapsed_ms=0 duration_ms=5000 source=sim"));
+    }
     #[test]
     fn touch_controls_are_bounded_and_desktop_cannot_fabricate_touch() {
         assert_eq!(

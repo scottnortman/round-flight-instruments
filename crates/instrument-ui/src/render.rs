@@ -19,7 +19,12 @@ pub struct CachedRenderer<'a> {
     background: &'a mut [u16],
     width: u32,
     height: u32,
-    key: Option<(Instrument, bool)>,
+    key: Option<(Instrument, bool, &'static str)>,
+    foreground_runs: Option<&'a mut [crate::attitude::CopyRun]>,
+    foreground_count: Option<usize>,
+    foreground_pixels: Option<&'a mut [u16]>,
+    compact_foreground: bool,
+    digit_offset: Option<usize>,
 }
 impl<'a> CachedRenderer<'a> {
     pub fn new(background: &'a mut [u16], width: u32, height: u32) -> Option<Self> {
@@ -29,10 +34,31 @@ impl<'a> CachedRenderer<'a> {
             width,
             height,
             key: None,
+            foreground_runs: None,
+            foreground_count: None,
+            foreground_pixels: None,
+            compact_foreground: false,
+            digit_offset: None,
         })
     }
+    pub fn with_foreground_cache(
+        background: &'a mut [u16],
+        width: u32,
+        height: u32,
+        runs: &'a mut [crate::attitude::CopyRun],
+    ) -> Option<Self> {
+        let mut renderer = Self::new(background, width, height)?;
+        renderer.foreground_runs = Some(runs);
+        Some(renderer)
+    }
+    /// Optional fast-memory storage for only the opaque foreground pixels.
+    /// Insufficient capacity falls back to the full backdrop without data loss.
+    pub fn with_foreground_pixels(mut self, pixels: &'a mut [u16]) -> Self {
+        self.foreground_pixels = Some(pixels);
+        self
+    }
     pub fn draw(&mut self, pixels: &mut [u16], snapshot: Snapshot, pattern: bool) -> bool {
-        self.draw_inner(pixels, None, snapshot, pattern)
+        self.draw_inner(pixels, None, snapshot, pattern, &mut || {})
     }
     /// History belongs exclusively to this pixel buffer. A new history forces
     /// complete initialization; layout/view changes force full restore.
@@ -43,19 +69,31 @@ impl<'a> CachedRenderer<'a> {
         snapshot: Snapshot,
         pattern: bool,
     ) -> bool {
-        self.draw_inner(pixels, Some(history), snapshot, pattern)
+        self.draw_inner(pixels, Some(history), snapshot, pattern, &mut || {})
     }
-    fn draw_inner(
+    /// Bounded progress notifications let a backend retire earlier transfers
+    /// while drawing into independent storage. The callback receives no pixels
+    /// or mutable gauge state, and must not block.
+    pub fn draw_incremental_with_progress(
         &mut self,
         pixels: &mut [u16],
-        history: Option<&mut crate::damage::FrameHistory>,
+        history: &mut crate::damage::FrameHistory,
         snapshot: Snapshot,
         pattern: bool,
+        progress: &mut dyn FnMut(),
     ) -> bool {
-        if pixels.len() != self.background.len() {
-            return false;
-        }
-        let key = (snapshot.selected, pattern);
+        self.draw_inner(pixels, Some(history), snapshot, pattern, progress)
+    }
+    fn prepare(&mut self, snapshot: Snapshot, pattern: bool) -> bool {
+        let key = (
+            snapshot.selected,
+            pattern,
+            if snapshot.selected == Instrument::Attitude {
+                snapshot.source_label
+            } else {
+                ""
+            },
+        );
         if self.key != Some(key) {
             let Some(mut fb) =
                 crate::raster::Framebuffer::new(self.background, self.width, self.height)
@@ -68,10 +106,71 @@ impl<'a> CachedRenderer<'a> {
                 draw_background(&mut fb, snapshot);
             }
             self.key = Some(key);
+            self.foreground_count = None;
+            self.compact_foreground = false;
+            self.digit_offset = None;
+            if snapshot.selected == Instrument::Attitude && !pattern {
+                if let Some(runs) = self.foreground_runs.as_deref_mut() {
+                    self.foreground_count = crate::attitude::cache_foreground(
+                        self.background,
+                        self.width,
+                        self.height,
+                        snapshot.source_label,
+                        runs,
+                    );
+                }
+                if let (Some(runs), Some(count), Some(pixels)) = (
+                    self.foreground_runs.as_deref(),
+                    self.foreground_count,
+                    self.foreground_pixels.as_deref_mut(),
+                ) {
+                    let needed: usize = runs[..count].iter().map(|r| r.len as usize).sum();
+                    if needed <= pixels.len() {
+                        let mut offset = 0;
+                        for run in &runs[..count] {
+                            let len = run.len as usize;
+                            let start = run.start as usize;
+                            pixels[offset..offset + len]
+                                .copy_from_slice(&self.background[start..start + len]);
+                            offset += len;
+                        }
+                        self.compact_foreground = true;
+                        if pixels.len() - offset >= crate::raster::DIGIT_CACHE_LEN {
+                            crate::raster::cache_ladder_digits(
+                                &mut pixels[offset..],
+                                crate::attitude::MARK,
+                            );
+                            self.digit_offset = Some(offset);
+                        }
+                    }
+                }
+            }
+        }
+        true
+    }
+    fn draw_inner(
+        &mut self,
+        pixels: &mut [u16],
+        history: Option<&mut crate::damage::FrameHistory>,
+        snapshot: Snapshot,
+        pattern: bool,
+        progress: &mut dyn FnMut(),
+    ) -> bool {
+        if pixels.len() != self.background.len() {
+            return false;
+        }
+        if !self.prepare(snapshot, pattern) {
+            return false;
         }
         if let Some(history) = history {
             let frame_key = (self.width, self.height, snapshot.selected, pattern);
-            if history.key == Some(frame_key) {
+            if history.key == Some(frame_key)
+                && snapshot.selected == Instrument::Attitude
+                && !pattern
+            {
+                // Attitude restores prior markings from its moving horizon, not
+                // the static backdrop. Its history belongs to this buffer.
+            } else if history.key == Some(frame_key) {
                 history.restore(
                     pixels,
                     self.background,
@@ -88,13 +187,45 @@ impl<'a> CachedRenderer<'a> {
                 else {
                     return false;
                 };
-                draw_overlay(
-                    &mut crate::damage::Tracked {
-                        target: fb,
+                if snapshot.selected == Instrument::Attitude {
+                    let _ = fb;
+                    crate::attitude::incremental(
+                        pixels,
+                        (self.width, self.height),
                         history,
-                    },
-                    snapshot,
-                );
+                        snapshot,
+                        self.foreground_runs
+                            .as_deref()
+                            .zip(self.foreground_count)
+                            .map(|(runs, count)| {
+                                (
+                                    if self.compact_foreground {
+                                        self.foreground_pixels.as_deref().unwrap()
+                                    } else {
+                                        &*self.background
+                                    },
+                                    &runs[..count],
+                                    self.compact_foreground,
+                                )
+                            }),
+                        self.foreground_pixels
+                            .as_deref()
+                            .zip(self.digit_offset)
+                            .map(|(pixels, offset)| {
+                                &pixels[offset..offset + crate::raster::DIGIT_CACHE_LEN]
+                            }),
+                        progress,
+                    );
+                } else {
+                    draw_overlay(
+                        &mut crate::damage::Tracked {
+                            last_pixel_tile: u16::MAX,
+                            target: fb,
+                            history,
+                        },
+                        snapshot,
+                    );
+                }
             }
             return true;
         }
@@ -192,6 +323,9 @@ fn draw_background<T: Target>(target: &mut T, s: Snapshot) {
     let mut c = Canvas::new(target);
     c.circle(240., 240., 238., rgb(70, 82, 93));
     c.circle(240., 240., 229., rgb(9, 14, 19));
+    if s.selected == Instrument::Attitude {
+        return;
+    }
     if s.selected != Instrument::Altimeter {
         c.text(240., 180., 25., "SIMULATION", WARN);
         let mut name = Text::new();
@@ -241,6 +375,10 @@ fn draw_kollsman_value<T: Target>(c: &mut Canvas<T>, baro: f32, background: u16)
     c.text_on(338., KOLLSMAN_TOP + 24., 32., b.str(), (WHITE, background));
 }
 fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
+    if s.selected == Instrument::Attitude {
+        crate::attitude::draw(target, s.attitude_model(), s.source_label);
+        return;
+    }
     if s.selected != Instrument::Altimeter {
         return;
     }
@@ -435,6 +573,16 @@ mod tests {
             let mut output = std::vec![0xffff; size * size];
             let mut reference = output.clone();
             let mut snapshot = Snapshot {
+                pitch: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
+                roll: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
                 external: false,
                 source_session: 0,
                 source_sequence: 0,
@@ -510,6 +658,16 @@ mod tests {
             let mut reference = std::vec![0; len];
             for n in 0..60 {
                 let snapshot = Snapshot {
+                    pitch: Reading {
+                        value: Some(0.),
+                        quality: Quality::Valid,
+                        age_ms: Some(0),
+                    },
+                    roll: Reading {
+                        value: Some(0.),
+                        quality: Quality::Valid,
+                        age_ms: Some(0),
+                    },
                     external: false,
                     source_session: 0,
                     source_sequence: 0,
@@ -754,6 +912,16 @@ mod tests {
         for size in [240, 480, 720] {
             let mut pixels = std::vec![0u16;size*size];
             let valid = Snapshot {
+                pitch: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
+                roll: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
                 external: false,
                 source_session: 0,
                 source_sequence: 0,

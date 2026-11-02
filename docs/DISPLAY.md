@@ -4,9 +4,10 @@ The first rendered gauge is a three-pointer altimeter. It retains the handoff's
 480-unit face geometry, original MS33558C font, numeral-one substitution,
 pointer periods, barometer window and SIM INPUT marking. It adds an on-face
 numeric bench reference and explicit missing/stale/failed/timing-fault states.
-Other selected instruments show NOT IMPLEMENTED and cannot leave the previous
+The development branch also implements [standalone attitude](ATTITUDE.md).
+Remaining instruments show NOT IMPLEMENTED and cannot leave the previous
 altimeter visible. [Touch barometer editing](TOUCH.md) is implemented; instrument
-selection by touch and the second gauge are subsequent stages.
+selection by touch is a subsequent stage.
 
 The Rust face's graphics cleanup moves the numeral centers inward from radius
 179 to 169 in the logical 480-unit viewport, adding tick clearance especially
@@ -53,12 +54,17 @@ individual pixels and batched horizontal spans. Framebuffer spans clip once and
 fill contiguous storage. The board uses three 480x480 RGB565 framebuffers in
 PSRAM (1,382,400 bytes), two internal 10-line bounce buffers (19,200 bytes), and
 a separate 460800-byte CPU-only backdrop: 1,843,200 bytes of image PSRAM in total.
+The attitude foreground adds 96 KiB of internal pixel storage plus bounded
+run descriptors. The instruction cache is 32 KiB and the RTOS tick is 1 ms.
+The source period remains 10 ms; shorter scheduler ticks permit brief blocking
+idle opportunities without spending 10 ms of the attitude freshness budget.
 No per-frame application allocation occurs. Platform initialization and console
 formatting have separate allocation behavior.
 
-The static backdrop key includes view, barometer bits and test-pattern mode.
+The static backdrop key includes view and test-pattern mode; attitude also
+includes its source label. The barometer is a dynamic overlay.
 `FrameHistory` belongs to exactly one framebuffer and records every dynamic write
-in a fixed 16x16 tile map. On reuse, all previously written tiles are restored
+in a fixed 16x8 tile map. On reuse, all previously written tiles are restored
 before the new overlay is drawn. First use or a background-key change restores
 the entire backdrop. History must be reset if a caller changes pixels outside
 this renderer. Missing/stale/fault overlays use the same tracking, so invalid
@@ -71,9 +77,15 @@ The gauge-independent `FramePipeline` keeps a front buffer, at most one pending
 submission and one CPU drawing buffer. Drawing the next frame overlaps the
 previous frame's completion wait. One bounded ISR-safe wake queue replaces
 10 ms completion polling; the atomic completion counter remains authoritative.
-Wake tokens may coalesce. The worker also yields for one 10 ms RTOS tick after
-at least 100 ms between explicit yields, checked between renders, so continuous
-CPU work cannot indefinitely starve idle tasks. Both idle-task watchdog checks
+An atomic presentation fence publishes health from the second completion ISR,
+using the original deadline. The ISR publishes its completion counter afterward;
+buffer retirement additionally requires the fence to be consumed. The fence is
+bounded, nonblocking and single-producer/single-consumer. Wake tokens may coalesce. Bounded progress callbacks retire completed transfers
+during attitude drawing. The worker keeps an idle-time budget: measured blocking
+waits count; after 100 ms without one it performs a blocking sleep. Continuous
+CPU work therefore cannot indefinitely starve idle tasks. RGB interrupts run on
+core 0 and rasterization on core 1, with a bounded 20 KiB renderer stack.
+Both idle-task watchdog checks
 remain enabled. A first candidate without this yield failed its idle watchdog
 and was rejected. Owner/guard/IMU priorities and safety deadlines are unchanged.
 
@@ -231,7 +243,7 @@ The panel command link uses GPIO1/2 and nine-bit words. TCA9554 at 0x20 supplies
 LCD reset on bit 0 and command CS on bit 2. The buzzer bit 7 starts low; the shared bus worker later drives bounded touch chirps (see TOUCH.md). Other
 expander bits are preserved. This initialization borrows I2C before handing that
 same driver to the IMU worker, so it does not create a competing I2C controller.
-Future touch support still needs coordinated ownership of that bus.
+Touch, IMU and buzzer access share that coordinated bus owner.
 
 RGB pins: HSYNC38, VSYNC39, DE40, PCLK41, data low-to-high
 [5,45,48,47,21,14,13,12,11,10,9,46,3,8,18,17]. PSRAM uses octal mode/80 MHz,

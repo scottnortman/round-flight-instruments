@@ -15,6 +15,10 @@ They are recognized but unsupported on the desktop console. The shared raster
 example provides desktop render verification. Board status/selection ACKs now
 say `display=managed`; this does not claim physical presentation completion.
 
+The development attitude face uses `instrument attitude`, `sim set pitch_deg VALUE`,
+`sim set roll_deg VALUE`, and `sim attitude [SECONDS|stop|status]`. The exercise
+defaults to 60 seconds and accepts 5 through 600. See [attitude](ATTITUDE.md).
+
 The board also implements [optional IMU diagnostics](IMU.md):
 `imu on`, `imu off`, `imu status`, `imu read`, `imu selftest`, `imu audit`, and
 `imu estimator`. See the [estimator extension contract](ATTITUDE-ESTIMATOR.md)
@@ -156,9 +160,9 @@ Physical IMU diagnostics are exposed separately as documented above.
 
 These ranges and freshness limits are initial verification parameters, not
 validated aircraft limits. Simulation is piecewise constant, with a nominal
-20 ms sampling interval while running. Actual cadence depends on scheduling;
-the final board checks observed owner gaps up to 31 ms. There is no motion
-model or air-data computation yet.
+10 ms sampling interval while running. Actual cadence depends on scheduling;
+older releases used a 20 ms target. The `sim takeoff` and `sim attitude` exercises
+are bounded bench animations, not flight-dynamics or sensor models.
 
 Status quantity format is `field=value:quality:age`, for example
 `ias_kt=0.000:valid:20ms` or `pitch_deg=-:stale:120ms`. Quality is `missing`,
