@@ -57,12 +57,22 @@ pub enum ControlError {
     Unsupported,
     Invalid,
 }
+/// A provider has ended its old session and permits a completely new read-only
+/// connection. Protocol/schema/value errors deliberately do not grant this hint.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RecoveryReason {
+    SessionChanged,
+    ConnectionLost,
+}
 /// Polling must return only a newly acquired observation. None never refreshes
 /// a previous sample. Aircraft changes require a new bridge/board session.
 pub trait SimulatorProvider {
     fn kind(&self) -> Provider;
     fn capabilities(&self) -> Capabilities<'_>;
     fn poll(&mut self, now_ms: u64) -> Option<Observation>;
+    fn recovery_reason(&self) -> Option<RecoveryReason> {
+        None
+    }
     fn enable_controls(&mut self, _session: u64) -> Result<(), ControlError> {
         Err(ControlError::Unsupported)
     }

@@ -121,8 +121,17 @@ new flight, unpause, then restart:
 python scripts/start_msfs.py --port COM5 --writeback --frame-timing
 ```
 
-Run this from the package folder. Automatic recovery and a Windows application
-without a manually launched Python script are next work.
+Run this from the Python bridge package folder. For automatic aircraft-change
+recovery and operation without Python, use the native connector below.
+
+On `feature/msfs-driver`, the [native connector test build](docs/NATIVE-CONNECTOR.md)
+replaces Python with a Rust executable and USB-identity enrollment. Desktop tests
+and the native UART climb pass. Aircraft switches now recover automatically into
+a fresh session: the new aircraft's altitude and QNH automatically replace the
+gauge values, with no restart or `--writeback` flag required. Optional two-way mode
+persists across switches. Live MSFS recovery acceptance and tray UI remain pending.
+Leave optional diagnostic queries
+off for normal use to avoid their visible timing impact.
 [Two-way setup and test guide](docs/MSFS-TWO-WAY-TEST.md) ·
 [First MSFS test: which PC does what](docs/MSFS-FIRST-TEST.md) ·
 [Run the bridge](docs/TELEMETRY.md) ·

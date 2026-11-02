@@ -11,6 +11,8 @@
 
 # Reproducible output and local environments.
 /output/
+/logs/
+/device.json
 **/__pycache__/
 *.py[cod]
 .venv/

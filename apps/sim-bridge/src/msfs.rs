@@ -1,6 +1,6 @@
 //! Primary MSFS 2020 altimeter profile. SDK dependencies stay behind Api.
 use crate::{Capabilities, Observation, SimulatorProvider, READ_ONLY};
-use crate::{Control, ControlError};
+use crate::{Control, ControlError, RecoveryReason};
 use simulator_link::control::{Reply, Request, Status, CONFIRM_MS, READBACK_TOLERANCE};
 use simulator_link::{
     measurements::{Key, Measurement, Measurements, Quantity, Value},
@@ -50,6 +50,7 @@ pub struct Msfs<A> {
     pause: Option<bool>,
     opened: bool,
     terminal: bool,
+    recovery: Option<RecoveryReason>,
     published: bool,
     object: Option<u32>,
     next_id: u32,
@@ -74,6 +75,7 @@ impl<A: Api> Msfs<A> {
             pause: None,
             opened: false,
             terminal: false,
+            recovery: None,
             published: false,
             object: None,
             next_id: 1,
@@ -102,9 +104,15 @@ impl<A: Api> Msfs<A> {
     }
     fn end(&mut self, now: u64, reason: impl std::fmt::Display) {
         if !self.terminal {
-            eprintln!("MSFS session ended: {reason}. Restart the bridge after loading the intended flight.");
+            eprintln!("MSFS session ended: {reason}. A fresh session is required.");
             self.terminal = true;
             self.empty(now, Lifecycle::Disconnected);
+        }
+    }
+    fn recoverable_end(&mut self, now: u64, recovery: RecoveryReason, reason: &str) {
+        if !self.terminal {
+            self.recovery = Some(recovery);
+            self.end(now, reason);
         }
     }
     fn lifecycle(&mut self, now: u64) {
@@ -141,7 +149,9 @@ impl<A: Api> Msfs<A> {
                 self.opened = true;
                 self.lifecycle(now);
             }
-            Notice::Quit => self.end(now, "simulator quit"),
+            Notice::Quit => {
+                self.recoverable_end(now, RecoveryReason::ConnectionLost, "simulator quit")
+            }
             Notice::Exception { code, send, index } => self.end(
                 now,
                 format_args!("SDK exception {code}, packet {send}, parameter {index}"),
@@ -159,7 +169,11 @@ impl<A: Api> Msfs<A> {
                 event: 3 | 4 | 6, ..
             } => {
                 if self.published {
-                    self.end(now, "aircraft/flight/position changed");
+                    self.recoverable_end(
+                        now,
+                        RecoveryReason::SessionChanged,
+                        "aircraft/flight/position changed",
+                    );
                 } else {
                     self.pending = None;
                     self.latest = None;
@@ -173,7 +187,11 @@ impl<A: Api> Msfs<A> {
                         .heartbeat
                         .is_some_and(|(_, at)| now.saturating_sub(at) >= 2000)
                     {
-                        self.end(now, "expired heartbeat response");
+                        self.recoverable_end(
+                            now,
+                            RecoveryReason::ConnectionLost,
+                            "expired heartbeat response",
+                        );
                         return;
                     }
                     self.heartbeat = None;
@@ -197,11 +215,19 @@ impl<A: Api> Msfs<A> {
                     return;
                 }
                 if now.checked_sub(at).is_none_or(|age| age >= 1000) {
-                    self.end(now, "expired data response");
+                    self.recoverable_end(
+                        now,
+                        RecoveryReason::ConnectionLost,
+                        "expired data response",
+                    );
                     return;
                 }
                 if self.object.is_some_and(|bound| bound != object) {
-                    self.end(now, "resolved user-aircraft object changed");
+                    self.recoverable_end(
+                        now,
+                        RecoveryReason::SessionChanged,
+                        "resolved user-aircraft object changed",
+                    );
                     return;
                 }
                 match normalize(at, values) {
@@ -247,6 +273,13 @@ impl<A: Api> Msfs<A> {
     }
 }
 impl<A: Api> SimulatorProvider for Msfs<A> {
+    fn recovery_reason(&self) -> Option<RecoveryReason> {
+        if self.terminal {
+            self.recovery
+        } else {
+            None
+        }
+    }
     fn kind(&self) -> Provider {
         Provider::Msfs2020
     }
@@ -365,18 +398,30 @@ impl<A: Api> SimulatorProvider for Msfs<A> {
             .heartbeat
             .is_some_and(|(_, at)| now.saturating_sub(at) >= 2000)
         {
-            self.end(now, "connection heartbeat timed out");
+            self.recoverable_end(
+                now,
+                RecoveryReason::ConnectionLost,
+                "connection heartbeat timed out",
+            );
         }
         if self
             .pending
             .is_some_and(|(_, at)| now.saturating_sub(at) >= 1000)
         {
-            self.end(now, "data response timed out");
+            self.recoverable_end(
+                now,
+                RecoveryReason::ConnectionLost,
+                "data response timed out",
+            );
         }
         if now.saturating_sub(start) >= 5000
             && (!self.opened || self.sim.is_none() || self.pause.is_none())
         {
-            self.end(now, "initial lifecycle not received");
+            self.recoverable_end(
+                now,
+                RecoveryReason::ConnectionLost,
+                "initial lifecycle not received",
+            );
         }
         if !self.terminal && self.opened {
             if self.heartbeat.is_none()
@@ -801,7 +846,59 @@ mod tests {
             Notice::System { event: 3, value: 0 },
         ]);
         assert_eq!(m.poll(40).unwrap().state, Lifecycle::Disconnected);
+        assert_eq!(m.recovery_reason(), Some(RecoveryReason::SessionChanged));
         assert!(m.poll(60).is_none());
+    }
+    #[test]
+    fn recovery_hints_distinguish_lifecycle_changes_from_invalid_data() {
+        for event in [3, 4, 6] {
+            let mut m = ready();
+            reply(&mut m, 40);
+            assert_eq!(m.recovery_reason(), None);
+            m.api.events.push_back(Notice::System { event, value: 0 });
+            assert_eq!(m.poll(60).unwrap().state, Lifecycle::Disconnected);
+            assert_eq!(m.recovery_reason(), Some(RecoveryReason::SessionChanged));
+        }
+        let mut m = ready();
+        reply(&mut m, 40);
+        let id = m.pending.unwrap().0;
+        m.api.events.push_back(Notice::Data {
+            request: id,
+            object: 2,
+            values: [8000., 7900., 29.92, 0.],
+        });
+        assert_eq!(m.poll(60).unwrap().state, Lifecycle::Disconnected);
+        assert_eq!(m.recovery_reason(), Some(RecoveryReason::SessionChanged));
+        for event in [
+            Notice::Exception {
+                code: 1,
+                send: 0,
+                index: 0,
+            },
+            Notice::System { event: 5, value: 0 },
+            Notice::System {
+                event: 2,
+                value: 0xffff,
+            },
+        ] {
+            let mut m = ready();
+            reply(&mut m, 40);
+            m.api.events.push_back(event);
+            m.poll(60);
+            assert_eq!(m.recovery_reason(), None);
+        }
+        let mut m = ready();
+        let id = m.pending.unwrap().0;
+        m.api.events.push_back(Notice::Data {
+            request: id,
+            object: 1,
+            values: [f64::NAN, 0., 29.92, 0.],
+        });
+        m.poll(40);
+        assert_eq!(m.recovery_reason(), None);
+        let mut m = ready();
+        m.poll(2000);
+        assert_eq!(m.recovery_reason(), Some(RecoveryReason::ConnectionLost));
     }
     #[test]
     fn delayed_data_heartbeat_loss_and_clock_regression_end_session() {

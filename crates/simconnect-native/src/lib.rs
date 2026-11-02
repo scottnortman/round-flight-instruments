@@ -52,7 +52,12 @@ mod native {
                     3 => "start MSFS 2020 and load a flight before connecting",
                     _ => "the simulator rejected read-only setup; check the SDK/profile compatibility",
                 };
-                io::Error::other(format!("SimConnect setup stage {stage} failed (0x{error:08X}); {hint}"))
+                // Only the usual absent/unavailable simulator result is transient.
+                // DLL, ABI and subscription failures must not be retried blindly.
+                let kind = if stage == 3 && error == 0x80004005 {
+                    io::ErrorKind::ConnectionRefused
+                } else { io::ErrorKind::Other };
+                io::Error::new(kind, format!("SimConnect setup stage {stage} failed (0x{error:08X}); {hint}"))
             })
         }
         pub fn request(&mut self, id: u32, heartbeat: bool) -> io::Result<()> {
