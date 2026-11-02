@@ -1,5 +1,6 @@
 #![no_std]
 #![forbid(unsafe_code)]
+pub mod mount;
 
 /// Axes must be identified before fusion; native sensor axes are NOT aircraft axes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

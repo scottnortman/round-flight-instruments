@@ -1,0 +1,523 @@
+{
+  "passed": true,
+  "timestamp_utc": "2026-11-02T14:24:38.121307+00:00",
+  "seconds": 10,
+  "estimator": "OK imu estimator=accel_mean15 quality=bench_only input_quality=valid roll_deg=-37.926 pitch_deg=88.026 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=BodyForwardRightDown calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17153066) gauge_eligible=false bench_display_eligible=true",
+  "hold_checks": [
+    {
+      "stop": "imu off",
+      "first": {
+        "now_display_ms": "17992",
+        "presented_display_ms": "17986",
+        "session": "0",
+        "sequence": "0",
+        "received_owner_ms": "0",
+        "source_age_at_present_ms": "Some(99)",
+        "source_age_now_ms": "Some(105)",
+        "shown_alt_ft": "None",
+        "quality": "missing",
+        "renderer": "attitude",
+        "shown_pitch_deg": "Some(88.00402)",
+        "shown_roll_deg": "Some(-38.41365)",
+        "holding": "true"
+      },
+      "second": {
+        "now_display_ms": "19230",
+        "presented_display_ms": "19224",
+        "session": "0",
+        "sequence": "0",
+        "received_owner_ms": "0",
+        "source_age_at_present_ms": "Some(1337)",
+        "source_age_now_ms": "Some(1343)",
+        "shown_alt_ft": "None",
+        "quality": "missing",
+        "renderer": "attitude",
+        "shown_pitch_deg": "Some(88.00402)",
+        "shown_roll_deg": "Some(-38.41365)",
+        "holding": "true"
+      },
+      "state": {
+        "pclk_requested_hz": "18000000",
+        "pclk_applied_hz": "18000000",
+        "ready": "true",
+        "failed": "false",
+        "backlight": "true",
+        "enabled": "true",
+        "mode": "gauge",
+        "stall": "0",
+        "frames": "594",
+        "frame_age_ms": "26",
+        "owner_age_ms": "0",
+        "render_max_ms": "117",
+        "transfer_max_ms": "117",
+        "stack_free_bytes": "5520",
+        "psram_bytes": "8388608",
+        "internal_free_bytes": "152811",
+        "blanked_at_ms": "17191",
+        "expired_ticks": "0",
+        "expired_source_valid": "0",
+        "expired_source_invalid": "0",
+        "source": "imu_bench",
+        "renderer": "attitude",
+        "shown_quality": "missing",
+        "shown_alt_ft": "None"
+      }
+    },
+    {
+      "stop": "fault roll_deg on",
+      "first": {
+        "now_display_ms": "19906",
+        "presented_display_ms": "19873",
+        "session": "0",
+        "sequence": "0",
+        "received_owner_ms": "0",
+        "source_age_at_present_ms": "Some(80)",
+        "source_age_now_ms": "Some(113)",
+        "shown_alt_ft": "None",
+        "quality": "failed",
+        "renderer": "attitude",
+        "shown_pitch_deg": "Some(88.02079)",
+        "shown_roll_deg": "Some(-38.593487)",
+        "holding": "true"
+      },
+      "second": {
+        "now_display_ms": "21141",
+        "presented_display_ms": "21110",
+        "session": "0",
+        "sequence": "0",
+        "received_owner_ms": "0",
+        "source_age_at_present_ms": "Some(1317)",
+        "source_age_now_ms": "Some(1348)",
+        "shown_alt_ft": "None",
+        "quality": "failed",
+        "renderer": "attitude",
+        "shown_pitch_deg": "Some(88.02079)",
+        "shown_roll_deg": "Some(-38.593487)",
+        "holding": "true"
+      },
+      "state": {
+        "pclk_requested_hz": "18000000",
+        "pclk_applied_hz": "18000000",
+        "ready": "true",
+        "failed": "false",
+        "backlight": "true",
+        "enabled": "true",
+        "mode": "gauge",
+        "stall": "0",
+        "frames": "656",
+        "frame_age_ms": "23",
+        "owner_age_ms": "0",
+        "render_max_ms": "117",
+        "transfer_max_ms": "117",
+        "stack_free_bytes": "5488",
+        "psram_bytes": "8388608",
+        "internal_free_bytes": "152811",
+        "blanked_at_ms": "17191",
+        "expired_ticks": "0",
+        "expired_source_valid": "0",
+        "expired_source_invalid": "0",
+        "source": "imu_bench",
+        "renderer": "attitude",
+        "shown_quality": "failed",
+        "shown_alt_ft": "None"
+      }
+    }
+  ],
+  "before": {
+    "pclk_requested_hz": "18000000",
+    "pclk_applied_hz": "18000000",
+    "ready": "true",
+    "failed": "false",
+    "backlight": "true",
+    "enabled": "true",
+    "mode": "gauge",
+    "stall": "0",
+    "frames": "702",
+    "frame_age_ms": "16",
+    "owner_age_ms": "0",
+    "render_max_ms": "129",
+    "transfer_max_ms": "119",
+    "stack_free_bytes": "5488",
+    "psram_bytes": "8388608",
+    "internal_free_bytes": "152811",
+    "blanked_at_ms": "17191",
+    "expired_ticks": "0",
+    "expired_source_valid": "0",
+    "expired_source_invalid": "0",
+    "source": "imu_bench",
+    "renderer": "attitude",
+    "shown_quality": "valid",
+    "shown_alt_ft": "None"
+  },
+  "imu_before": "OK imu request=3 completed=3 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=356 skipped=19 duplicates=0 errors=0 estimate_rejections=14 raw_tilt_rejections=0 max_gap_ms=46 age_ms=10 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+  "stats": {
+    "state": "stopped",
+    "frames": "324",
+    "elapsed_ms": "10002",
+    "rendered_fps": "32.39",
+    "render_max_ms": "26",
+    "transfer_max_ms": "33",
+    "backlight": "true",
+    "failed": "false",
+    "measurement": "completed_presentations"
+  },
+  "after": {
+    "pclk_requested_hz": "18000000",
+    "pclk_applied_hz": "18000000",
+    "ready": "true",
+    "failed": "false",
+    "backlight": "true",
+    "enabled": "true",
+    "mode": "gauge",
+    "stall": "0",
+    "frames": "1027",
+    "frame_age_ms": "15",
+    "owner_age_ms": "0",
+    "render_max_ms": "26",
+    "transfer_max_ms": "33",
+    "stack_free_bytes": "5408",
+    "psram_bytes": "8388608",
+    "internal_free_bytes": "152691",
+    "blanked_at_ms": "17191",
+    "expired_ticks": "0",
+    "expired_source_valid": "0",
+    "expired_source_invalid": "0",
+    "source": "imu_bench",
+    "renderer": "attitude",
+    "shown_quality": "failed",
+    "shown_alt_ft": "None"
+  },
+  "source status": "OK source=imu_bench state=bench_only pitch_deg=Some(-5.1338334) roll_deg=Some(-12.56106) quality=valid age_ms=Some(14) holding=false held_pitch_roll_deg=Some([-5.1338334, -12.56106]) held_age_ms=Some(14) calibration=unverified timebase=receipt writeback=false",
+  "imu status": "OK imu request=3 completed=3 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=1485 skipped=36 duplicates=2 errors=0 estimate_rejections=149 raw_tilt_rejections=24 max_gap_ms=46 age_ms=10 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+  "display sample": "OK display_sample now_display_ms=32936 presented_display_ms=32926 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(266) source_age_now_ms=Some(276) shown_alt_ft=None quality=failed renderer=attitude shown_pitch_deg=Some(43.952072) shown_roll_deg=Some(-13.808767) holding=true",
+  "status": "OK status protocol=1 source=imu_bench display=managed instrument=attitude sim=paused baro_inhg=29.92 timing_fault=false max_gap_ms=19 ticks=4705 pressure_altitude_ft=-:missing:none pitch_deg=-10.703:valid:6ms roll_deg=-9.945:valid:6ms heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+  "unavailable_estimates": 135,
+  "invalid_raw_tilts": 24,
+  "transcript": [
+    {
+      "command": "display off",
+      "response": "OK display requested=Off completion=check_status",
+      "elapsed_ms": 0.0
+    },
+    {
+      "command": "source imu",
+      "response": "OK source=imu_bench state=bench_only pitch_deg=None roll_deg=None quality=missing age_ms=None holding=false held_pitch_roll_deg=None held_age_ms=None calibration=unverified timebase=receipt writeback=false",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=533 frame_age_ms=18 owner_age_ms=1 render_max_ms=84 transfer_max_ms=33 stack_free_bytes=8160 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 62.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=533 frame_age_ms=71 owner_age_ms=1 render_max_ms=84 transfer_max_ms=33 stack_free_bytes=8160 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=535 frame_age_ms=41 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5536 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=537 frame_age_ms=16 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5536 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=539 frame_age_ms=30 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5536 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=542 frame_age_ms=3 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5536 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=544 frame_age_ms=27 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5536 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=false enabled=false mode=gauge stall=0 frames=546 frame_age_ms=2 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5536 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "imu estimator",
+      "response": "OK imu estimator=accel_mean15 quality=bench_only input_quality=valid roll_deg=-37.926 pitch_deg=88.026 yaw_deg=None attitude_covariance=unknown bias_covariance=unknown gyro_bias_rad_s=None frame=BodyForwardRightDown calibration=unverified timebase=receipt acquired_us=unknown received_us=Some(17153066) gauge_eligible=false bench_display_eligible=true",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "sim attitude 60",
+      "response": "ERR unsupported source_or_target",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "sim preset level",
+      "response": "ERR unsupported source_or_target",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "sim set pitch_deg 0",
+      "response": "ERR unsupported source_or_target",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display on",
+      "response": "OK display requested=On completion=check_status",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=550 frame_age_ms=9 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "imu off",
+      "response": "OK imu requested=off completion=check_status gauge_source=unchanged request=2",
+      "elapsed_ms": 0.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=551 frame_age_ms=9 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=553 frame_age_ms=16 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display sample",
+      "response": "OK display_sample now_display_ms=17992 presented_display_ms=17986 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(99) source_age_now_ms=Some(105) shown_alt_ft=None quality=missing renderer=attitude shown_pitch_deg=Some(88.00402) shown_roll_deg=Some(-38.41365) holding=true",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=554 frame_age_ms=22 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display sample",
+      "response": "OK display_sample now_display_ms=19230 presented_display_ms=19224 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(1337) source_age_now_ms=Some(1343) shown_alt_ft=None quality=missing renderer=attitude shown_pitch_deg=Some(88.00402) shown_roll_deg=Some(-38.41365) holding=true",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=594 frame_age_ms=26 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "imu on",
+      "response": "OK imu requested=on completion=check_status gauge_source=unchanged request=3",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=595 frame_age_ms=23 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=597 frame_age_ms=31 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=600 frame_age_ms=8 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 0.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=602 frame_age_ms=17 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=604 frame_age_ms=15 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=606 frame_age_ms=16 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=608 frame_age_ms=28 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=611 frame_age_ms=18 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display sample",
+      "response": "OK display_sample now_display_ms=19789 presented_display_ms=19780 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(50) source_age_now_ms=Some(59) shown_alt_ft=None quality=valid renderer=attitude shown_pitch_deg=Some(88.02417) shown_roll_deg=Some(-38.713352) holding=false",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "fault roll_deg on",
+      "response": "OK fault field=roll_deg active=true",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=613 frame_age_ms=3 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=615 frame_age_ms=12 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display sample",
+      "response": "OK display_sample now_display_ms=19906 presented_display_ms=19873 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(80) source_age_now_ms=Some(113) shown_alt_ft=None quality=failed renderer=attitude shown_pitch_deg=Some(88.02079) shown_roll_deg=Some(-38.593487) holding=true",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=616 frame_age_ms=17 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5520 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display sample",
+      "response": "OK display_sample now_display_ms=21141 presented_display_ms=21110 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(1317) source_age_now_ms=Some(1348) shown_alt_ft=None quality=failed renderer=attitude shown_pitch_deg=Some(88.02079) shown_roll_deg=Some(-38.593487) holding=true",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=656 frame_age_ms=23 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "fault roll_deg off",
+      "response": "OK fault field=roll_deg active=false",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=657 frame_age_ms=23 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=659 frame_age_ms=27 owner_age_ms=0 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display sample",
+      "response": "OK display_sample now_display_ms=21281 presented_display_ms=21265 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(47) source_age_now_ms=Some(63) shown_alt_ft=None quality=valid renderer=attitude shown_pitch_deg=Some(88.028) shown_roll_deg=Some(-39.145226) holding=false",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "instrument altimeter",
+      "response": "OK instrument=altimeter display=managed",
+      "elapsed_ms": 0.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=661 frame_age_ms=12 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=661 frame_age_ms=54 owner_age_ms=1 render_max_ms=117 transfer_max_ms=117 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=662 frame_age_ms=15 owner_age_ms=1 render_max_ms=117 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=664 frame_age_ms=45 owner_age_ms=0 render_max_ms=117 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "instrument attitude",
+      "response": "OK instrument=attitude display=managed",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=666 frame_age_ms=0 owner_age_ms=0 render_max_ms=117 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=666 frame_age_ms=39 owner_age_ms=0 render_max_ms=117 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 0.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=667 frame_age_ms=105 owner_age_ms=1 render_max_ms=129 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=altimeter shown_quality=missing shown_alt_ft=None",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=668 frame_age_ms=12 owner_age_ms=1 render_max_ms=129 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 32.0
+    },
+    {
+      "command": "display on",
+      "response": "OK display requested=On completion=check_status",
+      "elapsed_ms": 0.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=702 frame_age_ms=1 owner_age_ms=0 render_max_ms=129 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=702 frame_age_ms=16 owner_age_ms=0 render_max_ms=129 transfer_max_ms=119 stack_free_bytes=5488 psram_bytes=8388608 internal_free_bytes=152811 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=valid shown_alt_ft=None",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=3 completed=3 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=356 skipped=19 duplicates=0 errors=0 estimate_rejections=14 raw_tilt_rejections=0 max_gap_ms=46 age_ms=10 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "display stats reset",
+      "response": "OK display_stats state=running frames=0 elapsed_ms=0 rendered_fps=0.00 render_max_ms=0 transfer_max_ms=0 backlight=true failed=false measurement=completed_presentations",
+      "elapsed_ms": 0.0
+    },
+    {
+      "command": "display stats stop",
+      "response": "OK display_stats state=stopped frames=324 elapsed_ms=10002 rendered_fps=32.39 render_max_ms=26 transfer_max_ms=33 backlight=true failed=false measurement=completed_presentations",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display status",
+      "response": "OK display pclk_requested_hz=18000000 pclk_applied_hz=18000000 ready=true failed=false backlight=true enabled=true mode=gauge stall=0 frames=1027 frame_age_ms=15 owner_age_ms=0 render_max_ms=26 transfer_max_ms=33 stack_free_bytes=5408 psram_bytes=8388608 internal_free_bytes=152691 blanked_at_ms=17191 expired_ticks=0 expired_source_valid=0 expired_source_invalid=0 source=imu_bench renderer=attitude shown_quality=failed shown_alt_ft=None",
+      "elapsed_ms": 15.0
+    },
+    {
+      "command": "source status",
+      "response": "OK source=imu_bench state=bench_only pitch_deg=Some(-5.1338334) roll_deg=Some(-12.56106) quality=valid age_ms=Some(14) holding=false held_pitch_roll_deg=Some([-5.1338334, -12.56106]) held_age_ms=Some(14) calibration=unverified timebase=receipt writeback=false",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "imu status",
+      "response": "OK imu request=3 completed=3 state=running quality=valid detected=true address=0x6b who=0x05 revision=0x7c samples=1485 skipped=36 duplicates=2 errors=0 estimate_rejections=149 raw_tilt_rejections=24 max_gap_ms=46 age_ms=10 error=None accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest=not_run selftest_accel_g=None selftest_gyro_dps=None audit=not_run",
+      "elapsed_ms": 16.0
+    },
+    {
+      "command": "display sample",
+      "response": "OK display_sample now_display_ms=32936 presented_display_ms=32926 session=0 sequence=0 received_owner_ms=0 source_age_at_present_ms=Some(266) source_age_now_ms=Some(276) shown_alt_ft=None quality=failed renderer=attitude shown_pitch_deg=Some(43.952072) shown_roll_deg=Some(-13.808767) holding=true",
+      "elapsed_ms": 31.0
+    },
+    {
+      "command": "status",
+      "response": "OK status protocol=1 source=imu_bench display=managed instrument=attitude sim=paused baro_inhg=29.92 timing_fault=false max_gap_ms=19 ticks=4705 pressure_altitude_ft=-:missing:none pitch_deg=-10.703:valid:6ms roll_deg=-9.945:valid:6ms heading_deg=-:missing:none ias_kt=-:missing:none turn_dps=-:missing:none ball=-:missing:none vsi_fpm=-:missing:none",
+      "elapsed_ms": 0.0
+    }
+  ]
+}

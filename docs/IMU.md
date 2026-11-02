@@ -1,9 +1,10 @@
 # QMI8658C driver and CLI
 
 The board now reads its physical IMU through a Rust driver. Acquisition is
-explicitly enabled and separate from the simulated gauge source. Fusion,
-mounting alignment, bias calibration, and gauge-source selection remain future
-work. Raw gyro errors cannot silently become gauge indications.
+explicitly enabled and separate from the simulated gauge source. Explicit
+[IMU attitude bench mode](IMU-ATTITUDE.md) adds upright mounting and a short
+acceleration average. Fusion and bias calibration remain future work; the known
+gyro offset is not integrated into gauge indications.
 
 ## Control
 
@@ -57,14 +58,16 @@ mounting alignment, or calibration.
 ## Implementation
 
 The worker also owns a replaceable [attitude estimator](ATTITUDE-ESTIMATOR.md).
-`imu estimator` inspects bench tilt and uncertainty metadata. `imu audit` checks
+`imu estimator` inspects mounted, averaged bench tilt and uncertainty metadata.
+`imu read` retains raw sensor-native angles. `imu audit` checks
 configuration readback and independent byte/burst agreement; poll `imu status`
-for completion and evidence. Neither command calibrates the gyro or feeds gauges.
+for completion and evidence. Neither diagnostic command calibrates the gyro or
+selects the gauge source; use `source imu` explicitly for the bench display.
 
 `crates/qmi8658` is dependency-free, `no_std`, and forbids unsafe code. Its bus
 adapter must bound transactions. The board uses I2C0, SDA15/SCL7, 400 kHz, with a
-10 ms transaction timeout subject to RTOS granularity. Future touch/RTC support
-must share this bus owner. Identity probes only 0x6B/0x6A, requires ID 0x05,
+10 ms transaction timeout subject to RTOS granularity. Touch and buzzer operations
+share this bus owner. Identity probes only 0x6B/0x6A, requires ID 0x05,
 checks reset completion, and reads back configuration.
 
 Configuration is little endian, auto-increment, +/-4 g, +/-256 dps, 112.1 Hz
@@ -79,10 +82,11 @@ The state owner only uses nonblocking queue/lock operations. Register I/O runs
 outside the snapshot lock. Contention returns `ERR imu_busy`. A blocked-bus
 test verifies the console/state owner continues.
 
-Worker sleep is 20 ms, with approximately 30 ms observed intervals. The first
-5 ms delay triggered the idle watchdog: ESP-IDF `usleep` busy-waits below its
-10 ms RTOS tick. A decoded backtrace identified that delay; the yielding interval
-fixed it and board operation was retested.
+The current board uses a 1 ms RTOS tick and a 5 ms start-to-start worker budget (at least 1 ms blocking), polling
+the 112.1 Hz sensor. The worker is pinned to core 0, separate from rasterization.
+Earlier firmware used a 10 ms RTOS tick: a sub-tick delay busy-waited and triggered
+the idle watchdog, so that older configuration required a longer sleep. The
+current build verifies the 1 ms scheduler tick; watchdogs remain enabled.
 
 ## Reproduce checks
 
@@ -127,3 +131,8 @@ No proprietary fusion library was imported. Downloads remain in ignored `tmp/imu
   the demo's unbounded CTRL9 wait and reserved-bit writes.
 - [Analog Devices AN-1057](https://www.analog.com/en/resources/app-notes/an-1057.html)
   explains acceleration limitations of gravity-based tilt.
+
+The explicit `source imu` attitude bench uses `accel_mean15`. It retains the
+last usable filtered pose without a visible hold annotation during rejected or stale input, without
+changing the raw sensor APIs or quality/age checks above. See
+[IMU attitude display policy](IMU-ATTITUDE.md).

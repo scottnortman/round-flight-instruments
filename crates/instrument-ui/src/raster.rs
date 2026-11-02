@@ -277,6 +277,103 @@ impl<'a, T: Target> Canvas<'a, T> {
             }
         }
     }
+    /// All two-digit pitch labels share one inverse transform. Their second
+    /// digit is always zero; sample it once for all active first digits. Rows
+    /// remain bounded stack storage and preserve the reference font pixels.
+    pub(crate) fn ladder_labels(
+        &mut self,
+        labels: &[(u8, (f32, f32))],
+        degrees: f32,
+        color: u16,
+        digit_cache: Option<&[u16]>,
+    ) {
+        let mut centers = [(0u8, (0, 0)); 12];
+        let mut active = [false; 6];
+        assert!(labels.len() <= centers.len());
+        for (out, &(digit, center)) in centers.iter_mut().zip(labels) {
+            assert!((1..=6).contains(&digit));
+            *out = (digit - 1, self.point(center.0, center.1));
+            active[digit as usize - 1] = true;
+        }
+        let a = degrees * core::f32::consts::PI / 180.;
+        let (s, c) = (libm::sinf(a), libm::cosf(a));
+        let cell = 22. * 40. / 48. * self.scale;
+        let height = 22. * 56. / 48. * self.scale;
+        let width = cell * 2.;
+        let (xs, ys) = (40. / cell, 56. / height);
+        let rx = libm::ceilf((c.abs() * width + s.abs() * height) / 2.) as i32;
+        let ry = libm::ceilf((s.abs() * width + c.abs() * height) / 2.) as i32;
+        let du = (c * xs * 65536.) as i32;
+        let dv = (-s * ys * 65536.) as i32;
+        let shades = core::array::from_fn::<_, 16, _>(|alpha| {
+            let blend = |shift: u32, mask: u16| ((color >> shift) & mask) * alpha as u16 / 15;
+            (blend(11, 31) << 11) | (blend(5, 63) << 5) | blend(0, 31)
+        });
+        let cache = digit_cache.filter(|c| c.len() >= DIGIT_CACHE_LEN);
+        let ink = |digit: usize, pixel: usize| {
+            if let Some(cache) = cache {
+                let color = cache[digit * 2240 + pixel];
+                (color != 0).then_some(color)
+            } else {
+                let k = (b'0' as usize + digit - 32) * 2240 + pixel;
+                let packed = FONT[k / 2];
+                let alpha = if k % 2 == 0 { packed >> 4 } else { packed & 15 };
+                (alpha != 0).then_some(shades[alpha as usize])
+            }
+        };
+        for y in -ry..=ry {
+            let (dx, dy) = (-rx as f32, y as f32);
+            let mut u = ((c * dx + s * dy + width / 2.) * xs * 65536.) as i32;
+            let mut v = ((-s * dx + c * dy + height / 2.) * ys * 65536.) as i32;
+            let mut rows = [[None; 64]; 6];
+            let mut used = 0;
+            let mut start = -rx;
+            for x in -rx..=rx {
+                let (sx, sy) = (u >> 16, v >> 16);
+                if (0..80).contains(&sx) && (0..56).contains(&sy) {
+                    let pixel = sy as usize * 40 + sx as usize % 40;
+                    let zero = if sx >= 40 { ink(0, pixel) } else { None };
+                    for (digit, row) in rows.iter_mut().enumerate() {
+                        if active[digit] {
+                            row[used] = if sx >= 40 {
+                                zero
+                            } else {
+                                ink(digit + 1, pixel)
+                            };
+                        }
+                    }
+                } else {
+                    for row in &mut rows {
+                        row[used] = None;
+                    }
+                }
+                used += 1;
+                if used == 64 || x == rx {
+                    for (digit, row) in rows.iter().enumerate() {
+                        if !active[digit] {
+                            continue;
+                        }
+                        if let Some(first) = row[..used].iter().position(Option::is_some) {
+                            let last = row[..used].iter().rposition(Option::is_some).unwrap() + 1;
+                            for &(code, (cx, cy)) in &centers[..labels.len()] {
+                                if code as usize == digit {
+                                    self.target.pixels(
+                                        cy + y,
+                                        cx + start + first as i32,
+                                        &row[first..last],
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    used = 0;
+                    start = x + 1;
+                }
+                u += du;
+                v += dv;
+            }
+        }
+    }
     /// Regular glyphs composited against a caller-filled solid background.
     pub fn text_on(&mut self, x: f32, y: f32, size: f32, text: &str, colors: (u16, u16)) {
         self.text_style(x, y, size, text, colors, false);
@@ -354,6 +451,65 @@ impl<'a, T: Target> Canvas<'a, T> {
 mod tests {
     extern crate std;
     use super::*;
+    #[test]
+    fn framebuffer_rejects_dimensions_outside_the_raster_domain() {
+        let mut pixels = [0; 4];
+        for (w, h) in [
+            (0, 4),
+            (4, 0),
+            (1025, 1),
+            (1, 1025),
+            (u32::MAX, u32::MAX),
+            (2, 3),
+        ] {
+            assert!(Framebuffer::new(&mut pixels, w, h).is_none());
+        }
+        assert!(Framebuffer::new(&mut pixels, 2, 2).is_some());
+    }
+    #[test]
+    fn batched_pitch_labels_match_reference_at_all_scales_and_angles() {
+        let color = rgb(241, 242, 235);
+        let mut cache = std::vec![0; DIGIT_CACHE_LEN];
+        cache_ladder_digits(&mut cache, color);
+        for size in [240, 480, 1024] {
+            for degrees in [-180., -91., -30., 0., 27., 90., 179.] {
+                let labels = [
+                    (1, (0., 0.)),
+                    (2, (175., 180.)),
+                    (3, (305., 220.)),
+                    (4, (100., 300.)),
+                    (5, (380., 350.)),
+                    (6, (479., 479.)),
+                ];
+                let mut expected = std::vec![123; size * size];
+                let mut fb = Framebuffer::new(&mut expected, size as u32, size as u32).unwrap();
+                let mut c = Canvas::new(&mut fb);
+                for &(digit, center) in &labels {
+                    let text = [b'0' + digit, b'0'];
+                    c.text_rotated(
+                        [center],
+                        22.,
+                        core::str::from_utf8(&text).unwrap(),
+                        degrees,
+                        color,
+                        None,
+                    );
+                }
+                for cached in [None, Some(cache.as_slice())] {
+                    let mut actual = std::vec![123; size * size];
+                    Canvas::new(
+                        &mut Framebuffer::new(&mut actual, size as u32, size as u32).unwrap(),
+                    )
+                    .ladder_labels(&labels, degrees, color, cached);
+                    assert!(
+                        actual == expected,
+                        "size {size} angle {degrees} cache {}",
+                        cached.is_some()
+                    );
+                }
+            }
+        }
+    }
     #[test]
     fn color_rows_clip_and_preserve_transparency_and_black() {
         for start in [-64, -2, 0, 15, 18, i32::MAX] {

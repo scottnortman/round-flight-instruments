@@ -25,6 +25,8 @@ enum Input {
 
 #[derive(Default)]
 pub struct Options {
+    /// True only when the platform supplies a mounted, typed IMU attitude input.
+    pub imu_attitude: bool,
     pub display_managed: bool,
     pub echo: bool,
     /// Platform scheduler adapter. Must block for at least one scheduler tick;
@@ -223,6 +225,29 @@ where
                     let sweep_was_running = app.takeoff().running();
                     let starts_sweep = matches!(command, Ok(Command::Takeoff(_)));
                     pending = Some(match command {
+                        Ok(Command::SourceImu) => {
+                            if !options.imu_attitude {
+                                text_cli::reply(format_args!("ERR imu_unsupported_target"))
+                            } else if app.timing_fault() {
+                                text_cli::reply(format_args!("ERR not_ready timing_fault=true"))
+                            } else {
+                                let response = imu(ImuCommand::On);
+                                if response.as_str().starts_with("OK ") {
+                                    text_cli::execute_with_display(
+                                        &mut app,
+                                        command,
+                                        now,
+                                        if options.display_managed {
+                                            "managed"
+                                        } else {
+                                            "off"
+                                        },
+                                    )
+                                } else {
+                                    response
+                                }
+                            }
+                        }
                         Ok(Command::Imu(cmd)) => imu(cmd),
                         Ok(Command::Display(cmd)) => display(cmd),
                         _ => text_cli::execute_with_display(
@@ -299,7 +324,10 @@ where
         // idle tasks. The platform adapter guarantees at least one actual tick,
         // even when work consumes the entire source period.
         // Tick lateness remains measured by App; this never fabricates samples.
-        let rest = Duration::from_millis(SOURCE_PERIOD_MS).saturating_sub(started.elapsed());
+        // Physical receipt and owner publication are separate timing stages.
+        // A faster owner handoff in bench-IMU mode does not resample old inputs.
+        let period = if app.imu_bench() { 5 } else { SOURCE_PERIOD_MS };
+        let rest = Duration::from_millis(period).saturating_sub(started.elapsed());
         if let Some(wait) = options.owner_wait {
             wait(rest);
         } else {
@@ -314,6 +342,60 @@ fn elapsed_ms(epoch: Instant) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn imu_source_requires_platform_support_and_successful_enqueue() {
+        #[derive(Clone)]
+        struct Capture(Arc<Mutex<Vec<u8>>>);
+        impl Write for Capture {
+            fn write(&mut self, b: &[u8]) -> io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(b);
+                Ok(b.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        for (available, enqueue, expected) in [
+            (false, true, "ERR imu_unsupported_target"),
+            (true, false, "ERR imu_busy"),
+            (true, true, "OK source=imu_bench"),
+        ] {
+            let bytes = Arc::new(Mutex::new(Vec::new()));
+            let mut requested = 0;
+            let mut selected = false;
+            run_with_owner_input(
+                Cursor::new(b"source imu\nstatus\n".to_vec()),
+                Capture(bytes.clone()),
+                Arc::new(Metrics::default()),
+                |app| {
+                    selected |= app.imu_bench();
+                    Ok(())
+                },
+                |cmd| {
+                    assert_eq!(cmd, ImuCommand::On);
+                    requested += 1;
+                    text_cli::reply(format_args!(
+                        "{}",
+                        if enqueue {
+                            "OK imu requested=on"
+                        } else {
+                            "ERR imu_busy"
+                        }
+                    ))
+                },
+                |_| unreachable!(),
+                Options {
+                    imu_attitude: available,
+                    ..Options::default()
+                },
+            )
+            .unwrap();
+            let output = String::from_utf8(bytes.lock().unwrap().clone()).unwrap();
+            assert!(output.contains(expected), "{output}");
+            assert_eq!(requested, usize::from(available));
+            assert_eq!(selected, available && enqueue);
+        }
+    }
     use std::sync::mpsc;
     use std::{
         io::Cursor,
@@ -433,6 +515,7 @@ mod tests {
                 |_| unreachable!(),
                 |_| unreachable!(),
                 Options {
+                    imu_attitude: false,
                     owner_wait: None,
                     display_managed: false,
                     echo: true,
@@ -484,6 +567,7 @@ mod tests {
                 |_| unreachable!(),
                 |_| unreachable!(),
                 Options {
+                    imu_attitude: false,
                     owner_wait: None,
                     display_managed: false,
                     echo: true,

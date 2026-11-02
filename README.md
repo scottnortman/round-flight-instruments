@@ -1,4 +1,7 @@
-# Round Flight Instruments v0.2.0-rc.2
+# Round Flight Instruments
+
+Latest tagged checkpoint: **v0.2.0-rc.2**. The working attitude branch also contains
+unreleased IMU bench work; hardware timing/visual acceptance is still in progress.
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
@@ -9,7 +12,7 @@ control are bench-tested on the Just Flight Piper Warrior. See the
 [MSFS setup guide](docs/MSFS-TWO-WAY-TEST.md).
 
 **Bench/simulation use only. Not validated or certified for flight.** The onboard
-IMU is available for diagnostics; it does not drive the gauge.
+IMU is available for diagnostics and explicit accelerometer-only attitude bench testing.
 
 ![Rust altimeter preview](docs/images/altimeter-480.png)
 
@@ -49,7 +52,7 @@ you supply simulated data. Settings and simulated values reset on reboot.
 
 ## Attitude gauge development
 
-`feature/attitude-gauge` adds the standalone phone-reference attitude face,
+`feature/attitude-gauge` (checkpoint **v0.2.0-rc.3**) adds the standalone phone-reference attitude face,
 shared pitch/roll CLI inputs and `sim attitude 60`. The board passes a 60-second
 motion test at **32.33 completed FPS**, with no observed deadline misses or
 unexpected blanking. The hardware motion was visually accepted: smooth, with no
@@ -66,8 +69,14 @@ sim attitude 60
 
 Use `sim set pitch_deg 10` or `sim set roll_deg 30` for manual poses and
 `instrument altimeter` to return. See the [attitude guide](docs/ATTITUDE.md)
-and [verification record](verification/ATTITUDE.md). Current MSFS telemetry and
-onboard IMU diagnostics do not yet drive the attitude face.
+and [verification record](verification/ATTITUDE.md). For handheld debugging,
+`source imu` selects the onboard accelerometer tilt with an **IMU BENCH** label;
+hold the screen upright facing you. A 15-sample average smooths the motion; rejected
+readings retain the last usable pose without a hold annotation, red X, or
+source-age blanking. See [IMU bench controls and limitations](docs/IMU-ATTITUDE.md).
+The 15-sample IMU motion and adjusted 30/60 bank labels were visually accepted.
+See the [IMU checkpoint and verification](verification/IMU-ATTITUDE.md).
+Current MSFS telemetry does not yet drive the attitude face.
 
 ## Control the gauge
 
@@ -88,7 +97,8 @@ active-control press; use `touch sound off` to mute or `touch sound on` to re-en
 | `touch status` / `touch hold 250` | Touch diagnostics / hold time in milliseconds |
 | `touch sound on` / `touch sound off` / `touch sound status` | Active-control chirp controls and diagnostics |
 | `display stats` | Last rendering measurement; the climb records this automatically |
-| `imu on`, `imu read`, `imu off` | Optional sensor diagnostics; gauge stays simulated |
+| `imu on`, `imu read`, `imu off` | Sensor acquisition/diagnostics; does not change the selected source |
+| `source imu` / `source sim` | Select upright IMU attitude bench mode / return to simulation |
 
 The bundled Python client provides line editing: `python cli.py --port COM5`.
 In a source checkout use `python scripts/cli.py --port COM5`. Type `exit` to

@@ -75,6 +75,7 @@ pub fn parse(line: &str) -> Result<Command, Error> {
     };
     match &words[..count] {
         ["source", "sim"] => Ok(Command::SourceDemo),
+        ["source", "imu"] => Ok(Command::SourceImu),
         ["source", "status"] => Ok(Command::SourceStatus),
         ["control", "enable", session] => Ok(Command::ControlEnable(
             session.parse().map_err(|_| Error::Range)?,
@@ -341,6 +342,13 @@ pub fn execute_with_display(
     }
     let mut r = Response::new();
     let result = match cmd {
+        Command::SourceImu | Command::SourceStatus if app.imu_bench() => {
+            let p=app.reading(Field::PitchDeg,now); let roll=app.reading(Field::RollDeg,now);
+            let held=app.imu_last_good();
+            let holding=held.is_some() && (p.quality != instrument_core::Quality::Valid || roll.quality != instrument_core::Quality::Valid);
+            writeln!(r,"OK source=imu_bench state=bench_only pitch_deg={:?} roll_deg={:?} quality={} age_ms={:?} holding={} held_pitch_roll_deg={:?} held_age_ms={:?} calibration=unverified timebase=receipt writeback=false",p.value,roll.value,p.quality.name(),p.age_ms,holding,held.map(|h|h.pitch_roll_deg),held.map(|h|h.age_ms))
+        }
+        Command::SourceImu => unreachable!(),
         Command::SourceDemo | Command::SourceExternal(..) | Command::SourceStatus=> {
             let e=app.external();let altitude=app.altimeter_reading(now);let baro=app.external_baro(now);
             writeln!(r,"OK source={} session={} sequence={} state={} age_ms={:?} indicated_ft={:?} altitude_quality={} baro_inhg={:?} baro_quality={} writeback={} now_ms={}",app.source_name(),e.map_or(0,|e|e.session),e.map_or(0,|e|e.sequence()),e.map_or("demo",|e|e.state().name()),e.and_then(|e|e.age(now)),if e.is_some(){altitude.value}else{None},altitude.quality.name(),baro.and_then(|b|b.value),baro.map_or("local",|b|b.quality.name()),app.control_enabled(),now)
@@ -358,7 +366,7 @@ pub fn execute_with_display(
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
         Command::Echo(_) | Command::Imu(_) | Command::Display(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: source sim|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch sound on|off|status; status; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch sound on|off|status; status; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
         Command::AttitudeDemo(_) | Command::AttitudeDemoStop | Command::AttitudeDemoStatus => {
             let d=app.attitude_demo();
             writeln!(r,"OK attitude_demo state={} elapsed_ms={} duration_ms={} source=sim",d.state.name(),d.elapsed_ms,d.duration_ms)

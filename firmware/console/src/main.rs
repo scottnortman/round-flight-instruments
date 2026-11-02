@@ -1,4 +1,5 @@
 use esp_idf_svc::hal::{
+    cpu::Core,
     delay::{Ets, TickType},
     task::thread::ThreadSpawnConfiguration,
 };
@@ -91,12 +92,19 @@ fn main() {
         // console threads. Owner (10) and display guard (11) still preempt IMU.
         let mut configuration = ThreadSpawnConfiguration::get().unwrap_or_default();
         let previous_priority = configuration.priority;
+        let previous_core = configuration.pin_to_core;
         configuration.priority = 6;
+        // Keep the faster sensor poller off the sole raster core. Acquisition
+        // shares core 0 with the state owner and RGB ISR; all I/O stays bounded.
+        configuration.pin_to_core = Some(Core::Core0);
         configuration.set().map_err(io::Error::other)?;
         let touch_poller = touch.clone();
-        let result = imu_service::Service::start_with_bus_poll(
+        let result = imu_service::Service::start_with_mount(
             ImuBus(bus),
-            imu_service::BenchTilt,
+            imu_service::AveragedTilt::default(),
+            // SKU29086 upright screen: level raw +X; clockwise bank raw -Y.
+            // Proper rotation into bench forward/right/down: [Z,-Y,X].
+            Some(imu_service::Mount::new([3, -2, 1]).expect("proper board mounting")),
             move |bus, quiesce| {
                 if quiesce {
                     return buzzer_worker
@@ -113,6 +121,7 @@ fn main() {
             },
         );
         configuration.priority = previous_priority;
+        configuration.pin_to_core = previous_core;
         configuration
             .set()
             .expect("restore thread spawn configuration");
@@ -147,6 +156,13 @@ fn main() {
         io::stdout(),
         Arc::new(console_runtime::Metrics::default()),
         |app| {
+            if app.imu_bench() {
+                if let Ok(service) = &imu {
+                    if let Some(input) = service.attitude() {
+                        app.accept_imu(input);
+                    }
+                }
+            }
             if display.publish(app, touch.snapshot()) {
                 buzzer.request_press();
             }
@@ -174,6 +190,7 @@ fn main() {
                 .unwrap_or_else(|| display.handle(command))
         },
         console_runtime::Options {
+            imu_attitude: imu.is_ok(),
             // std nanosleep adds an extra RTOS tick. Use the platform scheduler
             // directly, blocking at least one configured 1 ms tick.
             owner_wait: Some(|remaining| unsafe {

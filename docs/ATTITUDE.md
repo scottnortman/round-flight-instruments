@@ -59,9 +59,10 @@ Stop holds the current pose. Manual pitch/roll edits, clearing either axis, paus
 source changes and faults stop the exercise; invalid commands cannot change it.
 It is a bench animation, not a flight-dynamics model.
 
-The onboard QMI8658 remains a diagnostic source. This gauge does not implicitly
-enable it or use uncalibrated sensor axes. Existing estimator/Kalman interfaces
-remain separate. The current external T1/MSFS profile carries altitude/barometer
+The onboard QMI8658 can explicitly drive [IMU bench mode](IMU-ATTITUDE.md) using
+`source imu`. That mode labels uncalibrated accelerometer tilt as IMU BENCH and
+applies the tested upright mounting; it does not integrate the biased gyro.
+Existing estimator/Kalman interfaces remain separate. The current external T1/MSFS profile carries altitude/barometer
 only: selecting attitude with that source shows missing attitude, never fallback
 simulated or fabricated level data. Attitude telemetry integration is later work.
 
@@ -71,10 +72,15 @@ simulated or fabricated level data. Attitude telemetry integration is later work
 consumes immutable validated readings; acquisition and filtering remain outside
 the renderer. Both axes must be valid, finite, in range and younger than 100 ms.
 Missing, stale, failed and timing-fault states clear the horizon, ladder and
-aircraft symbol and display a red X plus the reason.
+aircraft symbol and display a red X plus the reason. The explicit IMU bench
+mode instead holds its last usable filtered pose without a visible hold annotation, preserving the
+live invalid quality and the held pose's increasing age. Before the first usable
+pair it shows WAITING FOR IMU. See [IMU bench policy](IMU-ATTITUDE.md).
 
 Snapshot transport and render delay add to the older axis's age. Submission and
-the independent display supervisor use the original deadline. No frame-rate
+the independent display supervisor use the original deadline for SIM/external
+sources. IMU bench disables only numeric display expiry; pipeline watchdogs
+remain active. No frame-rate
 optimization may reset timestamps, extend freshness or disable watchdogs.
 
 The three-buffer pipeline remains unchanged. Each buffer owns its previous
@@ -125,3 +131,8 @@ blanking during animation and no owner timing fault. Physical smoothness,
 orientation, flicker and artifacts also require visual acceptance. Performance
 of cold initialization, abrupt extreme changes and fault transitions is recorded
 separately from the normal-animation target.
+
+The fixed bank scale has small upright `30` and `60` labels on both sides,
+just outside their major ticks and shifted three degrees toward level for
+clearance. Labels are included in the static foreground
+cache, so normal frames do not rerasterize this text.

@@ -2,6 +2,7 @@
 
 use bounded_mailbox::{self as mpsc, TryRecvError, TrySendError};
 
+pub use attitude_estimator::mount::Mount;
 use attitude_estimator::{
     AttitudeEstimator, Calibration, Estimate, Frame, InputQuality, Observation, Output, Pipeline,
     Quality, ResetReason,
@@ -41,6 +42,8 @@ impl State {
 }
 #[derive(Clone, Copy)]
 struct Snapshot {
+    estimate_rejections: u64,
+    raw_tilt_rejections: u64,
     estimator_name: &'static str,
     estimate: Option<Output>,
     audit: Option<qmi8658::Audit>,
@@ -60,6 +63,8 @@ struct Snapshot {
 impl Snapshot {
     fn new() -> Self {
         Self {
+            estimate_rejections: 0,
+            raw_tilt_rejections: 0,
             estimator_name: "accel_tilt",
             estimate: None,
             audit: None,
@@ -129,7 +134,22 @@ impl Service {
     /// must use bounded I/O; consumers must expire data during long self-tests.
     /// The second argument is true before a queued IMU command: silence timed
     /// outputs then. Return false to reject that command if quiescing fails.
-    pub fn start_with_bus_poll<B, E, P>(bus: B, estimator: E, mut poll: P) -> io::Result<Self>
+    pub fn start_with_bus_poll<B, E, P>(bus: B, estimator: E, poll: P) -> io::Result<Self>
+    where
+        B: Bus + Send + 'static,
+        E: AttitudeEstimator + Send + 'static,
+        P: FnMut(&mut B, bool) -> bool + Send + 'static,
+    {
+        Self::start_with_mount(bus, estimator, None, poll)
+    }
+    /// Fixed board mounting is applied to estimator inputs only. Raw diagnostics
+    /// remain sensor-native; mounting never upgrades unverified calibration.
+    pub fn start_with_mount<B, E, P>(
+        bus: B,
+        estimator: E,
+        mount: Option<Mount>,
+        mut poll: P,
+    ) -> io::Result<Self>
     where
         B: Bus + Send + 'static,
         E: AttitudeEstimator + Send + 'static,
@@ -149,6 +169,7 @@ impl Service {
                 let mut epoch = 0u32;
                 state.estimator_name = pipeline.name();
                 loop {
+                    let poll_started = Instant::now();
                     poll(driver.bus_mut(), false);
                     let received = receiver.try_recv();
                     if let Ok((request, _)) = received {
@@ -284,24 +305,48 @@ impl Service {
                                 let count = state.samples;
                                 let result = state.accept(sample, now);
                                 if result.is_ok() && state.samples != count {
+                                    if tilt_degrees(mount.map_or_else(
+                                        || sample.accel_g(),
+                                        |m| m.apply(sample.accel_g()),
+                                    ))
+                                    .is_none()
+                                    {
+                                        state.raw_tilt_rejections += 1;
+                                    }
                                     state.estimate = Some(pipeline.update(Observation {
                                         source_epoch: epoch,
                                         received_us: now.duration_since(clock).as_micros() as u64,
                                         acquired_us: None,
                                         sensor_counter: Some(sample.counter),
-                                        frame: Frame::SensorNative,
+                                        frame: if mount.is_some() {
+                                            Frame::BodyForwardRightDown
+                                        } else {
+                                            Frame::SensorNative
+                                        },
                                         quality: if sample.saturated() {
                                             InputQuality::Saturated
                                         } else {
                                             InputQuality::Fresh
                                         },
                                         calibration: Calibration::Unverified,
-                                        accel_g: sample.accel_g(),
-                                        gyro_dps: sample.gyro_dps(),
+                                        accel_g: mount.map_or_else(
+                                            || sample.accel_g(),
+                                            |m| m.apply(sample.accel_g()),
+                                        ),
+                                        gyro_dps: mount.map_or_else(
+                                            || sample.gyro_dps(),
+                                            |m| m.apply(sample.gyro_dps()),
+                                        ),
                                         temperature_c: Some(sample.temperature_c()),
                                         accel_covariance_g2: None,
                                         gyro_covariance_dps2: None,
                                     }));
+                                    if state
+                                        .estimate
+                                        .is_some_and(|o| o.estimate.quality == Quality::Unavailable)
+                                    {
+                                        state.estimate_rejections += 1;
+                                    }
                                 }
                                 result
                             }
@@ -325,9 +370,15 @@ impl Service {
                     } else {
                         return;
                     }
-                    // ESP-IDF usleep busy-waits below its 10 ms RTOS tick. Use a
-                    // full yielding interval so the idle/watchdog and owner run.
-                    thread::sleep(Duration::from_millis(20));
+                    // Schedule a 5 ms start-to-start budget, not another 5 ms
+                    // after bus work. Always block at least one board RTOS tick;
+                    // overruns do not cause a catch-up spin. Duplicate sensor
+                    // counts still cannot renew receipt age.
+                    thread::sleep(
+                        Duration::from_millis(5)
+                            .saturating_sub(poll_started.elapsed())
+                            .max(Duration::from_millis(1)),
+                    );
                 }
             })?;
         Ok(Self {
@@ -364,6 +415,49 @@ impl Service {
         };
         snapshot_response(snapshot, command, Instant::now())
     }
+    /// Latest typed bench estimate, never I/O or a blocking lock. Contention
+    /// returns None so the owner ages its prior sample instead of renewing it.
+    pub fn attitude(&self) -> Option<instrument_core::imu_attitude::Input> {
+        match self.snapshot.try_lock() {
+            Ok(s) => Some(bench_input(*s, Instant::now())),
+            Err(TryLockError::WouldBlock) => None,
+            Err(TryLockError::Poisoned(_)) => Some(
+                instrument_core::imu_attitude::Input::unavailable(instrument_core::Quality::Failed),
+            ),
+        }
+    }
+}
+
+fn bench_input(s: Snapshot, now: Instant) -> instrument_core::imu_attitude::Input {
+    use instrument_core::{imu_attitude::Input, Quality as Q};
+    let quality = match s.quality(now) {
+        "valid" => Q::Valid,
+        "stale" => Q::Stale,
+        "off" | "starting" | "testing" | "missing" => Q::Missing,
+        _ => Q::Failed,
+    };
+    let Some((_, at)) = s.sample else {
+        return Input::unavailable(quality);
+    };
+    let Some(output) = s.estimate else {
+        return Input::unavailable(Q::Missing);
+    };
+    let estimate = output.estimate;
+    let usable =
+        estimate.frame == Frame::BodyForwardRightDown && estimate.quality != Quality::Unavailable;
+    Input {
+        received_us: output.received_us,
+        age_ms: now.duration_since(at).as_millis().min(u64::MAX as u128) as u64,
+        pitch_roll_deg: estimate
+            .roll_pitch_deg
+            .filter(|_| usable && quality == Q::Valid)
+            .map(|[r, p]| [p, r]),
+        quality: if quality == Q::Valid && !usable {
+            Q::Failed
+        } else {
+            quality
+        },
+    }
 }
 
 fn snapshot_response(s: Snapshot, cmd: ImuCommand, now: Instant) -> Response {
@@ -379,18 +473,18 @@ fn snapshot_response(s: Snapshot, cmd: ImuCommand, now: Instant) -> Response {
             .roll_pitch_deg
             .map(|[r, p]| format!("roll_deg={r:.3} pitch_deg={p:.3}"))
             .unwrap_or_else(|| "roll_deg=none pitch_deg=none".into());
-        return reply(format_args!("OK imu estimator={} quality={} input_quality={} {} yaw_deg={:?} attitude_covariance={} bias_covariance={} gyro_bias_rad_s={:?} frame={:?} calibration=unverified timebase=receipt acquired_us=unknown received_us={:?} gauge_eligible=false", s.estimator_name,
+        return reply(format_args!("OK imu estimator={} quality={} input_quality={} {} yaw_deg={:?} attitude_covariance={} bias_covariance={} gyro_bias_rad_s={:?} frame={:?} calibration=unverified timebase=receipt acquired_us=unknown received_us={:?} gauge_eligible=false bench_display_eligible={}", s.estimator_name,
             match estimate.quality {Quality::Unavailable=>"unavailable",Quality::BenchOnly=>"bench_only",Quality::Estimated=>"estimated"}, quality, angles, estimate.yaw_deg,
             if estimate.attitude_error_covariance_rad2.is_some() {"available"} else {"unknown"},
             if estimate.gyro_bias_covariance_rad2_s2.is_some() {"available"} else {"unknown"}, estimate.gyro_bias_rad_s, estimate.frame,
-            s.estimate.filter(|_|quality=="valid").map(|o|o.received_us)));
+            s.estimate.filter(|_|quality=="valid").map(|o|o.received_us),bench_input(s,now).pitch_roll_deg.is_some()));
     }
     if cmd == ImuCommand::Status {
         let (address, who, revision) = s
             .identity
             .map(|i| (i.address, i.who, i.revision))
             .unwrap_or((0, 0, 0));
-        return reply(format_args!("OK imu request={} completed={} state={} quality={} detected={} address=0x{:02x} who=0x{:02x} revision=0x{:02x} samples={} skipped={} duplicates={} errors={} max_gap_ms={} age_ms={} error={:?} accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest={} selftest_accel_g={:?} selftest_gyro_dps={:?} audit={}",s.request,s.completed,s.state.name(),quality,s.identity.is_some(),address,who,revision,s.samples,s.skipped,s.duplicates,s.errors,s.max_gap_ms,age.map(|a|a.to_string()).unwrap_or_else(||"none".into()),s.last_error,s.self_test.map(|t|if t.passed() {"passed"} else {"failed"}).unwrap_or("not_run"),s.self_test.map(|t|t.accel_g),s.self_test.map(|t|t.gyro_dps),s.audit.map(|a|format!("config_match:{};data_match:{};ctrl:{:02x?};byte_gy:{};burst_gy:{}",a.configuration_matches(),a.data_match,a.configuration,a.bytewise_gyro_y,a.burst_gyro_y)).unwrap_or_else(||"not_run".into())));
+        return reply(format_args!("OK imu request={} completed={} state={} quality={} detected={} address=0x{:02x} who=0x{:02x} revision=0x{:02x} samples={} skipped={} duplicates={} errors={} estimate_rejections={} raw_tilt_rejections={} max_gap_ms={} age_ms={} error={:?} accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest={} selftest_accel_g={:?} selftest_gyro_dps={:?} audit={}",s.request,s.completed,s.state.name(),quality,s.identity.is_some(),address,who,revision,s.samples,s.skipped,s.duplicates,s.errors,s.estimate_rejections,s.raw_tilt_rejections,s.max_gap_ms,age.map(|a|a.to_string()).unwrap_or_else(||"none".into()),s.last_error,s.self_test.map(|t|if t.passed() {"passed"} else {"failed"}).unwrap_or("not_run"),s.self_test.map(|t|t.accel_g),s.self_test.map(|t|t.gyro_dps),s.audit.map(|a|format!("config_match:{};data_match:{};ctrl:{:02x?};byte_gy:{};burst_gy:{}",a.configuration_matches(),a.data_match,a.configuration,a.bytewise_gyro_y,a.burst_gyro_y)).unwrap_or_else(||"not_run".into())));
     }
     if quality != "valid" {
         return reply(format_args!("ERR imu_{}", quality));
@@ -422,6 +516,60 @@ impl AttitudeEstimator for BenchTilt {
         estimate
     }
 }
+/// Fifteen-sample causal acceleration average, bounded to less than 200 ms of history.
+/// Invalid RAW gravity/geometry resets immediately; averaging never conceals it.
+/// Output is a bench estimate at the newest receipt, with ~60-65 ms typical
+/// averaging lag. No gyro integration, extrapolation or timestamp renewal.
+#[derive(Default)]
+pub struct AveragedTilt {
+    history: [Option<([f32; 3], u64)>; 15],
+    next: usize,
+}
+impl AttitudeEstimator for AveragedTilt {
+    fn name(&self) -> &'static str {
+        "accel_mean15"
+    }
+    fn reset(&mut self, _: ResetReason) {
+        self.history = [None; 15];
+        self.next = 0;
+    }
+    fn update(&mut self, sample: &Observation, dt: f32) -> Estimate {
+        if dt == 0. {
+            self.reset(ResetReason::Startup);
+        }
+        if tilt_degrees(sample.accel_g).is_none() {
+            self.reset(ResetReason::InvalidInput);
+            return Estimate::unavailable(sample.frame);
+        }
+        self.history[self.next] = Some((sample.accel_g, sample.received_us));
+        self.next = (self.next + 1) % 15;
+        let mut sum = [0.; 3];
+        let mut count = 0;
+        for slot in &mut self.history {
+            if let Some((a, t)) = *slot {
+                if sample
+                    .received_us
+                    .checked_sub(t)
+                    .is_some_and(|age| age < 200_000)
+                {
+                    for axis in 0..3 {
+                        sum[axis] += a[axis];
+                    }
+                    count += 1;
+                } else {
+                    *slot = None;
+                }
+            }
+        }
+        // Require a full fresh window on startup and after invalid raw input.
+        if count != 15 {
+            return Estimate::unavailable(sample.frame);
+        }
+        let mut input = *sample;
+        input.accel_g = sum.map(|v| v / 15.);
+        BenchTilt.update(&input, dt)
+    }
+}
 /// Bench tilt only. A near-1g norm does NOT establish a stationary sensor.
 pub fn tilt_degrees(a: [f32; 3]) -> Option<[f32; 2]> {
     if !a.iter().all(|v| v.is_finite()) {
@@ -444,6 +592,133 @@ pub fn tilt_degrees(a: [f32; 3]) -> Option<[f32; 2]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fifteen_sample_history_tolerates_delivery_jitter_but_not_stale_input() {
+        let mut p = Pipeline::new(AveragedTilt::default());
+        let mut s = observation();
+        s.accel_g = [0., 0., 1.];
+        for n in 0..20 {
+            s.received_us = 1 + n * 12_000;
+            s.sensor_counter = Some(n as u32);
+            let out = p.update(s);
+            assert_eq!(out.received_us, s.received_us);
+            assert_eq!(
+                out.estimate.quality,
+                if n < 14 {
+                    Quality::Unavailable
+                } else {
+                    Quality::BenchOnly
+                }
+            );
+        }
+        s.received_us += 100_000;
+        s.sensor_counter = Some(20);
+        assert_eq!(p.update(s).estimate.quality, Quality::Unavailable);
+        for n in 21..36 {
+            s.received_us += 9_000;
+            s.sensor_counter = Some(n);
+            assert_eq!(
+                p.update(s).estimate.quality,
+                if n < 35 {
+                    Quality::Unavailable
+                } else {
+                    Quality::BenchOnly
+                }
+            );
+        }
+        s.received_us += 9_000;
+        s.sensor_counter = Some(36);
+        s.quality = InputQuality::Stale;
+        assert_eq!(p.update(s).estimate.quality, Quality::Unavailable);
+    }
+    #[test]
+    fn averaging_reduces_jitter_without_angle_wrap_and_invalid_raw_resets() {
+        let mut p = Pipeline::new(AveragedTilt::default());
+        let mut s = observation();
+        for n in 0..20 {
+            s.received_us = 1 + n * 10_000;
+            s.sensor_counter = Some(n as u32);
+            s.accel_g = [0., [0.02, -0.02, 0.][n as usize % 3], 1.];
+            let e = p.update(s).estimate;
+            if n < 14 {
+                assert!(e.roll_pitch_deg.is_none());
+            } else {
+                assert!(e.roll_pitch_deg.unwrap()[0].abs() < 0.01);
+            }
+        }
+        s.received_us = 200_001;
+        s.sensor_counter = Some(20);
+        s.accel_g = [0., 2., 0.];
+        assert_eq!(p.update(s).estimate.quality, Quality::Unavailable);
+        for n in 0..15 {
+            s.received_us += 10_000;
+            s.sensor_counter = Some(21 + n);
+            s.accel_g = [0., 0., 1.];
+            let e = p.update(s).estimate;
+            if n < 14 {
+                assert!(e.roll_pitch_deg.is_none());
+            } else {
+                assert_eq!(e.roll_pitch_deg, Some([0., 0.]));
+            }
+        }
+        p.reset(ResetReason::SourceChanged);
+        for n in 0..20 {
+            s.received_us = 400_001 + n * 10_000;
+            s.sensor_counter = Some(n as u32);
+            s.accel_g = [0., if n % 2 == 0 { 0.01 } else { -0.01 }, -1.];
+            let e = p.update(s).estimate;
+            if n >= 14 {
+                assert!(e.roll_pitch_deg.unwrap()[0].abs() > 179.);
+            }
+        }
+        // Sparse delivery cannot accumulate an unbounded history, even when
+        // each individual interval is below the separate 100 ms source limit.
+        for n in 20..30 {
+            s.received_us += 60_000;
+            s.sensor_counter = Some(n);
+            s.accel_g = [0., 0., -1.];
+            let e = p.update(s).estimate;
+            if n >= 23 {
+                assert!(e.roll_pitch_deg.is_none());
+            }
+        }
+    }
+    #[test]
+    fn mounted_bench_output_preserves_receipt_age_and_rejects_native_or_invalid_input() {
+        let mount = Mount::new([3, -2, 1]).unwrap();
+        for (raw, expected) in [
+            ([1., 0., 0.], [0., 0.]),
+            ([0.8660254, -0.5, 0.], [0., 30.]),
+            ([0.8660254, 0., -0.5], [30., 0.]),
+        ] {
+            let mut observation = observation();
+            observation.frame = Frame::BodyForwardRightDown;
+            observation.accel_g = mount.apply(raw);
+            let mut pipeline = Pipeline::new(BenchTilt);
+            let out = pipeline.update(observation);
+            let now = Instant::now();
+            let mut s = Snapshot::new();
+            s.state = State::Running;
+            s.sample = Some((sample(1), now));
+            s.estimate = Some(out);
+            let input = bench_input(s, now + Duration::from_millis(17));
+            let [p, r] = input.pitch_roll_deg.unwrap();
+            assert!((p - expected[0]).abs() < 0.001 && (r - expected[1]).abs() < 0.001);
+            assert_eq!(input.age_ms, 17);
+            assert_eq!(input.received_us, observation.received_us);
+            assert_eq!(out.estimate.quality, Quality::BenchOnly);
+            assert!(bench_input(s, now + Duration::from_millis(100))
+                .pitch_roll_deg
+                .is_none());
+            for state in [State::Off, State::Testing, State::Starting, State::Failed] {
+                s.state = state;
+                assert!(bench_input(s, now).pitch_roll_deg.is_none());
+            }
+            s.state = State::Running;
+            s.estimate.as_mut().unwrap().estimate.frame = Frame::SensorNative;
+            assert!(bench_input(s, now).pitch_roll_deg.is_none());
+        }
+    }
     fn observation() -> Observation {
         Observation {
             source_epoch: 1,

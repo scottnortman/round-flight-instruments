@@ -30,6 +30,8 @@ fn main() -> std::io::Result<()> {
                         quality: Quality::Valid,
                         age_ms: Some(0),
                     },
+                    imu_bench: false,
+                    imu_last_good: None,
                     external: false,
                     source_session: 0,
                     source_sequence: 0,

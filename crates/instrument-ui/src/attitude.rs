@@ -325,6 +325,7 @@ fn horizon<T: Target>(
 ) {
     let scale = disk.size().0.min(disk.size().1) as f32 / 480.;
     let inverse_scale = 1. / scale;
+    let tile_shift = crate::damage::tile_shift(disk.size().0);
     // 16.16 horizon coordinates: bounded integer work in the per-span loop.
     // At the supported <=1024 viewport, |v|<700 logical units; i32 has margin.
     let step = libm::roundf(pose.sin * inverse_scale * 65536.) as i32;
@@ -400,8 +401,8 @@ fn horizon<T: Target>(
                 } else {
                     disk.span(y, x, common_start, color);
                     disk.span(y, common_end, next, color);
-                    let first = common_start as u32 / 16;
-                    let last = (common_end as u32 - 1) / 16;
+                    let first = common_start as u32 >> tile_shift;
+                    let last = (common_end as u32 - 1) >> tile_shift;
                     let mut dirty =
                         history.dirty_row(y) & (u64::MAX << first) & (u64::MAX >> (63 - last));
                     while dirty != 0 {
@@ -410,8 +411,8 @@ fn horizon<T: Target>(
                         dirty &= !((u64::MAX >> (64 - count)) << tile);
                         disk.span(
                             y,
-                            common_start.max(tile * 16),
-                            common_end.min((tile + count) * 16),
+                            common_start.max(tile << tile_shift),
+                            common_end.min((tile + count) << tile_shift),
                             color,
                         );
                     }
@@ -437,6 +438,19 @@ pub fn draw<T: Target>(target: &mut T, model: Attitude, source_label: &str) {
     moving(&mut disk, model, &mut || {}, None);
     foreground(&mut disk, model, source_label);
 }
+pub(crate) fn waiting<T: Target>(target: &mut T) {
+    let mut disk = Disk::new(target);
+    let mut c = Canvas::new(&mut disk);
+    c.circle(240., 240., 224., FACE);
+    c.text_on(
+        240.,
+        240.,
+        22.,
+        "WAITING FOR IMU",
+        (rgb(255, 185, 87), FACE),
+    );
+    captions(&mut disk, "IMU WAIT");
+}
 pub(crate) fn incremental(
     pixels: &mut [u16],
     size: (u32, u32),
@@ -449,6 +463,12 @@ pub(crate) fn incremental(
     let (width, height) = size;
     let model = snapshot.attitude_model();
     let mut fb = crate::raster::Framebuffer::new(pixels, width, height).unwrap();
+    if snapshot.imu_bench && model.angles.is_none() {
+        waiting(&mut fb);
+        history.clear();
+        progress();
+        return;
+    }
     if let Some(angles) = model.angles {
         horizon(
             &mut Disk::new(&mut fb),
@@ -506,6 +526,8 @@ fn moving<T: Target>(
             MARK,
         );
         progress();
+        let mut labels = [(0u8, (0., 0.)); 12];
+        let mut label_count = 0;
         for n in -24i32..=24 {
             progress();
             let angle = n as f32 * 2.5;
@@ -532,41 +554,14 @@ fn moving<T: Target>(
                 MARK,
             );
             if major {
-                // Opposite pitch marks share identical text and rotation.
-                // Rasterize all four copies once when both signs are visible.
-                let opposite_visible = (-angle - angles.pitch_deg).abs() <= 22.5;
-                if angle < 0. && opposite_visible {
-                    continue;
-                }
-                let number = angle.abs() as u8;
-                let digits = [b'0' + number / 10, b'0' + number % 10];
-                let text = core::str::from_utf8(&digits).unwrap_or("??");
-                if opposite_visible {
-                    c.text_rotated(
-                        [
-                            pose.point(-65., y),
-                            pose.point(65., y),
-                            pose.point(-65., -y),
-                            pose.point(65., -y),
-                        ],
-                        22.,
-                        text,
-                        -angles.roll_deg,
-                        MARK,
-                        digit_cache,
-                    );
-                } else {
-                    c.text_rotated(
-                        [pose.point(-65., y), pose.point(65., y)],
-                        22.,
-                        text,
-                        -angles.roll_deg,
-                        MARK,
-                        digit_cache,
-                    );
+                let digit = (angle.abs() as u8) / 10;
+                for x in [-65., 65.] {
+                    labels[label_count] = (digit, pose.point(x, y));
+                    label_count += 1;
                 }
             }
         }
+        c.ladder_labels(&labels[..label_count], -angles.roll_deg, MARK, digit_cache);
         // Fixed scale, pointer TOWARD bank; horizon rotates the other way.
         let bank = Pose::new(Angles {
             pitch_deg: 0.,
@@ -595,6 +590,12 @@ fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: 
                 if major { 3.5 } else { 1.8 },
                 MARK,
             );
+        }
+        // Offset labels three degrees toward level along the arc so the
+        // upright glyphs clear the thick ticks without entering the bezel.
+        for (angle, label) in [(-57., "60"), (-27., "30"), (27., "30"), (57., "60")] {
+            let (x, y) = polar(216., angle);
+            c.text_on(x, y, 12., label, (MARK, rgb(6, 18, 30)));
         }
         c.polygon(&[(231., 35.), (249., 35.), (240., 51.)], MARK);
         for (color, width) in [(rgb(19, 24, 28), 11.), (AIRCRAFT, 5.)] {
@@ -636,6 +637,9 @@ fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: 
         };
         c.text_on(240., 240., 22., message, (FAILURE, FACE));
     }
+    captions(disk, source_label);
+}
+fn captions<T: Target>(disk: &mut Disk<'_, T>, source_label: &str) {
     let mut c = Canvas::new(disk);
     c.rect(207., 362., 66., 34., FACE);
     c.text_on(240., 382., 26., "ATT", (MARK, FACE));
@@ -699,7 +703,16 @@ mod tests {
         app.apply(Command::LevelPreset).unwrap();
         app.tick(0);
         let base = Snapshot::from_app(&app);
-        for (w, h) in [(240, 240), (480, 480), (720, 720), (241, 239), (1024, 64)] {
+        for (w, h) in [
+            (1, 1),
+            (240, 240),
+            (480, 480),
+            (720, 720),
+            (241, 239),
+            (513, 17),
+            (1024, 64),
+            (1024, 1024),
+        ] {
             let mut bg = std::vec![0;w*h];
             let mut runs = std::vec![CopyRun::default();2048];
             let mut compact = std::vec![0;65536];
@@ -751,6 +764,74 @@ mod tests {
         }
     }
     #[test]
+    fn imu_wait_hold_and_recovery_restore_every_buffer() {
+        use crate::{
+            damage::FrameHistory,
+            render::{draw_frame, CachedRenderer},
+            Snapshot,
+        };
+        use instrument_core::{imu_attitude::Retained, App, Command, Instrument};
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.apply(Command::Select(Instrument::Attitude)).unwrap();
+        app.tick(0);
+        let base = Snapshot::from_app(&app);
+        for size in [240, 480] {
+            let mut bg = std::vec![0; size*size];
+            let mut runs = std::vec![CopyRun::default();2048];
+            let mut compact = std::vec![0;65536];
+            let mut renderer =
+                CachedRenderer::with_foreground_cache(&mut bg, size as u32, size as u32, &mut runs)
+                    .unwrap()
+                    .with_foreground_pixels(&mut compact);
+            let mut buffers: [std::vec::Vec<u16>; 3] =
+                core::array::from_fn(|_| std::vec![0xffff;size*size]);
+            let mut histories: [FrameHistory; 3] = core::array::from_fn(|_| FrameHistory::new());
+            let mut reference = std::vec![0;size*size];
+            for n in 0..60 {
+                let mut s = base;
+                s.imu_bench = true;
+                s.source_label = "IMU BENCH";
+                let phase = (n / 5) % 4;
+                s.pitch.value = Some(12.);
+                s.roll.value = Some(-23.);
+                if phase != 0 {
+                    s.imu_last_good = Some(Retained {
+                        pitch_roll_deg: [12., -23.],
+                        age_ms: 5000,
+                    });
+                }
+                if phase == 0 || phase == 2 {
+                    s.pitch.value = None;
+                    s.roll.value = None;
+                    s.pitch.quality = Quality::Missing;
+                    s.roll.quality = Quality::Missing;
+                }
+                assert!(renderer.draw_incremental(
+                    &mut buffers[n % 3],
+                    &mut histories[n % 3],
+                    s,
+                    false
+                ));
+                let previous = reference.clone();
+                assert!(draw_frame(
+                    &mut reference,
+                    size as u32,
+                    size as u32,
+                    s,
+                    false
+                ));
+                if phase == 2 {
+                    assert!(reference == previous, "Held frame must look unchanged");
+                }
+                assert!(
+                    buffers[n % 3] == reference,
+                    "IMU frame {n}, phase {phase}, size {size}"
+                );
+            }
+        }
+    }
+    #[test]
     fn small_continuous_motion_restores_all_three_buffers_exactly() {
         use crate::{
             damage::FrameHistory,
@@ -775,7 +856,7 @@ mod tests {
         for n in 0..120 {
             s.pitch.value = Some(-4. + n as f32 * 0.067);
             s.roll.value = Some(-9. + n as f32 * 0.151);
-            s.source_label = if n % 7 < 3 { "SIM INPUT" } else { "TEST INPUT" };
+            s.source_label = ["SIM INPUT", "TEST INPUT", "IMU BENCH"][(n / 7) % 3];
             let mut notifications = 0;
             assert!(renderer.draw_incremental_with_progress(
                 &mut frames[n % 3],

@@ -21,6 +21,10 @@ opt-level = "s"
 # Optimize raster math independently of the control/FFI code.
 [profile.dev.package.instrument-ui]
 opt-level = 3
+# Match release arithmetic for bounded raster geometry. Slice bounds checks,
+# explicit checked/saturating age arithmetic and source validation stay enabled.
+# Host tests retain overflow checks; see docs/DISPLAY.md for input bounds.
+overflow-checks = false
 
 [dependencies]
 instrument-core = { path = "../../crates/instrument-core" }

@@ -15,6 +15,8 @@ use instrument_core::{App, Field, Instrument, Quality, Reading};
 /// Immutable view input. Source age is retained through transport and rendering.
 #[derive(Clone, Copy, Debug)]
 pub struct Snapshot {
+    pub imu_bench: bool,
+    pub imu_last_good: Option<instrument_core::imu_attitude::Retained>,
     pub external: bool,
     pub source_session: u64,
     pub source_sequence: u64,
@@ -35,7 +37,24 @@ impl Snapshot {
         altimeter::model_with_semantics(self.altitude, self.baro_inhg, self.external)
     }
     pub fn attitude_model(self) -> attitude::Attitude {
-        attitude::model(self.pitch, self.roll)
+        let mut model = attitude::model(self.pitch, self.roll);
+        if self.imu_bench && model.angles.is_none() {
+            if let Some(held) = self.imu_last_good.filter(|h| {
+                Field::PitchDeg.accepts(h.pitch_roll_deg[0])
+                    && Field::RollDeg.accepts(h.pitch_roll_deg[1])
+            }) {
+                model.angles = Some(attitude::Angles {
+                    pitch_deg: held.pitch_roll_deg[0],
+                    roll_deg: held.pitch_roll_deg[1],
+                });
+            }
+        }
+        model
+    }
+    pub fn imu_holding(self) -> bool {
+        self.imu_bench
+            && self.attitude_model().angles.is_some()
+            && self.attitude_model().quality != Quality::Valid
     }
     pub fn displayed_quality(self) -> Option<Quality> {
         match self.selected {
@@ -47,12 +66,15 @@ impl Snapshot {
     pub fn displayed_age_ms(self) -> Option<u64> {
         match self.selected {
             Instrument::Altimeter => self.altitude.age_ms,
+            Instrument::Attitude if self.imu_holding() => self.imu_last_good.map(|h| h.age_ms),
             Instrument::Attitude => Some(self.pitch.age_ms?.max(self.roll.age_ms?)),
             _ => None,
         }
     }
     pub fn from_app(app: &App) -> Self {
         Self {
+            imu_bench: app.imu_bench(),
+            imu_last_good: app.imu_last_good(),
             external: app.external().is_some(),
             source_session: app.external().map_or(0, |e| e.session),
             source_sequence: app.external().map_or(0, |e| e.sequence()),
@@ -71,6 +93,9 @@ impl Snapshot {
         }
     }
     pub fn aged(mut self, elapsed_ms: u64) -> Self {
+        if let Some(held) = &mut self.imu_last_good {
+            held.age_ms = held.age_ms.saturating_add(elapsed_ms);
+        }
         for reading in [&mut self.pitch, &mut self.roll] {
             reading.age_ms = reading.age_ms.map(|age| age.saturating_add(elapsed_ms));
             if reading.quality == Quality::Valid
@@ -104,6 +129,11 @@ impl Snapshot {
     /// frames have no numeric expiry, but still require owner/render health.
     pub fn numeric_lifetime_ms(self) -> Option<u64> {
         if self.selected == Instrument::Attitude {
+            // Explicit bench hold policy: numerical age stays observable, but
+            // does not blank a held frame. Owner/render/scanout guards still apply.
+            if self.imu_bench {
+                return None;
+            }
             return self.attitude_model().angles.map(|_| {
                 attitude::STALE_MS
                     .saturating_sub(self.displayed_age_ms().unwrap_or(attitude::STALE_MS))
@@ -141,6 +171,37 @@ pub fn presentation_healthy(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn imu_hold_preserves_quality_and_age_and_does_not_change_other_sources() {
+        use instrument_core::{imu_attitude::Input, Command};
+        let mut app = App::new();
+        app.apply(Command::SourceImu).unwrap();
+        let waiting = Snapshot::from_app(&app);
+        assert!(waiting.attitude_model().angles.is_none());
+        app.accept_imu(Input {
+            received_us: 1,
+            age_ms: 3,
+            pitch_roll_deg: Some([10., 20.]),
+            quality: Quality::Valid,
+        });
+        let live = Snapshot::from_app(&app);
+        assert!(!live.imu_holding());
+        assert_eq!(live.numeric_lifetime_ms(), None);
+        let held = live.aged(2000);
+        assert!(held.imu_holding());
+        assert_eq!(held.displayed_quality(), Some(Quality::Stale));
+        assert_eq!(held.imu_last_good.unwrap().age_ms, 2003);
+        assert_eq!(held.attitude_model().angles.unwrap().pitch_deg, 10.);
+        assert_eq!(held.source_label, live.source_label);
+        assert_eq!(held.numeric_lifetime_ms(), None);
+        let strict = Snapshot {
+            imu_bench: false,
+            ..held
+        };
+        assert!(strict.attitude_model().angles.is_none());
+        app.apply(Command::SourceDemo).unwrap();
+        assert!(Snapshot::from_app(&app).imu_last_good.is_none());
+    }
     #[test]
     fn attitude_expires_at_100ms_using_the_older_axis_and_never_uses_demo_for_external() {
         use instrument_core::Command;
@@ -211,6 +272,8 @@ mod tests {
                 quality: Quality::Valid,
                 age_ms: Some(0),
             },
+            imu_bench: false,
+            imu_last_good: None,
             external: false,
             source_session: 0,
             source_sequence: 0,

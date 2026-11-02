@@ -64,7 +64,7 @@ formatting have separate allocation behavior.
 The static backdrop key includes view and test-pattern mode; attitude also
 includes its source label. The barometer is a dynamic overlay.
 `FrameHistory` belongs to exactly one framebuffer and records every dynamic write
-in a fixed 16x8 tile map. On reuse, all previously written tiles are restored
+in an 8x8 tile map (16x8 above 512 pixels wide, using the same bounded storage). On reuse, all previously written tiles are restored
 before the new overlay is drawn. First use or a background-key change restores
 the entire backdrop. History must be reset if a caller changes pixels outside
 this renderer. Missing/stale/fault overlays use the same tracking, so invalid
@@ -142,13 +142,31 @@ The guard runs every 10 ms subject to RTOS scheduling. Thresholds are decision
 budgets, not proven worst-case electrical deadlines: observation/scheduling adds
 latency. Both state owner and guard subscribe to the one-second task watchdog.
 A frozen renderer cannot draw its own fault flag, so it is independently blanked.
-A stale source with a healthy renderer produces a visible fault face instead.
+A stale source with a healthy renderer produces a visible fault face instead,
+except for explicit IMU bench attitude: that mode retains its last usable pose
+without a visible hold annotation and has no numeric deadline. Live source quality and age remain
+unchanged; all pipeline watchdogs above still apply. Before its first usable
+IMU pair, the renderer shows WAITING FOR IMU.
 Task priorities are explicit: guard 11, state owner 10, IMU worker 6, and
 rendering/other pthread workers 5. The board sets the IMU spawn priority and
 restores the previous configuration before creating console threads. This lets
 I2C completion preempt drawing within the unchanged 10 ms transaction timeout.
-Raster code alone is optimized for speed; control/FFI stays on the
-validated size profile. These choices were tested after the default main-task
+The board UI crate uses optimization level 3 and release-style integer arithmetic
+(`overflow-checks=false`); core state, sensor processing and FFI keep their existing
+checked development profiles. This is not permission to wrap values: framebuffer
+construction bounds each dimension to 1..1024 and requires the exact pixel count;
+attitude models reject nonfinite/out-of-range angles before rasterization. The
+largest disk radius is 478 pixels, its squared-distance arithmetic is below
+500,000, and 16.16 horizon coordinates remain below 2^27 for accepted geometry.
+Slice bounds checks and the UI crate's `forbid(unsafe_code)` remain enabled.
+Deadline/age arithmetic uses explicit checked, saturating or wrapping operations
+with tests at clock wrap and expiry boundaries, independent of compiler profile.
+Host tests retain overflow checks and compare optimized frames pixel-for-pixel
+with full redraws at supported sizes, motion extremes and invalid states.
+CPU, PSRAM and LCD clocks remain 240/80/18 MHz. The data cache remains 32 KiB;
+a measured 64 KiB candidate did not improve this workload.
+
+Raster optimization leaves control/FFI on the validated size profile. These choices were tested after the default main-task
 priority allowed a long render to starve the owner and trigger its watchdog.
 
 The driver starts scanning buffer 0, and the CPU starts drawing buffer 1;

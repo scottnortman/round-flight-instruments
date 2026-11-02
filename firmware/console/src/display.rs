@@ -135,6 +135,7 @@ struct Presented {
     roll: Option<f32>,
     instrument: Option<Instrument>,
     quality: u32,
+    holding: bool,
 }
 struct Shared {
     sample: Mutex<Presented>,
@@ -158,6 +159,8 @@ struct Shared {
     stall: AtomicU32,
     blanked_at: AtomicU32,
     expired_ticks: AtomicU32,
+    expired_source_valid: AtomicU32,
+    expired_source_invalid: AtomicU32,
     shown_quality: AtomicU32,
     shown_altitude: AtomicU32,
     shown_instrument: AtomicU32,
@@ -201,6 +204,8 @@ impl Service {
             stall: AtomicU32::new(0),
             blanked_at: AtomicU32::new(0),
             expired_ticks: AtomicU32::new(0),
+            expired_source_valid: AtomicU32::new(0),
+            expired_source_invalid: AtomicU32::new(0),
             shown_quality: AtomicU32::new(6),
             shown_altitude: AtomicU32::new(0),
             shown_instrument: AtomicU32::new(2),
@@ -239,6 +244,20 @@ impl Service {
                     // commanded off, so timing can be qualified without flicker.
                     if guard.ready.load(Ordering::Acquire) && t >= deadline {
                         guard.expired_ticks.fetch_add(1, Ordering::Relaxed);
+                        if let Ok(latest) = guard.snapshot.try_lock() {
+                            if let Some((snapshot, at)) = *latest {
+                                let valid = snapshot
+                                    .aged(at.elapsed().as_millis() as u64)
+                                    .displayed_quality()
+                                    == Some(instrument_core::Quality::Valid);
+                                let counter = if valid {
+                                    &guard.expired_source_valid
+                                } else {
+                                    &guard.expired_source_invalid
+                                };
+                                counter.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
                     }
                     let healthy = guard.ready.load(Ordering::Acquire)
                         && !guard.failed.load(Ordering::Acquire)
@@ -347,7 +366,7 @@ impl Service {
                     Err(_) => return reply(format_args!("ERR display_sample_busy")),
                 };
                 let at = now();
-                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern"][v.quality as usize],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll));
+                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern"][v.quality as usize],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,v.holding));
             }
             DisplayCommand::TouchSound(_) | DisplayCommand::TouchSoundStatus => {
                 return reply(format_args!("ERR touch_sound_unavailable"))
@@ -420,7 +439,7 @@ impl Service {
             DisplayCommand::TransferStall => s.stall.store(2, Ordering::Release),
             DisplayCommand::Recover => s.stall.store(0, Ordering::Release),
             DisplayCommand::Status => {
-                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
+                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
             }
         }
         reply(format_args!(
@@ -778,13 +797,13 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
             } else {
                 None
             },
-            pitch: if quality == 0 && snapshot.selected == Instrument::Attitude {
-                snapshot.pitch.value
+            pitch: if !pattern && snapshot.selected == Instrument::Attitude {
+                snapshot.attitude_model().angles.map(|a| a.pitch_deg)
             } else {
                 None
             },
-            roll: if quality == 0 && snapshot.selected == Instrument::Attitude {
-                snapshot.roll.value
+            roll: if !pattern && snapshot.selected == Instrument::Attitude {
+                snapshot.attitude_model().angles.map(|a| a.roll_deg)
             } else {
                 None
             },
@@ -794,6 +813,9 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
                 Some(snapshot.selected)
             },
             quality,
+            holding: !pattern
+                && snapshot.selected == Instrument::Attitude
+                && snapshot.imu_holding(),
         };
     }
     s.shown_altitude.store(

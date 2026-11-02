@@ -11,7 +11,11 @@ pub struct Rect {
 }
 impl Rect {
     pub fn contains(self, x: u16, y: u16) -> bool {
-        x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
+        // Widen before addition so even an offscreen rectangle cannot wrap.
+        x >= self.x
+            && (x as u32) < self.x as u32 + self.w as u32
+            && y >= self.y
+            && (y as u32) < self.y as u32 + self.h as u32
     }
 }
 pub const KOLLSMAN: Rect = Rect {
@@ -208,7 +212,7 @@ impl Controller {
                         e.activity = now;
                         match button {
                             Button::Minus => e.cents = e.cents.saturating_sub(1).max(2810),
-                            Button::Plus => e.cents = (e.cents + 1).min(3100),
+                            Button::Plus => e.cents = e.cents.saturating_add(1).min(3100),
                             Button::Standard => e.cents = 2992,
                             Button::Cancel => {
                                 self.cancel();
@@ -268,6 +272,19 @@ impl Controller {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn offscreen_rectangles_do_not_wrap_hit_targets() {
+        let r = super::Rect {
+            x: 65530,
+            y: 65530,
+            w: 20,
+            h: 20,
+        };
+        assert!(r.contains(65535, 65535));
+        assert!(!r.contains(0, 0));
+        assert!(!super::Rect { w: 0, ..r }.contains(65530, 65530));
+    }
+
     use super::*;
     fn feed(c: &mut Controller, t: u64, v: Contact) -> Option<f32> {
         c.update(

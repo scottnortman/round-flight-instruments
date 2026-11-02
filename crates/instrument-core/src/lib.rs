@@ -3,6 +3,7 @@
 pub mod attitude_demo;
 mod baro_control;
 pub mod external;
+pub mod imu_attitude;
 pub mod takeoff;
 pub use simulator_link;
 
@@ -153,6 +154,7 @@ pub enum ImuCommand {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Command {
     SourceDemo,
+    SourceImu,
     SourceExternal(simulator_link::Provider, u64),
     SourceStatus,
     Telemetry(simulator_link::Frame),
@@ -211,6 +213,8 @@ pub enum ApplyError {
 
 /// Single-writer application state. A renderer receives readings, never raw stale values.
 pub struct App {
+    imu_bench: bool,
+    imu_attitude: imu_attitude::Receiver,
     external: Option<external::External>,
     highest_session: u64,
     control: baro_control::BaroControl,
@@ -235,6 +239,27 @@ impl Default for App {
     }
 }
 impl App {
+    pub fn imu_bench(&self) -> bool {
+        self.imu_bench
+    }
+    pub fn imu_last_good(&self) -> Option<imu_attitude::Retained> {
+        self.imu_bench
+            .then(|| self.imu_attitude.last_good(self.now_ms()))
+            .flatten()
+    }
+    pub fn accept_imu(&mut self, mut input: imu_attitude::Input) {
+        if self.imu_bench {
+            // A faulted axis makes the pair unusable, including for display
+            // retention. Still consume its receipt watermark to prevent replay.
+            if self.timing_fault {
+                input.quality = Quality::TimingFault;
+            } else if self.faults[Field::PitchDeg as usize] || self.faults[Field::RollDeg as usize]
+            {
+                input.quality = Quality::Failed;
+            }
+            self.imu_attitude.accept(input, self.now_ms());
+        }
+    }
     pub fn attitude_demo(&self) -> attitude_demo::Demo {
         self.attitude_demo
     }
@@ -242,9 +267,15 @@ impl App {
         self.external
     }
     pub fn source_name(&self) -> &'static str {
+        if self.imu_bench {
+            return "imu_bench";
+        }
         self.external.map_or("sim", |e| e.provider.name())
     }
     pub fn source_label(&self) -> &'static str {
+        if self.imu_bench {
+            return "IMU BENCH";
+        }
         if self.control_data_ready() {
             match self.control_status() {
                 Some(simulator_link::control::Status::Sent) => return "BARO PENDING",
@@ -322,6 +353,8 @@ impl App {
     }
     pub const fn new() -> Self {
         Self {
+            imu_bench: false,
+            imu_attitude: imu_attitude::Receiver::new(),
             external: None,
             highest_session: 0,
             control: baro_control::BaroControl {
@@ -359,7 +392,7 @@ impl App {
         self.last_tick = Some(now);
         self.refresh_control();
         self.tick_count = self.tick_count.saturating_add(1);
-        if self.timing_fault || !self.running || self.external.is_some() {
+        if self.timing_fault || !self.running || self.external.is_some() || self.imu_bench {
             self.takeoff.stop(self.timing_fault);
             self.attitude_demo.stop(self.timing_fault);
             return;
@@ -389,6 +422,11 @@ impl App {
         }
     }
     pub fn reading(&self, field: Field, now: u64) -> Reading {
+        if self.imu_bench {
+            return self
+                .imu_attitude
+                .read(field, now, self.external_fault(Some(field)));
+        }
         if let Some(e) = self.external {
             return e.read(now, self.external_fault(Some(field)), |f| {
                 if field == Field::PressureAltitudeFt {
@@ -423,7 +461,7 @@ impl App {
     }
     pub fn apply(&mut self, command: Command) -> Result<(), ApplyError> {
         self.refresh_control();
-        if self.external.is_some()
+        if (self.external.is_some() || self.imu_bench)
             && matches!(
                 command,
                 Command::AttitudeDemo(_)
@@ -442,6 +480,8 @@ impl App {
         match command {
             Command::SourceStatus => (),
             Command::SourceDemo => {
+                self.imu_bench = false;
+                self.imu_attitude = Default::default();
                 self.external = None;
                 self.control = Default::default();
                 self.samples = [None; 8];
@@ -451,6 +491,21 @@ impl App {
                 self.takeoff.stop(false);
                 self.attitude_demo.stop(false);
             }
+            Command::SourceImu => {
+                if self.timing_fault {
+                    return Err(ApplyError::NotReady);
+                }
+                self.imu_bench = true;
+                self.imu_attitude = Default::default();
+                self.external = None;
+                self.control = Default::default();
+                self.samples = [None; 8];
+                self.held = [None; 8];
+                self.takeoff.stop(false);
+                self.attitude_demo.stop(false);
+                self.running = false;
+                self.selected = Instrument::Attitude;
+            }
             Command::SourceExternal(provider, session) => {
                 if self.timing_fault {
                     return Err(ApplyError::NotReady);
@@ -459,6 +514,8 @@ impl App {
                     return Err(ApplyError::OutOfRange);
                 }
                 self.highest_session = session;
+                self.imu_bench = false;
+                self.imu_attitude = Default::default();
                 self.external = Some(external::External::new(provider, session));
                 self.control = Default::default();
                 self.samples = [None; 8];
@@ -567,6 +624,12 @@ impl App {
                 ];
             }
             Command::Fault(f, active) => {
+                if self.imu_bench && matches!(f, Field::PitchDeg | Field::RollDeg) {
+                    self.imu_attitude.accept(
+                        imu_attitude::Input::unavailable(Quality::Failed),
+                        self.now_ms(),
+                    );
+                }
                 if f == Field::PressureAltitudeFt {
                     if let Some(external) = &mut self.external {
                         external.clear_altitude();
@@ -601,6 +664,86 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn imu_fault_freezes_retained_pair_until_new_post_fault_input() {
+        let mut app = App::new();
+        app.apply(Command::SourceImu).unwrap();
+        let input = imu_attitude::Input {
+            received_us: 1,
+            age_ms: 0,
+            pitch_roll_deg: Some([10., 20.]),
+            quality: Quality::Valid,
+        };
+        app.accept_imu(input);
+        app.apply(Command::Fault(Field::RollDeg, true)).unwrap();
+        let newer = imu_attitude::Input {
+            received_us: 2,
+            pitch_roll_deg: Some([30., 40.]),
+            ..input
+        };
+        app.accept_imu(newer);
+        assert_eq!(app.imu_last_good().unwrap().pitch_roll_deg, [10., 20.]);
+        assert_eq!(app.reading(Field::PitchDeg, app.now_ms()).value, None);
+        app.apply(Command::Fault(Field::RollDeg, false)).unwrap();
+        app.accept_imu(newer);
+        assert_eq!(app.imu_last_good().unwrap().pitch_roll_deg, [10., 20.]);
+        app.accept_imu(imu_attitude::Input {
+            received_us: 3,
+            ..newer
+        });
+        assert_eq!(app.imu_last_good().unwrap().pitch_roll_deg, [30., 40.]);
+    }
+    #[test]
+    fn imu_selection_is_explicit_isolated_and_never_renews_or_falls_back() {
+        use super::*;
+        let mut a = App::new();
+        a.apply(Command::LevelPreset).unwrap();
+        a.tick(0);
+        a.apply(Command::SourceImu).unwrap();
+        assert_eq!(a.selected(), Instrument::Attitude);
+        assert_eq!(a.source_label(), "IMU BENCH");
+        assert_eq!(a.reading(Field::PitchDeg, 0).value, None);
+        let input = imu_attitude::Input {
+            received_us: 123,
+            age_ms: 30,
+            pitch_roll_deg: Some([5., 20.]),
+            quality: Quality::Valid,
+        };
+        a.accept_imu(input);
+        for cmd in [
+            Command::LevelPreset,
+            Command::Set(Field::PitchDeg, 0.),
+            Command::AttitudeDemo(60),
+            Command::Takeoff(60),
+            Command::Resume,
+        ] {
+            assert_eq!(a.apply(cmd), Err(ApplyError::Unsupported));
+        }
+        a.tick(69);
+        a.accept_imu(imu_attitude::Input { age_ms: 0, ..input });
+        assert_eq!(a.reading(Field::PitchDeg, 69).age_ms, Some(99));
+        assert_eq!(a.reading(Field::RollDeg, 70).quality, Quality::Stale);
+        assert_eq!(a.altimeter_reading(69).value, None);
+        a.apply(Command::Fault(Field::PitchDeg, true)).unwrap();
+        a.apply(Command::Fault(Field::PitchDeg, false)).unwrap();
+        a.accept_imu(input);
+        assert_eq!(a.reading(Field::PitchDeg, 69).value, None);
+        a.accept_imu(imu_attitude::Input {
+            received_us: 124,
+            age_ms: 0,
+            ..input
+        });
+        assert_eq!(a.reading(Field::PitchDeg, 69).value, Some(5.));
+        a.apply(Command::SourceExternal(simulator_link::Provider::Replay, 1))
+            .unwrap();
+        assert!(!a.imu_bench());
+        a.accept_imu(input);
+        assert_eq!(a.reading(Field::PitchDeg, 69).value, None);
+        a.apply(Command::SourceDemo).unwrap();
+        a.tick(70);
+        assert_eq!(a.source_name(), "sim");
+        assert_eq!(a.reading(Field::RollDeg, 70).value, None);
+    }
     use super::*;
     #[test]
     fn source_jitter_preserves_cadence_and_actual_acquisition_age() {

@@ -1,10 +1,17 @@
 //! Caller-owned damage history for ONE framebuffer. Any overlay write marks a
-//! 16x8 tile, including clears, text alpha, faults and needle pixels. The next
+//! 8x8 tile (16x8 above 512 pixels wide), including clears and glyphs. The next
 //! draw restores every marked tile from the static backdrop before drawing.
 use crate::raster::{Framebuffer, Target};
 use instrument_core::Instrument;
 
 pub(crate) type Key = (u32, u32, Instrument, bool);
+pub(crate) fn tile_shift(width: u32) -> u32 {
+    if width <= 512 {
+        3
+    } else {
+        4
+    }
+}
 pub struct FrameHistory {
     pub(crate) key: Option<Key>,
     // One u64 per 8-pixel row supports the maximum 1024x1024 framebuffer.
@@ -38,13 +45,14 @@ impl FrameHistory {
         width: usize,
         height: usize,
     ) {
+        let tile_width = 1usize << tile_shift(width as u32);
         for ty in 0..height.div_ceil(8) {
             let mut tiles = self.rows[ty];
             while tiles != 0 {
                 let tx = tiles.trailing_zeros() as usize;
                 tiles &= tiles - 1;
-                let x0 = tx * 16;
-                let x1 = (x0 + 16).min(width);
+                let x0 = tx * tile_width;
+                let x1 = (x0 + tile_width).min(width);
                 for y in ty * 8..((ty + 1) * 8).min(height) {
                     let range = y * width + x0..y * width + x1;
                     pixels[range.clone()].copy_from_slice(&background[range]);
@@ -69,9 +77,10 @@ impl Target for Tracked<'_, '_> {
         if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 {
             return;
         }
-        let tile = ((y as u16 / 8) * 64) + (x as u16 / 16);
+        let shift = tile_shift(w);
+        let tile = ((y as u16 / 8) * 64) + (x as u16 >> shift);
         if self.last_pixel_tile != tile {
-            self.history.rows[y as usize / 8] |= 1u64 << (x as usize / 16);
+            self.history.rows[y as usize / 8] |= 1u64 << (x as usize >> shift);
             self.last_pixel_tile = tile;
         }
         self.target.pixel(x, y, color);
@@ -85,8 +94,8 @@ impl Target for Tracked<'_, '_> {
         if y < 0 || y >= h as i32 || lo >= hi {
             return;
         }
-        let first = lo as u32 / 16;
-        let last = (hi as u32 - 1) / 16;
+        let first = lo as u32 >> tile_shift(w);
+        let last = (hi as u32 - 1) >> tile_shift(w);
         self.history.rows[y as usize / 8] |= (u64::MAX << first) & (u64::MAX >> (63 - last));
         self.target.pixels(y, start, colors);
     }
@@ -97,8 +106,8 @@ impl Target for Tracked<'_, '_> {
         if y < 0 || y >= h as i32 || start >= end {
             return;
         }
-        let first = start as u32 / 16;
-        let last = (end as u32 - 1) / 16;
+        let first = start as u32 >> tile_shift(w);
+        let last = (end as u32 - 1) >> tile_shift(w);
         self.history.rows[y as usize / 8] |= (u64::MAX << first) & (u64::MAX >> (63 - last));
         self.target.span(y, start, end, color);
     }
@@ -110,7 +119,7 @@ mod tests {
     use super::*;
     #[test]
     fn clipped_runs_and_partial_edge_tiles_restore_exactly() {
-        for (w, h) in [(1, 1), (17, 19), (1024, 32)] {
+        for (w, h) in [(1, 1), (17, 19), (512, 32), (513, 32), (1024, 32)] {
             let bg = std::vec![123; w * h];
             let mut pixels = bg.clone();
             let mut history = FrameHistory::new();

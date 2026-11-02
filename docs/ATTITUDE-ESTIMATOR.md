@@ -1,10 +1,10 @@
 # Attitude estimator extension boundary
 
-The board now runs a replaceable estimator on the IMU worker. Its initial
-`BenchTilt` implementation produces accelerometer-only roll/pitch for CLI
-inspection. There is **no Kalman filter, gyro integration, bias subtraction,
-absolute heading, or IMU-to-gauge routing** in this stage. The confirmed large
-stationary Y gyro offset remains unresolved.
+The board runs a replaceable estimator on the IMU worker. `BenchTilt` provides
+unfiltered accelerometer tilt; the board now selects `AveragedTilt`, a 15-sample
+acceleration average, for explicit IMU attitude bench mode. There is **no Kalman
+filter, gyro integration, bias subtraction or absolute heading**. The confirmed
+large stationary Y gyro offset remains unresolved and is not integrated.
 
 ## Architecture and extension point
 
@@ -36,7 +36,7 @@ adapter can later own the same pure estimator interface.
 | `acquired_us` | Optional acquisition time in the **same clock domain**; currently unknown, never synthesized from receipt time |
 | `sensor_counter` | Optional device sample counter; QMI adapter checks duplicates, regression and 24-bit wrap before invoking the pipeline |
 | `source_epoch` | Changes on source reinitialization; adapters must also advance it when calibration parameters or alignment change, including verified-to-verified changes |
-| `frame` | Native sensor axes or body forward/right/down; current firmware supplies native axes only |
+| `frame` | Native sensor axes or body forward/right/down; the board supplies the verified upright mounting to the estimator; raw CLI data stays native |
 | `quality`, `calibration` | Input freshness/fault/saturation and independently verified calibration status; fresh does not mean accurate |
 | `accel_g`, `gyro_dps`, `temperature_c` | Measured values with explicit units, unchanged by the estimator; SI conversion helpers are available |
 | Measurement covariance | Optional full symmetric 3x3 matrices in g squared or (degrees/second) squared; `None` means unknown, never zero confidence error |
@@ -75,7 +75,9 @@ fresh samples advance the estimator. CLI output suppresses old estimates at
 age >=100 ms and in off, missing, testing, failed, or saturated states.
 Unverified calibration or native coordinates restrict output to `BenchOnly`.
 `Estimated` is an algorithm status, not certification or permission to feed
-gauges. This firmware always reports `gauge_eligible=false`.
+gauges. Operational `gauge_eligible` remains false. Explicit `source imu` permits
+fresh mounted output only for the labeled [IMU BENCH display](IMU-ATTITUDE.md);
+`bench_display_eligible` reports that separate qualification.
 
 ## CLI and verification
 
@@ -92,7 +94,7 @@ imu estimator
 
 Wait for on/audit/off operation IDs to appear as `completed` in `imu status`.
 `imu estimator` is a snapshot, not a filter-selection command. It reports
-`estimator=accel_tilt`, `quality=bench_only` when tilt geometry is usable,
+`estimator=accel_mean15` on the current board, `quality=bench_only` when tilt geometry is usable,
 `attitude_covariance=unknown`, `gyro_bias_rad_s=None`, and `yaw_deg=None`.
 Off/invalid input reports `quality=unavailable` with absent angles.
 An accelerometer norm near 1 g does not prove stationarity or trustworthy tilt

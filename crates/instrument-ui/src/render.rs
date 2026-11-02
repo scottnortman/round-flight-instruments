@@ -376,7 +376,11 @@ fn draw_kollsman_value<T: Target>(c: &mut Canvas<T>, baro: f32, background: u16)
 }
 fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
     if s.selected == Instrument::Attitude {
-        crate::attitude::draw(target, s.attitude_model(), s.source_label);
+        if s.imu_bench && s.attitude_model().angles.is_none() {
+            crate::attitude::waiting(target);
+        } else {
+            crate::attitude::draw(target, s.attitude_model(), s.source_label);
+        }
         return;
     }
     if s.selected != Instrument::Altimeter {
@@ -583,6 +587,8 @@ mod tests {
                     quality: Quality::Valid,
                     age_ms: Some(0),
                 },
+                imu_bench: false,
+                imu_last_good: None,
                 external: false,
                 source_session: 0,
                 source_sequence: 0,
@@ -668,6 +674,8 @@ mod tests {
                         quality: Quality::Valid,
                         age_ms: Some(0),
                     },
+                    imu_bench: false,
+                    imu_last_good: None,
                     external: false,
                     source_session: 0,
                     source_sequence: 0,
@@ -922,6 +930,8 @@ mod tests {
                     quality: Quality::Valid,
                     age_ms: Some(0),
                 },
+                imu_bench: false,
+                imu_last_good: None,
                 external: false,
                 source_session: 0,
                 source_sequence: 0,

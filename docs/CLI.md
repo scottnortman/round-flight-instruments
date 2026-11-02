@@ -1,6 +1,6 @@
 # Text CLI protocol 1
 
-On the integration branch, `source sim`, `source status`, and
+On the integration branch, `source sim`, `source imu`, `source status`, and
 `source external PROVIDER SESSION` control explicit data ownership. The bounded
 `T1` telemetry command is intended for the bridge, not manual typing. External
 mode disables local barometer editing and demo setters. See the
@@ -24,6 +24,14 @@ The board also implements [optional IMU diagnostics](IMU.md):
 `imu estimator`. See the [estimator extension contract](ATTITUDE-ESTIMATOR.md)
 for bench tilt, invalidity, and future Kalman hooks.
 They do not select a gauge source or alter simulation settings.
+
+`source imu` explicitly queues acquisition and selects the upright attitude face
+with an IMU BENCH caption. It uses mounted, averaged accelerometer tilt, supplies
+no altitude, and rejects demo setters. `source status` reports the paired angles,
+quality and original receipt age. `imu off` invalidates the face; there is no
+automatic fallback. Return using `source sim`, then `sim preset level`.
+The desktop runtime rejects this physical source with `ERR imu_unsupported_target`.
+See [IMU attitude bench mode](IMU-ATTITUDE.md) for orientation and filter limits.
 
 The same commands run on desktop and UART. The application UART uses 921600/8N1 without flow
 control. ASCII commands are case-sensitive. Fields include their units; decimal
@@ -78,7 +86,7 @@ slow client. Do not treat queued text status as live flight telemetry.
 
 ### Touch barometer editor
 
-Hold the Kollsman window for half a second, release, then use −/+ and Apply/Cancel.
+Hold the Kollsman window for a quarter second, release, then use −/+ and Apply/Cancel.
 Only Apply changes the active barometer/indicated-altitude offset. See
 [touch behaviour and safety](TOUCH.md) for cancellation and freshness rules.
 
@@ -227,3 +235,13 @@ counts. Mute takes effect on the bus worker; settings are volatile. See
 Touch Apply uses exactly the same request path. The overlay footer says APPLY TO
 SIM, and BARO PENDING/REJECTED/TIMEOUT make uncertain outcomes visible. The gauge
 never substitutes the requested value for actual simulator readback.
+
+### IMU bench display hold
+
+`source imu` uses a 15-sample acceleration average. Rejected, missing or stale
+readings retain the last usable attitude without changing its caption. `source status`
+reports live quality separately from `holding`, `held_pitch_roll_deg` and
+`held_age_ms`; `display sample` reports the shown pair and `holding`. The age
+continues increasing during a hold. Source changes clear the retained pose.
+This display-only policy does not change SIM/external freshness or pipeline
+watchdogs. See [IMU attitude](IMU-ATTITUDE.md).
