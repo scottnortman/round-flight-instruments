@@ -8,7 +8,7 @@ use esp_idf_svc::{
     },
     sys,
 };
-use instrument_core::{App, Command, DisplayCommand, Field, Instrument, Quality};
+use instrument_core::{App, Command, DisplayCommand, Instrument};
 use instrument_ui::interaction::Controller;
 use instrument_ui::{pipeline::FramePipeline, presentation_healthy, render, Snapshot};
 use std::{
@@ -107,7 +107,13 @@ pub fn initialize(bus: &mut crate::board_bus::Bus) -> io::Result<()> {
     Ok(())
 }
 
+#[derive(Clone, Copy, Default)]
+struct Presented {
+    session:u64, sequence:u64, received_ms:u64, presented_ms:u32,
+    source_age_ms:Option<u64>, altitude:Option<f32>, quality:u32,
+}
 struct Shared {
+    sample: Mutex<Presented>,
     requested_pclk: AtomicU32,
     applied_pclk: AtomicU32,
     snapshot: Mutex<Option<(Snapshot, Instant)>>,
@@ -144,6 +150,7 @@ struct Stats {
 impl Service {
     pub fn start(mut backlight: PinDriver<'static, Output>, panel_ready: bool) -> io::Result<Self> {
         let s = Arc::new(Shared {
+            sample: Mutex::new(Presented {quality:1, ..Presented::default()}),
             requested_pclk: AtomicU32::new(18_000_000),
             applied_pclk: AtomicU32::new(0),
             snapshot: Mutex::new(None),
@@ -247,8 +254,7 @@ impl Service {
         let s = &self.shared;
         *self.touch_state.borrow_mut() = touch;
         let mut interaction = self.interaction.borrow_mut();
-        let allowed = app.selected() == Instrument::Altimeter
-            && app.reading(Field::PressureAltitudeFt, app.now_ms()).quality == Quality::Valid
+        let allowed = app.baro_edit_allowed() && app.selected() == Instrument::Altimeter
             && s.light.load(Ordering::Acquire)
             && !s.pattern.load(Ordering::Acquire)
             && s.enabled.load(Ordering::Acquire)
@@ -279,6 +285,11 @@ impl Service {
     pub fn handle(&self, command: DisplayCommand) -> Response {
         let s = &self.shared;
         match command {
+            DisplayCommand::SampleStatus => {
+                let v=match s.sample.try_lock() {Ok(v)=>*v,Err(_)=>return reply(format_args!("ERR display_sample_busy"))};
+                let at=now();
+                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern"][v.quality as usize]));
+            }
             DisplayCommand::TouchSound(_) | DisplayCommand::TouchSoundStatus => {
                 return reply(format_args!("ERR touch_sound_unavailable"))
             }
@@ -350,7 +361,7 @@ impl Service {
             DisplayCommand::TransferStall => s.stall.store(2, Ordering::Release),
             DisplayCommand::Recover => s.stall.store(0, Ordering::Release),
             DisplayCommand::Status => {
-                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} source=sim renderer=altimeter shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),["valid","missing","stale","failed","timing_fault","placeholder","pattern"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
+                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} source={} renderer=altimeter shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["valid","missing","stale","failed","timing_fault","placeholder","pattern"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
             }
         }
         reply(format_args!(
@@ -552,7 +563,7 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
     let deadline = lifetime
         .map(|ttl| stamp.saturating_add(ttl as u32))
         .unwrap_or(u32::MAX);
-    let model = instrument_ui::altimeter::model(snapshot.altitude, snapshot.baro_inhg);
+    let model = snapshot.model();
     let quality = if pattern {
         6
     } else if snapshot.selected != instrument_core::Instrument::Altimeter {
@@ -566,6 +577,13 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
             instrument_core::Quality::TimingFault => 4,
         }
     };
+    let presented_ms=now();
+    if let Ok(mut v)=s.sample.lock() {
+        *v=Presented{session:snapshot.source_session,sequence:snapshot.source_sequence,
+            received_ms:snapshot.source_received_ms,presented_ms,
+            source_age_ms:snapshot.altitude.age_ms.map(|age|age.saturating_add(presented_ms.wrapping_sub(stamp) as u64)),
+            altitude:if quality==0 {model.indicated_ft} else {None},quality};
+    }
     s.shown_altitude.store(
         model.indicated_ft.unwrap_or(0.).to_bits(),
         Ordering::Release,

@@ -20,6 +20,12 @@ fn main() -> std::io::Result<()> {
             render::draw(
                 &mut Framebuffer::new(&mut pixels, size, size).unwrap(),
                 Snapshot {
+                    external: false,
+                    source_session: 0,
+                    source_sequence: 0,
+                    source_received_ms: 0,
+                    baro_age_ms: None,
+                    source_label: "SIM INPUT",
                     kollsman_pressed: label == "baro-pressed",
                     selected: Instrument::Altimeter,
                     altitude: Reading {

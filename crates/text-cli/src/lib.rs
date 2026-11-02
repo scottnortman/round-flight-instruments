@@ -4,7 +4,7 @@
 use core::fmt::{self, Write};
 use instrument_core::{App, Command, DisplayCommand, Field, ImuCommand, Instrument};
 
-pub const MAX_LINE: usize = 128;
+pub const MAX_LINE: usize = 256;
 pub const LINE_TIMEOUT_MS: u64 = 30_000;
 pub const MAX_RESPONSE: usize = 1024;
 
@@ -18,6 +18,7 @@ pub enum Error {
     TooLong,
     InvalidByte,
     Timeout,
+    Checksum,
 }
 impl Error {
     pub fn name(self) -> &'static str {
@@ -30,11 +31,22 @@ impl Error {
             Self::TooLong => "line_too_long",
             Self::InvalidByte => "invalid_byte",
             Self::Timeout => "line_timeout",
+            Self::Checksum => "checksum",
         }
     }
 }
 
 pub fn parse(line: &str) -> Result<Command, Error> {
+    if line.starts_with("T1 ") {
+        return instrument_core::simulator_link::Frame::decode(line)
+            .map(Command::Telemetry)
+            .map_err(|e| match e {
+                instrument_core::simulator_link::Error::Checksum => Error::Checksum,
+                instrument_core::simulator_link::Error::Range => Error::Range,
+                instrument_core::simulator_link::Error::TooLong => Error::TooLong,
+                _ => Error::Syntax,
+            });
+    }
     if line.len() > MAX_LINE {
         return Err(Error::TooLong);
     }
@@ -62,6 +74,20 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         }
     };
     match &words[..count] {
+        ["source", "sim"] => Ok(Command::SourceDemo),
+        ["source", "status"] => Ok(Command::SourceStatus),
+        ["control", "enable", session] => Ok(Command::ControlEnable(
+            session.parse().map_err(|_| Error::Range)?,
+        )),
+        ["control", "poll"] => Ok(Command::ControlPoll),
+        _ if line.starts_with("R1 ") => Ok(Command::ControlReply(
+            instrument_core::simulator_link::control::Reply::decode(line)
+                .map_err(|_| Error::Range)?,
+        )),
+        ["source", "external", provider, session] => Ok(Command::SourceExternal(
+            instrument_core::simulator_link::Provider::parse(provider).ok_or(Error::Syntax)?,
+            session.parse().map_err(|_| Error::Number)?,
+        )),
         ["sim", "takeoff"] => Ok(Command::Takeoff(60)),
         ["sim", "takeoff", "stop"] => Ok(Command::TakeoffStop),
         ["sim", "takeoff", "status"] => Ok(Command::TakeoffStatus),
@@ -72,6 +98,7 @@ pub fn parse(line: &str) -> Result<Command, Error> {
             }
             Ok(Command::Takeoff(seconds))
         }
+        ["display", "sample"] => Ok(Command::Display(DisplayCommand::SampleStatus)),
         ["touch", "status"] => Ok(Command::Display(DisplayCommand::TouchStatus)),
         ["touch", "sound", "on"] => Ok(Command::Display(DisplayCommand::TouchSound(true))),
         ["touch", "sound", "off"] => Ok(Command::Display(DisplayCommand::TouchSound(false))),
@@ -293,6 +320,9 @@ pub fn execute_with_display(
         return reply(format_args!("ERR display_unsupported_target"));
     }
     if let Err(error) = app.apply(cmd) {
+        if error == instrument_core::ApplyError::Unsupported {
+            return reply(format_args!("ERR unsupported source_or_target"));
+        }
         return if error == instrument_core::ApplyError::NotReady {
             reply(format_args!("ERR not_ready timing_or_altitude_fault=true"))
         } else {
@@ -301,12 +331,24 @@ pub fn execute_with_display(
     }
     let mut r = Response::new();
     let result = match cmd {
+        Command::SourceDemo | Command::SourceExternal(..) | Command::SourceStatus=> {
+            let e=app.external();let altitude=app.altimeter_reading(now);let baro=app.external_baro(now);
+            writeln!(r,"OK source={} session={} sequence={} state={} age_ms={:?} indicated_ft={:?} altitude_quality={} baro_inhg={:?} baro_quality={} writeback={} now_ms={}",app.source_name(),e.map_or(0,|e|e.session),e.map_or(0,|e|e.sequence()),e.map_or("demo",|e|e.state().name()),e.and_then(|e|e.age(now)),if e.is_some(){altitude.value}else{None},altitude.quality.name(),baro.and_then(|b|b.value),baro.map_or("local",|b|b.quality.name()),app.control_enabled(),now)
+        }
+        Command::ControlEnable(_) => writeln!(r,"OK control enabled=true"),
+        Command::ControlReply(_) => writeln!(r,"OK control result"),
+        Command::ControlPoll => {
+            if let Some(request)=app.control_request() {
+                match request.encode() { Ok(line) => writeln!(r,"OK control {}",line.as_str()), Err(_) => writeln!(r,"ERR control encoding") }
+            } else { writeln!(r,"OK control none status={}",app.control_status().map_or("idle",|s|s.name())) }
+        }
+        Command::Telemetry(f)=>writeln!(r,"OK telemetry session={} seq={} now_ms={} control={}",f.session,f.sequence,now,app.control_request().map_or(0,|r|r.id)),
         Command::Takeoff(_) | Command::TakeoffStop | Command::TakeoffStatus => {
             let sweep = app.takeoff();
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
         Command::Echo(_) | Command::Imu(_) | Command::Display(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: touch status|cancel|hold MS; touch sound on|off|status; status; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::Help => writeln!(r, "OK help commands: source sim|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch sound on|off|status; status; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
         Command::Instruments => writeln!(r, "OK instruments altimeter attitude airspeed heading turn vsi renderers=altimeter"),
         Command::Status => status(&mut r, app, now,display),
         Command::Set(f, _) => writeln!(r, "OK sim field={} applies=next_sample", f.name()),
@@ -315,6 +357,7 @@ pub fn execute_with_display(
         Command::Select(i) => writeln!(r, "OK instrument={} display={}", i.name(),display),
         Command::Pause => writeln!(r, "OK sim=paused"), Command::Resume => writeln!(r, "OK sim=running"),
         Command::LevelPreset => writeln!(r, "OK preset=level applies=next_sample faults=unchanged"),
+        Command::Baro(_) if app.external().is_some() => writeln!(r,"OK baro pending=true"),
         Command::Baro(v) => writeln!(r, "OK baro_inhg={:.2} pressure_altitude=unchanged", v),
     };
     if result.is_err() {
@@ -326,7 +369,7 @@ pub fn execute_with_display(
     }
 }
 fn status(r: &mut Response, app: &App, now: u64, display: &str) -> fmt::Result {
-    write!(r, "OK status protocol=1 source=sim display={} instrument={} sim={} baro_inhg={:.2} timing_fault={} max_gap_ms={} ticks={}", display,app.selected().name(), if app.running() {"running"} else {"paused"}, app.baro_inhg(), app.timing_fault(), app.max_update_gap_ms(), app.tick_count())?;
+    write!(r, "OK status protocol=1 source={} display={} instrument={} sim={} baro_inhg={:.2} timing_fault={} max_gap_ms={} ticks={}", app.source_name(),display,app.selected().name(), if app.running() {"running"} else {"paused"}, app.baro_inhg(), app.timing_fault(), app.max_update_gap_ms(), app.tick_count())?;
     for f in Field::ALL {
         let sample = app.reading(f, now);
         write!(r, " {}=", f.name())?;
@@ -456,7 +499,7 @@ mod tests {
         }
         assert_eq!(f.push(b'\r', 0), Some(Ok(Command::Status)));
         assert!(f.push(b'\n', 0).is_none());
-        for _ in 0..129 {
+        for _ in 0..=MAX_LINE {
             f.push(b' ', 0);
         }
         for b in b"sim pause" {

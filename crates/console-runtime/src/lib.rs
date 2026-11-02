@@ -214,23 +214,6 @@ where
                 "CLI output failed",
             ));
         }
-        if let Some(response) = pending.take() {
-            match output_tx.try_send(response) {
-                Ok(()) => (),
-                Err(TrySendError::Full(response)) => {
-                    pending = Some(response);
-                    metrics
-                        .tx_backpressure_ticks
-                        .fetch_add(1, Ordering::Relaxed);
-                }
-                Err(TrySendError::Disconnected(_)) => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        "CLI output disconnected",
-                    ))
-                }
-            }
-        }
         if pending.is_none() {
             match input_rx.try_recv() {
                 Ok(Input::Command(command)) => {
@@ -285,6 +268,26 @@ where
                     return Err(io::Error::new(
                         io::ErrorKind::UnexpectedEof,
                         "CLI input disconnected",
+                    ))
+                }
+            }
+        }
+        // Send newly produced acknowledgements in this tick. Deferring every
+        // response until the next owner tick needlessly caps a stop/wait bridge.
+        // try_send remains bounded and never waits for UART/output readiness.
+        if let Some(response) = pending.take() {
+            match output_tx.try_send(response) {
+                Ok(()) => (),
+                Err(TrySendError::Full(response)) => {
+                    pending = Some(response);
+                    metrics
+                        .tx_backpressure_ticks
+                        .fetch_add(1, Ordering::Relaxed);
+                }
+                Err(TrySendError::Disconnected(_)) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        "CLI output disconnected",
                     ))
                 }
             }

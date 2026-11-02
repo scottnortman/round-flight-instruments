@@ -1,5 +1,4 @@
 use crate::{
-    altimeter,
     raster::{rgb, Canvas, Target},
     Snapshot,
 };
@@ -20,7 +19,7 @@ pub struct CachedRenderer<'a> {
     background: &'a mut [u16],
     width: u32,
     height: u32,
-    key: Option<(Instrument, u32, bool)>,
+    key: Option<(Instrument, bool)>,
 }
 impl<'a> CachedRenderer<'a> {
     pub fn new(background: &'a mut [u16], width: u32, height: u32) -> Option<Self> {
@@ -36,7 +35,7 @@ impl<'a> CachedRenderer<'a> {
         self.draw_inner(pixels, None, snapshot, pattern)
     }
     /// History belongs exclusively to this pixel buffer. A new history forces
-    /// complete initialization; layout/view/barometer changes force full restore.
+    /// complete initialization; layout/view changes force full restore.
     pub fn draw_incremental(
         &mut self,
         pixels: &mut [u16],
@@ -56,7 +55,7 @@ impl<'a> CachedRenderer<'a> {
         if pixels.len() != self.background.len() {
             return false;
         }
-        let key = (snapshot.selected, snapshot.baro_inhg.to_bits(), pattern);
+        let key = (snapshot.selected, pattern);
         if self.key != Some(key) {
             let Some(mut fb) =
                 crate::raster::Framebuffer::new(self.background, self.width, self.height)
@@ -71,13 +70,7 @@ impl<'a> CachedRenderer<'a> {
             self.key = Some(key);
         }
         if let Some(history) = history {
-            let frame_key = (
-                self.width,
-                self.height,
-                snapshot.selected,
-                snapshot.baro_inhg.to_bits(),
-                pattern,
-            );
+            let frame_key = (self.width, self.height, snapshot.selected, pattern);
             if history.key == Some(frame_key) {
                 history.restore(
                     pixels,
@@ -236,7 +229,6 @@ fn draw_background<T: Target>(target: &mut T, s: Snapshot) {
     // right-hand tick marks for the external units label.
     c.rect(270., KOLLSMAN_TOP, 136., 42., rgb(54, 63, 69));
     c.text_bold_on(428., KOLLSMAN_TOP + 24., 22., "HG", (WHITE, rgb(9, 14, 19)));
-    draw_kollsman_value(&mut c, s.baro_inhg, 0);
 }
 fn draw_kollsman_value<T: Target>(c: &mut Canvas<T>, baro: f32, background: u16) {
     c.rect(273., KOLLSMAN_TOP + 3., 130., 36., background);
@@ -253,13 +245,18 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
         return;
     }
     let mut c = Canvas::new(target);
-    let m = altimeter::model(s.altitude, s.baro_inhg);
+    // Barometer digits belong to dynamic damage tracking, not the cached face.
+    draw_kollsman_value(
+        &mut c,
+        s.baro_inhg,
+        if s.kollsman_pressed && s.editor.is_none() && s.model().hands_deg.is_some() {
+            KOLLSMAN_PRESSED
+        } else {
+            0
+        },
+    );
+    let m = s.model();
     if let Some([hundreds, thousands, tenthousands]) = m.hands_deg {
-        // Dynamic feedback uses the existing damage history, never the backdrop
-        // key. Draw below the hands to preserve the normal face layering.
-        if s.kollsman_pressed && s.editor.is_none() {
-            draw_kollsman_value(&mut c, s.baro_inhg, KOLLSMAN_PRESSED);
-        }
         c.line(
             point(-4., tenthousands),
             point(185., tenthousands),
@@ -332,15 +329,19 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
         }
         c.text(240., 306., 19., q.str(), RED);
     }
-    c.text(240., 351., 18., "SIM INPUT", WARN);
+    c.text(240., 351., 18., s.source_label, WARN);
     if m.indicated_ft.is_some() {
         if let Some(editor) = s.editor {
-            draw_editor(&mut c, editor);
+            draw_editor(&mut c, editor, s.external);
         }
     }
 }
 
-fn draw_editor<T: Target>(c: &mut Canvas<T>, editor: crate::interaction::EditorView) {
+fn draw_editor<T: Target>(
+    c: &mut Canvas<T>,
+    editor: crate::interaction::EditorView,
+    external: bool,
+) {
     use crate::interaction::Button;
     let panel = rgb(22, 29, 36);
     c.rect(80., 128., 320., 240., rgb(145, 155, 165));
@@ -371,7 +372,17 @@ fn draw_editor<T: Target>(c: &mut Canvas<T>, editor: crate::interaction::EditorV
             (WHITE, background),
         );
     }
-    c.text(240., 354., 14., "SIM INPUT", WARN);
+    c.text(
+        240.,
+        354.,
+        14.,
+        if external {
+            "APPLY TO SIM"
+        } else {
+            "SIM INPUT"
+        },
+        WARN,
+    );
 }
 
 pub fn test_pattern<T: Target>(target: &mut T) {
@@ -399,6 +410,23 @@ mod tests {
     use instrument_core::{Quality, Reading};
     extern crate std;
     #[test]
+    fn changing_baro_does_not_rebuild_the_backdrop() {
+        let mut app = instrument_core::App::new();
+        app.apply(instrument_core::Command::LevelPreset).unwrap();
+        app.tick(0);
+        let mut bg = std::vec![0; 480 * 480];
+        let mut pixels = bg.clone();
+        let mut renderer = CachedRenderer::new(&mut bg, 480, 480).unwrap();
+        renderer.draw(&mut pixels, Snapshot::from_app(&app), false);
+        let key = renderer.key;
+        app.apply(instrument_core::Command::Baro(30.12)).unwrap();
+        renderer.draw(&mut pixels, Snapshot::from_app(&app), false);
+        assert_eq!(
+            renderer.key, key,
+            "barometer change invalidates full background"
+        );
+    }
+    #[test]
     fn cached_frames_match_full_render_across_motion_faults_and_settings() {
         for size in [240, 480, 720] {
             let mut background = std::vec![0u16; size * size];
@@ -407,6 +435,12 @@ mod tests {
             let mut output = std::vec![0xffff; size * size];
             let mut reference = output.clone();
             let mut snapshot = Snapshot {
+                external: false,
+                source_session: 0,
+                source_sequence: 0,
+                source_received_ms: 0,
+                baro_age_ms: None,
+                source_label: "SIM INPUT",
                 kollsman_pressed: false,
                 selected: Instrument::Altimeter,
                 altitude: Reading {
@@ -476,6 +510,12 @@ mod tests {
             let mut reference = std::vec![0; len];
             for n in 0..60 {
                 let snapshot = Snapshot {
+                    external: false,
+                    source_session: 0,
+                    source_sequence: 0,
+                    source_received_ms: 0,
+                    baro_age_ms: None,
+                    source_label: "SIM INPUT",
                     kollsman_pressed: n % 5 < 2,
                     selected: if n % 19 < 3 {
                         Instrument::Attitude
@@ -674,10 +714,52 @@ mod tests {
         );
     }
     #[test]
+    fn external_lifecycle_labels_and_barometer_restore_all_buffers() {
+        let mut app = instrument_core::App::new();
+        app.tick(0);
+        app.apply(instrument_core::Command::LevelPreset).unwrap();
+        app.tick(20);
+        let mut s = Snapshot::from_app(&app);
+        let mut bg = std::vec![0; 480 * 480];
+        let mut buffers = [
+            std::vec![0; 480 * 480],
+            std::vec![0; 480 * 480],
+            std::vec![0; 480 * 480],
+        ];
+        let mut histories = core::array::from_fn::<_, 3, _>(|_| crate::damage::FrameHistory::new());
+        let mut renderer = CachedRenderer::new(&mut bg, 480, 480).unwrap();
+        let mut expected = std::vec![0; 480 * 480];
+        for (external, label, baro, quality) in [
+            (false, "SIM INPUT", 29.92, Quality::Valid),
+            (true, "TEST INPUT", 30.12, Quality::Valid),
+            (true, "REPLAY", 30.12, Quality::Valid),
+            (true, "PAUSED", f32::NAN, Quality::Missing),
+            (true, "LINK STALE", f32::NAN, Quality::Stale),
+            (true, "NO LINK", f32::NAN, Quality::Missing),
+            (false, "SIM INPUT", 29.92, Quality::Valid),
+        ] {
+            s.external = external;
+            s.source_label = label;
+            s.baro_inhg = baro;
+            s.altitude.quality = quality;
+            assert!(draw_frame(&mut expected, 480, 480, s, false));
+            for i in 0..3 {
+                assert!(renderer.draw_incremental(&mut buffers[i], &mut histories[i], s, false));
+                assert_eq!(buffers[i], expected, "source={label}, buffer={i}");
+            }
+        }
+    }
+    #[test]
     fn invalid_frames_remove_pointer_at_all_supported_test_sizes() {
         for size in [240, 480, 720] {
             let mut pixels = std::vec![0u16;size*size];
             let valid = Snapshot {
+                external: false,
+                source_session: 0,
+                source_sequence: 0,
+                source_received_ms: 0,
+                baro_age_ms: None,
+                source_label: "SIM INPUT",
                 kollsman_pressed: false,
                 selected: Instrument::Altimeter,
                 altitude: Reading {

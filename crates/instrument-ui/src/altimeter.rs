@@ -24,9 +24,22 @@ pub struct Altimeter {
     pub quality: Quality,
 }
 pub fn model(reading: Reading, baro: f32) -> Altimeter {
+    model_with_semantics(reading, baro, false)
+}
+pub fn model_with_semantics(reading: Reading, baro: f32, already_indicated: bool) -> Altimeter {
     let mut quality = reading.quality;
     let altitude = if quality == Quality::Valid && reading.age_ms.is_some_and(|age| age < 1000) {
-        reading.value.and_then(|p| simulated_indicated_ft(p, baro))
+        reading.value.and_then(|p| {
+            if already_indicated {
+                if p.is_finite() && (-3000.0..=65000.0).contains(&p) {
+                    Some(p)
+                } else {
+                    None
+                }
+            } else {
+                simulated_indicated_ft(p, baro)
+            }
+        })
     } else {
         None
     };
@@ -54,6 +67,23 @@ mod tests {
             quality: Quality::Valid,
             age_ms: Some(0),
         }
+    }
+    #[test]
+    fn external_indication_is_never_corrected_twice() {
+        assert_eq!(
+            model_with_semantics(r(8500.), 30.12, true).indicated_ft,
+            Some(8500.)
+        );
+        assert_eq!(
+            model_with_semantics(r(8500.), f32::NAN, true).indicated_ft,
+            Some(8500.)
+        );
+        assert_ne!(model(r(8500.), 30.12).indicated_ft, Some(8500.));
+        let stale = Reading {
+            age_ms: Some(1000),
+            ..r(8500.)
+        };
+        assert!(model_with_semantics(stale, 30.12, true).hands_deg.is_none());
     }
     #[test]
     fn reference_positions_wrap_and_negative_altitude() {

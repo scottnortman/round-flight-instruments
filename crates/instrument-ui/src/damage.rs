@@ -4,7 +4,7 @@
 use crate::raster::{Framebuffer, Target};
 use instrument_core::Instrument;
 
-pub(crate) type Key = (u32, u32, Instrument, u32, bool);
+pub(crate) type Key = (u32, u32, Instrument, bool);
 pub struct FrameHistory {
     pub(crate) key: Option<Key>,
     // One u64 per tile row supports the framebuffer's maximum 1024x1024 size.

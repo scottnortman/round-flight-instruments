@@ -1,4 +1,4 @@
 [workspace]
-members = ["crates/instrument-core", "crates/text-cli", "crates/console-runtime", "crates/qmi8658", "crates/imu-service", "crates/attitude-estimator", "crates/instrument-ui", "crates/gt911", "crates/bounded-mailbox", "apps/desktop-cli"]
+members = ["crates/simconnect-native", "crates/simulator-link", "crates/instrument-core", "crates/text-cli", "crates/console-runtime", "crates/qmi8658", "crates/imu-service", "crates/attitude-estimator", "crates/instrument-ui", "crates/gt911", "crates/bounded-mailbox", "apps/desktop-cli", "apps/sim-bridge"]
 exclude = ["tools/toolchain-check", "firmware/console"]
 resolver = "2"

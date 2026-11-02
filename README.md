@@ -1,10 +1,12 @@
-# Round Flight Instruments v0.1.1
+# Round Flight Instruments v0.2.0-rc.1
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
-(SKU 29086, 480 x 480, 16 MiB flash)**. This release provides a simulated
+(SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
 three-pointer altimeter, touch barometer adjustment, a text CLI and a smooth
 0–10,000 ft demonstration. The full six-pack is planned; only the altimeter
-has a hardware renderer today.
+has a hardware renderer today. MSFS 2020 input and optional two-way barometer
+control are bench-tested on the Just Flight Piper Warrior. See the
+[MSFS setup guide](docs/MSFS-TWO-WAY-TEST.md).
 
 **Bench/simulation use only. Not validated or certified for flight.** The onboard
 IMU is available for diagnostics; it does not drive the gauge.
@@ -16,7 +18,11 @@ IMU is available for diagnostics; it does not drive the gauge.
 ## Get it running on your Waveshare
 
 You need the exact board above, a data-capable USB cable, and a Windows PC with
-Python 3.11. **The prebuilt firmware does not require Rust.**
+Python 3.11 or later. **The prebuilt firmware does not require Rust.**
+The published v0.1.1 ZIP below runs the standalone demonstration; it does not
+include MSFS integration. For MSFS, use the firmware-inclusive integration test
+package and [its installation guide](docs/MSFS-TWO-WAY-TEST.md). This checkpoint
+does not publish a new binary release.
 
 1. Download and extract **[round-instruments-v0.1.1-waveshare-29086.zip](https://github.com/scottnortman/round-flight-instruments/releases/download/v0.1.1/round-instruments-v0.1.1-waveshare-29086.zip)** from the [v0.1.1 release](https://github.com/scottnortman/round-flight-instruments/releases/tag/v0.1.1).
 2. Connect the board's **UART USB** port. Identify its CH343 COM port in Device
@@ -73,7 +79,7 @@ Clone this repository and run these commands from its root:
 ```powershell
 git clone https://github.com/scottnortman/round-flight-instruments.git
 cd round-flight-instruments
-git checkout v0.1.1
+git checkout v0.2.0-rc.1
 ```
 
 **Interactive browser gauges** (Node.js and Python):
@@ -103,13 +109,34 @@ actual Rust renderer. [Detailed PC setup](docs/GETTING-STARTED.md).
 
 ## Development, verification and limits
 
+**MSFS integration:** a simulator-independent measurement contract, synthetic/replay
+PC bridge and native MSFS 2020 adapter support the altimeter. Read-only is the
+default; `--writeback` enables barometer edits confirmed by simulator readback.
+The Just Flight Piper Warrior live test confirmed four writes. Full flight/accuracy
+acceptance and other aircraft remain unverified; the DCS adapter is planned.
+The bridge currently exits when aircraft, flight or position changes. Load the
+new flight, unpause, then restart:
+
+```powershell
+python scripts/start_msfs.py --port COM5 --writeback --frame-timing
+```
+
+Run this from the package folder. Automatic recovery and a Windows application
+without a manually launched Python script are next work.
+[Two-way setup and test guide](docs/MSFS-TWO-WAY-TEST.md) ·
+[First MSFS test: which PC does what](docs/MSFS-FIRST-TEST.md) ·
+[Run the bridge](docs/TELEMETRY.md) ·
+[Architecture, six-pack semantics and rendering budgets](docs/MSFS-INTEGRATION.md).
+
 Portable Rust crates separate instrument state, protocol, touch gestures,
 rendering and sensor drivers from ESP-IDF board support. One state owner applies
 validated commands; input freshness, display supervision and watchdogs remain
 independent of rendering. See [architecture](docs/DISPLAY.md) and
 [control contracts](docs/BASELINE.md).
 
-- **74 Rust tests** and five browser regression suites pass. Normal hardware
+- **102 Rust tests**, native-enabled Clippy and six Python tests pass for this
+  checkpoint. Five browser regression suites passed for the standalone baseline.
+  The rapid-QNH hardware benchmark averaged **31.72 completed FPS**. Normal hardware
   animation measured **32.33 FPS** with IMU polling; repeated popup/setting
   activity measured **29.22 FPS**. These are measured workloads, not minimum-rate
   guarantees. [Verification and reset investigations](verification/TOUCH.md).
@@ -129,7 +156,8 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 
 This README is the canonical release overview. Detailed setup, contracts and
 dated evidence live in `docs/` and `verification/`. Older handoff notes are
-historical. [Release notes](docs/releases/v0.1.1.md).
+historical. [Checkpoint notes](docs/releases/v0.2.0-rc.1.md) and
+[standalone release notes](docs/releases/v0.1.1.md).
 
 ## License and AI assistance
 

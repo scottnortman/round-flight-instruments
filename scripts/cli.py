@@ -21,6 +21,7 @@ class Link:
     def __init__(self, port, baud=UART_BAUD):
         self.process = None
         self.serial = None
+        self.serial_pending = bytearray()
         self.responses = []
         self.device_lines = []
         self.restore_echo = False
@@ -47,7 +48,10 @@ class Link:
                 self.serial.close()
                 raise
         else:
-            self.process = subprocess.Popen([str(ROOT / 'target/debug/desktop-cli.exe')],
+            desktop = ROOT / 'bin/desktop-cli.exe'
+            if not desktop.is_file():
+                desktop = ROOT / 'target/debug/desktop-cli.exe'
+            self.process = subprocess.Popen([str(desktop)],
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             self.lines = queue.Queue(maxsize=16)
             def receive():
@@ -66,18 +70,23 @@ class Link:
 
     def response(self, timeout=3, ignored_echo=None):
         deadline = time.monotonic() + timeout
-        partial = bytearray()
+        partial = self.serial_pending
         while time.monotonic() < deadline:
             if self.serial:
-                partial.extend(self.serial.read_until(b'\n', 1025 - len(partial)))
-                if len(partial) > 1024:
+                if b'\n' not in partial:
+                    # Drain an available chunk instead of read_until's per-byte
+                    # Windows serial calls. Preserve any following lines.
+                    size = max(1, min(self.serial.in_waiting, 1025 - len(partial)))
+                    partial.extend(self.serial.read(size))
+                newline = partial.find(b'\n')
+                if newline > 1023 or (newline < 0 and len(partial) > 1024):
                     self.device_lines.append(partial[:1024].decode('ascii', errors='backslashreplace'))
                     self.device_lines = self.device_lines[-256:]
                     raise RuntimeError('response exceeds protocol bound')
-                if not partial.endswith(b'\n'):
+                if newline < 0:
                     continue
-                raw = bytes(partial)
-                partial.clear()
+                raw = bytes(partial[:newline + 1])
+                del partial[:newline + 1]
             else:
                 try:
                     raw = self.lines.get(timeout=max(0.001, deadline - time.monotonic()))
@@ -125,6 +134,7 @@ class Link:
             except subprocess.TimeoutExpired:
                 self.process.terminate()
                 self.process.wait(timeout=3)
+            self.process.stdout.close()
 
 
 def require(condition, message):
@@ -170,7 +180,7 @@ def acceptance(link, slow):
     require(all(f'{f}=-:stale:' in state for f in FIELDS), 'paused data must expire')
     ok('sim resume')
     require('ias_kt=0.000:valid:' in ok('status'), 'resume failed')
-    link.write(b' ' * 129 + b'sim pause\n')
+    link.write(b' ' * 257 + b'sim pause\n')
     require(link.response() == 'ERR line_too_long', 'overflow was not rejected')
     require('sim=running' in ok('status'), 'overflow suffix executed')
     link.write(b'\xffsim pause\n')
@@ -241,8 +251,8 @@ def main():
                         break
                     continue
                 if command:
-                    if len(command.encode('ascii')) > 128:
-                        print('Command must be at most 128 ASCII bytes.')
+                    if len(command.encode('ascii')) > 256:
+                        print('Command must be at most 256 ASCII bytes.')
                         continue
                     print(link.command(command))
     finally:

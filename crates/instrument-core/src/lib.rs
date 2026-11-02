@@ -1,6 +1,9 @@
 #![no_std]
 #![forbid(unsafe_code)]
+mod baro_control;
+pub mod external;
 pub mod takeoff;
+pub use simulator_link;
 
 /// Bench verification limits, not validated aircraft operating limits.
 pub const SOURCE_PERIOD_MS: u64 = 20;
@@ -146,6 +149,10 @@ pub enum ImuCommand {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Command {
+    SourceDemo,
+    SourceExternal(simulator_link::Provider, u64),
+    SourceStatus,
+    Telemetry(simulator_link::Frame),
     Takeoff(u32),
     TakeoffStop,
     TakeoffStatus,
@@ -163,12 +170,16 @@ pub enum Command {
     LevelPreset,
     Fault(Field, bool),
     Baro(f32),
+    ControlEnable(u64),
+    ControlPoll,
+    ControlReply(simulator_link::control::Reply),
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DisplayCommand {
     TouchSound(bool),
     TouchSoundStatus,
     TouchStatus,
+    SampleStatus,
     TouchHold(u32),
     TouchCancel,
     Stats,
@@ -194,6 +205,9 @@ pub enum ApplyError {
 
 /// Single-writer application state. A renderer receives readings, never raw stale values.
 pub struct App {
+    external: Option<external::External>,
+    highest_session: u64,
+    control: baro_control::BaroControl,
     takeoff: takeoff::Takeoff,
     selected: Instrument,
     running: bool,
@@ -214,6 +228,64 @@ impl Default for App {
     }
 }
 impl App {
+    pub fn external(&self) -> Option<external::External> {
+        self.external
+    }
+    pub fn source_name(&self) -> &'static str {
+        self.external.map_or("sim", |e| e.provider.name())
+    }
+    pub fn source_label(&self) -> &'static str {
+        if self.control_data_ready() {
+            match self.control_status() {
+                Some(simulator_link::control::Status::Sent) => return "BARO PENDING",
+                Some(simulator_link::control::Status::Timeout) => return "BARO TIMEOUT",
+                Some(simulator_link::control::Status::Rejected) => return "BARO REJECTED",
+                _ => (),
+            }
+        }
+        self.external.map_or("SIM INPUT", |e| {
+            if e.age(self.now_ms())
+                .is_some_and(|a| a >= simulator_link::STALE_MS)
+            {
+                return "LINK STALE";
+            }
+            match e.state() {
+                simulator_link::Lifecycle::Loading => "LOADING",
+                simulator_link::Lifecycle::Paused => "PAUSED",
+                simulator_link::Lifecycle::Disconnected => "NO LINK",
+                simulator_link::Lifecycle::Running => match e.provider {
+                    simulator_link::Provider::Synthetic => "TEST INPUT",
+                    simulator_link::Provider::Replay => "REPLAY",
+                    simulator_link::Provider::Msfs2020 => "MSFS 2020",
+                    simulator_link::Provider::Dcs => "DCS WORLD",
+                },
+            }
+        })
+    }
+    fn external_fault(&self, field: Option<Field>) -> Option<Quality> {
+        if self.timing_fault {
+            Some(Quality::TimingFault)
+        } else if field.is_some_and(|f| self.faults[f as usize]) {
+            Some(Quality::Failed)
+        } else {
+            None
+        }
+    }
+    pub fn altimeter_reading(&self, now: u64) -> Reading {
+        if let Some(e) = self.external {
+            e.read(
+                now,
+                self.external_fault(Some(Field::PressureAltitudeFt)),
+                |f| f.indicated_ft,
+            )
+        } else {
+            self.reading(Field::PressureAltitudeFt, now)
+        }
+    }
+    pub fn external_baro(&self, now: u64) -> Option<Reading> {
+        self.external
+            .map(|e| e.read(now, self.external_fault(None), |f| f.baro_inhg))
+    }
     pub fn takeoff(&self) -> takeoff::Takeoff {
         self.takeoff
     }
@@ -240,6 +312,13 @@ impl App {
     }
     pub const fn new() -> Self {
         Self {
+            external: None,
+            highest_session: 0,
+            control: baro_control::BaroControl {
+                enabled: false,
+                next_id: 0,
+                pending: None,
+            },
             takeoff: takeoff::Takeoff::new(),
             selected: Instrument::Altimeter,
             running: true,
@@ -267,8 +346,9 @@ impl App {
             }
         }
         self.last_tick = Some(now);
+        self.refresh_control();
         self.tick_count = self.tick_count.saturating_add(1);
-        if self.timing_fault || !self.running {
+        if self.timing_fault || !self.running || self.external.is_some() {
             self.takeoff.stop(self.timing_fault);
             return;
         }
@@ -289,6 +369,15 @@ impl App {
         }
     }
     pub fn reading(&self, field: Field, now: u64) -> Reading {
+        if let Some(e) = self.external {
+            return e.read(now, self.external_fault(Some(field)), |f| {
+                if field == Field::PressureAltitudeFt {
+                    f.pressure_ft
+                } else {
+                    simulator_link::Datum::Missing
+                }
+            });
+        }
         let i = field as usize;
         let age = self.samples[i].and_then(|s| now.checked_sub(s.at_ms));
         let quality = if self.timing_fault || self.samples[i].is_some_and(|s| now < s.at_ms) {
@@ -313,7 +402,59 @@ impl App {
         }
     }
     pub fn apply(&mut self, command: Command) -> Result<(), ApplyError> {
+        self.refresh_control();
+        if self.external.is_some()
+            && matches!(
+                command,
+                Command::Takeoff(_)
+                    | Command::TakeoffStop
+                    | Command::Set(..)
+                    | Command::Clear(_)
+                    | Command::Pause
+                    | Command::Resume
+                    | Command::LevelPreset
+            )
+        {
+            return Err(ApplyError::Unsupported);
+        }
         match command {
+            Command::SourceStatus => (),
+            Command::SourceDemo => {
+                self.external = None;
+                self.control = Default::default();
+                self.samples = [None; 8];
+                self.held = [None; 8];
+                self.last_publish = None;
+                self.running = true;
+                self.takeoff.stop(false);
+            }
+            Command::SourceExternal(provider, session) => {
+                if self.timing_fault {
+                    return Err(ApplyError::NotReady);
+                }
+                if session == 0 || session <= self.highest_session {
+                    return Err(ApplyError::OutOfRange);
+                }
+                self.highest_session = session;
+                self.external = Some(external::External::new(provider, session));
+                self.control = Default::default();
+                self.samples = [None; 8];
+                self.held = [None; 8];
+                self.takeoff.stop(false);
+            }
+            Command::Telemetry(frame) => {
+                if self.timing_fault {
+                    return Err(ApplyError::NotReady);
+                }
+                let now = self.now_ms();
+                self.external
+                    .as_mut()
+                    .ok_or(ApplyError::Unsupported)?
+                    .accept(frame, now)?;
+                if let simulator_link::Datum::Value(v) = frame.baro_inhg {
+                    self.baro_inhg = v;
+                }
+            }
             Command::Takeoff(seconds) => {
                 if !(5..=600).contains(&seconds) {
                     return Err(ApplyError::OutOfRange);
@@ -371,13 +512,24 @@ impl App {
                 ];
             }
             Command::Fault(f, active) => {
+                if f == Field::PressureAltitudeFt {
+                    if let Some(external) = &mut self.external {
+                        external.clear_altitude();
+                    }
+                }
                 if f == Field::PressureAltitudeFt && active {
                     self.takeoff.stop(true);
                 }
                 self.faults[f as usize] = active;
                 self.samples[f as usize] = None;
             }
+            Command::ControlEnable(session) => self.enable_control(session)?,
+            Command::ControlPoll => (),
+            Command::ControlReply(reply) => self.control_reply(reply)?,
             Command::Baro(v) => {
+                if self.external.is_some() {
+                    return self.request_baro(v);
+                }
                 if !v.is_finite() || !(28.1..=31.0).contains(&v) {
                     return Err(ApplyError::OutOfRange);
                 }

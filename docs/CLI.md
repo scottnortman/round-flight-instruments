@@ -1,5 +1,11 @@
 # Text CLI protocol 1
 
+On the integration branch, `source sim`, `source status`, and
+`source external PROVIDER SESSION` control explicit data ownership. The bounded
+`T1` telemetry command is intended for the bridge, not manual typing. External
+mode disables local barometer editing and demo setters. See the
+[external telemetry guide](TELEMETRY.md) for freshness, sessions and recovery.
+
 The board now has [supervised display output](DISPLAY.md). Use `display status`
 for presentation health and `display pattern|gauge|on|off` for viewing/control.
 `display stall|transfer-stall|recover` are explicit bench fault-injection commands.
@@ -40,7 +46,8 @@ the host terminal normally echoes input itself.
 Characters are echoed before Enter. CR, LF and CRLF produce one newline (CRLF
 on the board). Unsupported control bytes, including Escape, Backspace and DEL,
 are displayed as `\xHH` and still rejected by the command framer; this is not
-line editing. After the 128-byte command limit, echo emits `[...]` once and
+line editing. After the command limit (256 bytes on the integration branch,
+128 in v0.1.1), echo emits `[...]` once and
 suppresses further characters until the newline; the full command is rejected.
 
 Echo and responses share one bounded output queue and one writer. Echo may block
@@ -161,7 +168,8 @@ value; missing age is `none`. The output rounds numbers to three decimal places
 
 ## Framing and failures
 
-- Maximum command: 128 bytes excluding terminator. CR, LF, and CRLF accepted.
+- Maximum command: 256 bytes excluding terminator on the integration branch
+  (128 in released v0.1.1). CR, LF, and CRLF accepted.
   Space/tab delimit tokens; blank lines have no response. No terminal escape or
   backspace editing is implemented in firmware; the Python client provides local
   line editing and sends completed lines.
@@ -197,3 +205,21 @@ active-control chirp (enabled at boot). Status includes requested enable state,
 hardware readiness, `active_or_unknown`, nominal `pulse_ms`, beep and error
 counts. Mute takes effect on the bus worker; settings are volatile. See
 [TOUCH.md](TOUCH.md) for rate limiting and bus-fault limitations.
+
+## Integration candidate: two-way barometer and frame provenance
+
+- `control enable SESSION`: explicitly permit standard MSFS primary-altimeter
+  requests in the matching external session; reset on source/session change.
+- `control poll`: return the pending CRC-protected C1 request, or none plus status.
+- `baro INHG`: local demo behavior is unchanged; externally, queue a request only
+  when enabled, running and fresh. Reply is `OK baro pending=true`, not an applied
+  local setting. The bridge handles C1/R1 transport; do not run two serial owners.
+- `display sample`: coherent most recently completed-frame session/sequence,
+  receipt/completion time, age and shown altitude. `received_owner_ms` uses the
+  console owner epoch; `now_display_ms`/`presented_display_ms` use the display
+  epoch. Never subtract across epochs; use relative source ages. Host elapsed
+  timestamps are another domain. This is not a physical LCD scanout timestamp.
+
+Touch Apply uses exactly the same request path. The overlay footer says APPLY TO
+SIM, and BARO PENDING/REJECTED/TIMEOUT make uncertain outcomes visible. The gauge
+never substitutes the requested value for actual simulator readback.

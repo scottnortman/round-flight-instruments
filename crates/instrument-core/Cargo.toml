@@ -6,3 +6,6 @@ license = "Apache-2.0"
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+simulator-link = { path = "../simulator-link" }

@@ -1,0 +1,10 @@
+# milliseconds lifecycle indicated_ft pressure_ft baro_inhg
+# Short replay for pause, unavailable altitude, failure, and disconnect checks.
+0 running 0 -200 30.12
+300 running 1000 800 30.12
+600 paused 1000 800 30.12
+900 running 2000 1800 30.12
+1200 running - 1800 30.12
+1500 running ! 1800 30.12
+1800 running 3000 2800 30.12
+2100 disconnected - - -

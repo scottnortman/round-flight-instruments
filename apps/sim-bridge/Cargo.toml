@@ -1,0 +1,12 @@
+[package]
+name = "sim-bridge"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+simulator-link = { path = "../../crates/simulator-link" }
+simconnect-native = { path = "../../crates/simconnect-native", optional = true }
+
+[features]
+msfs = ["dep:simconnect-native", "simconnect-native/sdk"]
