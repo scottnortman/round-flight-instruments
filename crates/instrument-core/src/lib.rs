@@ -189,6 +189,7 @@ pub enum DisplayCommand {
     TouchStatus,
     SampleStatus,
     TouchHold(u32),
+    MenuHold(u32),
     TouchCancel,
     Stats,
     StatsReset,

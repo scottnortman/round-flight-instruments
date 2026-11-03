@@ -84,6 +84,14 @@ slow client. Do not treat queued text status as live flight telemetry.
 
 ## Commands
 
+### Touch gauge menu
+
+Hold the center for 3 seconds, release, then tap an enabled gauge. All six are
+listed; unfinished gauges and gauges unsupported by the current source are
+disabled. `touch menu hold MS` configures 250–5000 ms independently of pressure
+editing; the setting is volatile. `touch status` includes menu diagnostics and
+`touch cancel` closes either popup. See [gauge menu](GAUGE-MENU.md).
+
 ### Touch barometer editor
 
 Hold the Kollsman window for a quarter second, release, then use −/+ and Apply/Cancel.

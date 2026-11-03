@@ -65,6 +65,24 @@ pub struct Input {
     pub at_ms: u64,
     pub contact: Contact,
 }
+/// A busy mailbox is not a sensor error. Some(None) explicitly invalidates;
+/// None means no new snapshot could be obtained this owner tick.
+#[derive(Default)]
+pub struct InputCache {
+    last: Option<Input>,
+}
+impl InputCache {
+    pub fn read(&mut self, now: u64, snapshot: Option<Option<Input>>) -> Option<Input> {
+        if let Some(input) = snapshot {
+            self.last = input;
+        }
+        self.last = self.last.filter(|i| {
+            now.checked_sub(i.at_ms)
+                .is_some_and(|age| age < TOUCH_STALE_MS)
+        });
+        self.last
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EditorView {
     pub cents: u16,

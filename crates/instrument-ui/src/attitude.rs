@@ -66,6 +66,28 @@ pub(crate) const MARK: u16 = rgb(241, 242, 235);
 const AIRCRAFT: u16 = rgb(255, 224, 96);
 const FAILURE: u16 = rgb(255, 103, 103);
 
+/// Restore only the bezel; the first horizon/failure draw fills the whole disk.
+pub(crate) fn restore_outer(pixels: &mut [u16], background: &[u16], width: u32, height: u32) {
+    let radius = (224. * width.min(height) as f32 / 480.) as i32;
+    let (cx, cy) = ((width / 2) as i32, (height / 2) as i32);
+    for y in 0..height as i32 {
+        let dy = (y - cy).abs();
+        let (left, right) = if dy <= radius {
+            let dx = isqrt((radius * radius - dy * dy) as u32) as i32;
+            (
+                (cx - dx).max(0) as usize,
+                (cx + dx + 1).min(width as i32) as usize,
+            )
+        } else {
+            (width as usize, width as usize)
+        };
+        let row = y as usize * width as usize;
+        pixels[row..row + left].copy_from_slice(&background[row..row + left]);
+        pixels[row + right..row + width as usize]
+            .copy_from_slice(&background[row + right..row + width as usize]);
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Attitude {
     pub angles: Option<Angles>,
@@ -592,9 +614,10 @@ fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: 
             );
         }
         // Offset labels three degrees toward level along the arc so the
-        // upright glyphs clear the thick ticks without entering the bezel.
+        // upright glyphs clear the thick ticks. Leave radial clearance for
+        // the top-left corner of the left "30" inside the clipped disk.
         for (angle, label) in [(-57., "60"), (-27., "30"), (27., "30"), (57., "60")] {
-            let (x, y) = polar(216., angle);
+            let (x, y) = polar(212., angle);
             c.text_on(x, y, 12., label, (MARK, rgb(6, 18, 30)));
         }
         c.polygon(&[(231., 35.), (249., 35.), (240., 51.)], MARK);
@@ -635,7 +658,8 @@ fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: 
             Quality::TimingFault => "ATT TIMING FAULT",
             _ => "ATT DATA FAILED",
         };
-        c.text_on(240., 240., 22., message, (FAILURE, FACE));
+        // Center the visible ink vertically within the cross's banner.
+        c.text_on(240., 243., 22., message, (FAILURE, FACE));
     }
     captions(disk, source_label);
 }

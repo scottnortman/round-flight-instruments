@@ -52,8 +52,14 @@ not a new warning or quality state.
 The UI crate is no_std and forbids unsafe code. Its pixel target supports both
 individual pixels and batched horizontal spans. Framebuffer spans clip once and
 fill contiguous storage. The board uses three 480x480 RGB565 framebuffers in
-PSRAM (1,382,400 bytes), two internal 10-line bounce buffers (19,200 bytes), and
-a separate 460800-byte CPU-only backdrop: 1,843,200 bytes of image PSRAM in total.
+PSRAM (1,382,400 bytes), two internal 16-line bounce buffers (30,720 bytes), and
+two separate 460800-byte CPU-only face backdrops and a menu bitmap of the same
+size: 2,764,800 bytes of image PSRAM in total. Both faces are prepared before the
+first visible frame and retained across gauge switches. An entering attitude
+frame restores only the outer bezel; its horizon paints the whole interior,
+avoiding a redundant PSRAM copy. The menu cache is also prepared at startup;
+later context changes are built in bounded pieces, and press changes repaint
+only affected buttons. These caches never participate in DMA ownership.
 The attitude foreground adds 96 KiB of internal pixel storage plus bounded
 run descriptors. The instruction cache is 32 KiB and the RTOS tick is 1 ms.
 The source period remains 10 ms; shorter scheduler ticks permit brief blocking
@@ -85,6 +91,12 @@ during attitude drawing. The worker keeps an idle-time budget: measured blocking
 waits count; after 100 ms without one it performs a blocking sleep. Continuous
 CPU work therefore cannot indefinitely starve idle tasks. RGB interrupts run on
 core 0 and rasterization on core 1, with a bounded 20 KiB renderer stack.
+
+Late snapshot capture applies only while continuing the attitude view. A new
+gauge starts composition immediately; the wait checks for view changes each
+millisecond so it cannot consume the outgoing attitude frame's freshness budget.
+The larger bounce buffers address RGB refill deadline losses that do not appear
+in the application's backlight counters. See [scanout verification](../verification/RGB-SCANOUT.md).
 Both idle-task watchdog checks
 remain enabled. A first candidate without this yield failed its idle watchdog
 and was rejected. Owner/guard/IMU priorities and safety deadlines are unchanged.

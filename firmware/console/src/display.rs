@@ -165,11 +165,15 @@ struct Shared {
     shown_altitude: AtomicU32,
     shown_instrument: AtomicU32,
     shown_editor: AtomicBool,
+    shown_menu: AtomicU32,
 }
 pub struct Service {
     shared: Arc<Shared>,
     stats: Mutex<Stats>,
     interaction: RefCell<Controller>,
+    navigation: RefCell<instrument_ui::navigation::Controller>,
+    touch_input: RefCell<instrument_ui::interaction::InputCache>,
+    touch_snapshot_misses: AtomicU32,
     touch_state: RefCell<Option<crate::touch::State>>,
 }
 struct Stats {
@@ -210,6 +214,7 @@ impl Service {
             shown_altitude: AtomicU32::new(0),
             shown_instrument: AtomicU32::new(2),
             shown_editor: AtomicBool::new(false),
+            shown_menu: AtomicU32::new(0),
         });
         let guard = s.clone();
         thread::Builder::new()
@@ -315,6 +320,9 @@ impl Service {
         }
         Ok(Self {
             interaction: RefCell::new(Controller::default()),
+            navigation: RefCell::new(instrument_ui::navigation::Controller::default()),
+            touch_input: RefCell::new(instrument_ui::interaction::InputCache::default()),
+            touch_snapshot_misses: AtomicU32::new(0),
             touch_state: RefCell::new(None),
             shared: s,
             stats: Mutex::new(Stats {
@@ -326,23 +334,47 @@ impl Service {
     }
     pub fn publish(&self, app: &mut App, touch: Option<crate::touch::State>) -> bool {
         let s = &self.shared;
-        *self.touch_state.borrow_mut() = touch;
+        if touch.is_some() {
+            *self.touch_state.borrow_mut() = touch;
+        } else {
+            self.touch_snapshot_misses.fetch_add(1, Ordering::Relaxed);
+        }
         let mut interaction = self.interaction.borrow_mut();
-        let allowed = app.baro_edit_allowed()
-            && app.selected() == Instrument::Altimeter
-            && s.light.load(Ordering::Acquire)
+        let mut navigation = self.navigation.borrow_mut();
+        let healthy = s.light.load(Ordering::Acquire)
             && !s.pattern.load(Ordering::Acquire)
             && s.enabled.load(Ordering::Acquire)
             && s.stall.load(Ordering::Acquire) == 0
             && !s.failed.load(Ordering::Acquire);
+        let input = self
+            .touch_input
+            .borrow_mut()
+            .read(app.now_ms(), touch.map(|t| t.input(app.now_ms())));
+        let menu_was_busy = navigation.busy();
+        let selection = navigation.update(
+            app.now_ms(),
+            input,
+            healthy && interaction.view().is_none() && !interaction.window_pressed(),
+            instrument_ui::navigation::Context::from_app(app),
+            s.shown_menu.load(Ordering::Acquire),
+        );
+        let allowed = healthy
+            && app.baro_edit_allowed()
+            && app.selected() == Instrument::Altimeter
+            && !menu_was_busy
+            && !navigation.busy()
+            && selection.is_none();
         if let Some(value) = interaction.update(
             app.now_ms(),
-            touch.and_then(|t| t.input(app.now_ms())),
+            input,
             allowed,
             app.baro_inhg(),
             s.shown_editor.load(Ordering::Acquire),
         ) {
             let _ = app.apply(Command::Baro(value));
+        }
+        if let Some(instrument) = selection {
+            let _ = app.apply(Command::Select(instrument));
         }
         if app.timing_fault() {
             s.failed.store(true, Ordering::Release);
@@ -352,10 +384,12 @@ impl Service {
             let mut snapshot = Snapshot::from_app(app);
             snapshot.editor = interaction.view();
             snapshot.kollsman_pressed = interaction.window_pressed();
+            snapshot.menu = navigation.view();
+            snapshot.center_pressed = navigation.center_pressed();
             *v = Some((snapshot, Instant::now()));
             s.owner.store(now(), Ordering::Release);
         }
-        interaction.press_started()
+        interaction.press_started() || navigation.press_started()
     }
     pub fn handle(&self, command: DisplayCommand) -> Response {
         let s = &self.shared;
@@ -377,17 +411,26 @@ impl Service {
                 }
                 return reply(format_args!("OK touch hold_ms={ms} edit=cancelled"));
             }
+            DisplayCommand::MenuHold(ms) => {
+                if !self.navigation.borrow_mut().set_hold_ms(ms) {
+                    return reply(format_args!("ERR range"));
+                }
+                return reply(format_args!("OK touch menu_hold_ms={ms} menu=cancelled"));
+            }
             DisplayCommand::TouchCancel => {
                 self.interaction.borrow_mut().cancel();
+                self.navigation.borrow_mut().cancel();
                 return reply(format_args!("OK touch edit=cancelled"));
             }
             DisplayCommand::TouchStatus => {
                 let ui = self.interaction.borrow();
                 let state = *self.touch_state.borrow();
                 let sample = state.and_then(|s| s.sample);
-                return reply(format_args!("OK touch ready={} hold_ms={} overlay={} draft_cents={:?} contact={:?} age_ms={:?} polls={} reports={} errors={} last_error={:?}",
+                let menu = self.navigation.borrow();
+                return reply(format_args!("OK touch ready={} hold_ms={} overlay={} draft_cents={:?} contact={:?} age_ms={:?} polls={} reports={} errors={} last_error={:?} menu={} menu_hold_ms={} center_pressed={} menu_generation={} shown_menu={} snapshot_misses={}",
                     state.is_some_and(|s|s.ready),ui.hold_ms(),ui.view().is_some(),ui.view().map(|v|v.cents),sample.map(|s|s.0),sample.map(|s|s.1.elapsed().as_millis()),
-                    state.map_or(0,|s|s.polls),state.map_or(0,|s|s.reports),state.map_or(0,|s|s.errors),state.and_then(|s|s.error)));
+                    state.map_or(0,|s|s.polls),state.map_or(0,|s|s.reports),state.map_or(0,|s|s.errors),state.and_then(|s|s.error),
+                    menu.view().is_some(),menu.hold_ms(),menu.center_pressed(),menu.view().map_or(0,|v|v.generation),s.shown_menu.load(Ordering::Acquire), self.touch_snapshot_misses.load(Ordering::Relaxed)));
             }
             DisplayCommand::Stats | DisplayCommand::StatsReset | DisplayCommand::StatsStop => {
                 let Ok(mut stats) = self.stats.try_lock() else {
@@ -455,7 +498,9 @@ struct Backend {
     panel: sys::esp_lcd_panel_handle_t,
     buffers: [*mut core::ffi::c_void; 3],
     backdrop: &'static mut [u16],
+    attitude_backdrop: &'static mut [u16],
     foreground_pixels: &'static mut [u16],
+    navigation_pixels: &'static mut [u16],
     wake: Queue<u32>,
 }
 // Initialization transfers this handle exactly once to the sole drawing task.
@@ -485,7 +530,9 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
     cfg.data_width = 16;
     cfg.bits_per_pixel = 16;
     cfg.num_fbs = 3;
-    cfg.bounce_buffer_size_px = 480 * 10;
+    // 10-line refills missed DMA deadlines under shared-PSRAM load. Sixteen
+    // lines retain the 18 MHz/30+ FPS budget with zero recovery in stress tests.
+    cfg.bounce_buffer_size_px = 480 * 16;
     cfg.sram_trans_align = 4;
     cfg.__bindgen_anon_1.dma_burst_size = 64;
     cfg.hsync_gpio_num = 38;
@@ -525,6 +572,22 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
         return Err(io::Error::other("LCD backdrop allocation"));
     }
     let backdrop = unsafe { core::slice::from_raw_parts_mut(backdrop.cast::<u16>(), 480 * 480) };
+    let attitude_backdrop = unsafe {
+        sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
+    };
+    if attitude_backdrop.is_null() {
+        return Err(io::Error::other("LCD attitude backdrop allocation"));
+    }
+    let attitude_backdrop =
+        unsafe { core::slice::from_raw_parts_mut(attitude_backdrop.cast::<u16>(), 480 * 480) };
+    let navigation_pixels = unsafe {
+        sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
+    };
+    if navigation_pixels.is_null() {
+        return Err(io::Error::other("LCD navigation cache allocation"));
+    }
+    let navigation_pixels =
+        unsafe { core::slice::from_raw_parts_mut(navigation_pixels.cast::<u16>(), 480 * 480) };
     let foreground_pixels =
         unsafe { sys::heap_caps_calloc(49152, 2, sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
     if foreground_pixels.is_null() {
@@ -559,7 +622,9 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
         panel,
         buffers,
         backdrop,
+        attitude_backdrop,
         foreground_pixels,
+        navigation_pixels,
         wake,
     })
 }
@@ -568,14 +633,46 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         panel,
         buffers,
         backdrop,
+        attitude_backdrop,
         foreground_pixels,
+        navigation_pixels,
         wake,
     } = backend;
     let mut foreground_runs = vec![instrument_ui::attitude::CopyRun::default(); 512];
-    let mut renderer =
-        render::CachedRenderer::with_foreground_cache(backdrop, 480, 480, &mut foreground_runs)
-            .ok_or_else(|| io::Error::other("LCD backdrop size"))?
-            .with_foreground_pixels(foreground_pixels);
+    let mut renderer = render::CachedRenderer::new(backdrop, 480, 480)
+        .ok_or_else(|| io::Error::other("LCD backdrop size"))?;
+    let mut attitude_renderer = render::CachedRenderer::with_foreground_cache(
+        attitude_backdrop,
+        480,
+        480,
+        &mut foreground_runs,
+    )
+    .ok_or_else(|| io::Error::other("LCD backdrop size"))?
+    .with_foreground_pixels(foreground_pixels)
+    .with_navigation_pixels(navigation_pixels);
+    // Warm both static faces before the first visible frame. Switching views
+    // must not discard/rebuild the other face while a 100 ms attitude deadline
+    // is running. These CPU-only caches contain artwork, not sampled readings.
+    let mut warm = loop {
+        let input = s
+            .snapshot
+            .lock()
+            .map_err(|_| io::Error::other("display snapshot poisoned"))?
+            .as_ref()
+            .map(|(snapshot, _)| *snapshot);
+        if let Some(snapshot) = input {
+            break snapshot;
+        }
+        thread::sleep(Duration::from_millis(10));
+    };
+    warm.selected = Instrument::Altimeter;
+    if !renderer.prepare_background(warm) {
+        return Err(io::Error::other("altimeter preparation"));
+    }
+    warm.selected = Instrument::Attitude;
+    if !attitude_renderer.prepare_background(warm) {
+        return Err(io::Error::other("attitude preparation"));
+    }
     let mut applied_pclk = 18_000_000;
     s.applied_pclk.store(applied_pclk, Ordering::Release);
     let mut histories =
@@ -620,11 +717,29 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         // completion counters still exclusively determine DMA ownership.
         if last_was_attitude && pipeline.is_pending() {
             let frame_ms = (548u64 * 508 * 1000).div_ceil(applied_pclk as u64) as u32;
-            let delay = (2 * frame_ms).saturating_sub(last_draw_ms + 3);
-            while now().wrapping_sub(last_submit_ms) < delay {
-                let remaining = delay.saturating_sub(now().wrapping_sub(last_submit_ms));
+            loop {
+                // A new view must start immediately: the old attitude frame
+                // still has a 100 ms expiry while the new face is composed.
+                // Re-check during the wait so a touch/CLI selection arriving
+                // after its first iteration cannot spend the old view's slack.
+                let next = s
+                    .snapshot
+                    .lock()
+                    .map_err(|_| io::Error::other("display snapshot poisoned"))?
+                    .as_ref()
+                    .map_or(Instrument::Attitude, |(v, _)| v.selected);
+                let delay = instrument_ui::pipeline::capture_delay_ms(
+                    last_was_attitude,
+                    next,
+                    frame_ms,
+                    last_draw_ms,
+                );
+                if s.pattern.load(Ordering::Acquire) || now().wrapping_sub(last_submit_ms) >= delay
+                {
+                    break;
+                }
                 let blocked_at = Instant::now();
-                wake.recv_front(TickType::new_millis(remaining.max(1) as u64).ticks());
+                wake.recv_front(TickType::new_millis(1).ticks());
                 if blocked_at.elapsed() >= Duration::from_millis(1) {
                     idle_budget = Instant::now();
                 }
@@ -678,7 +793,12 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
                 }
             };
             progress();
-            if !renderer.draw_incremental_with_progress(
+            let active_renderer = if snapshot.selected == Instrument::Attitude && !pattern {
+                &mut attitude_renderer
+            } else {
+                &mut renderer
+            };
+            if !active_renderer.draw_incremental_with_progress(
                 pixels,
                 &mut histories[back],
                 snapshot,
@@ -833,6 +953,14 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
     s.shown_quality.store(quality, Ordering::Release);
     s.shown_editor
         .store(quality == 0 && snapshot.editor.is_some(), Ordering::Release);
+    s.shown_menu.store(
+        if pattern {
+            0
+        } else {
+            snapshot.menu.map_or(0, |v| v.generation)
+        },
+        Ordering::Release,
+    );
     s.frames.fetch_add(1, Ordering::Release);
     s.ready.store(true, Ordering::Release);
     s.stack_min.fetch_min(

@@ -34,6 +34,14 @@ impl FrameHistory {
     pub(crate) fn dirty_row(&self, y: i32) -> u64 {
         self.rows[y as usize / 8]
     }
+    pub(crate) fn mark_rect(&mut self, width: u32, rect: crate::interaction::Rect) {
+        let first = rect.x as u32 >> tile_shift(width);
+        let last = (rect.x as u32 + rect.w as u32 - 1) >> tile_shift(width);
+        let mask = (u64::MAX << first) & (u64::MAX >> (63 - last));
+        for y in rect.y as usize / 8..(rect.y as usize + rect.h as usize).div_ceil(8) {
+            self.rows[y] |= mask;
+        }
+    }
     pub(crate) fn clear(&mut self) {
         self.rows.fill(0);
         self.attitude = None;

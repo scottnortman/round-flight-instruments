@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--port', default='COM5')
     parser.add_argument('--seconds', type=int, default=60, choices=range(5, 601))
     parser.add_argument('--report', type=Path, required=True)
+    parser.add_argument('--check-rgb', action='store_true', help='require temporary SDK scanout probe')
     args = parser.parse_args()
     result = {'passed': False, 'target': args.port, 'seconds': args.seconds,
               'timestamp_utc': datetime.now(timezone.utc).isoformat()}
@@ -37,7 +38,9 @@ def main():
                     'fault pitch_deg off', 'fault roll_deg off', 'sim preset level',
                     'sim resume', 'instrument attitude']:
             ok(cmd)
-        wait(renderer='attitude', shown_quality='valid', backlight='true', shown_alt_ft='None')
+        initial = wait(renderer='attitude', shown_quality='valid', backlight='true', shown_alt_ft='None')
+        if args.check_rgb:
+            require('rgb_short_eofs' in initial, 'RGB probe is not installed')
         for axis in ['pitch_deg', 'roll_deg']:
             ok(f'sim clear {axis}')
             wait(shown_quality='missing')
@@ -89,6 +92,9 @@ def main():
         require(result['before']['blanked_at_ms'] == result['after']['blanked_at_ms'], 'Unexpected blanking during motion')
         require(result['before']['expired_ticks'] == result['after']['expired_ticks'], 'Numeric deadline missed during motion')
         require(float(result['stats']['rendered_fps']) >= 30, 'Below 30 completed FPS')
+        if args.check_rgb:
+            result['rgb_short_eof_delta'] = int(result['after']['rgb_short_eofs']) - int(initial['rgb_short_eofs'])
+            require(result['rgb_short_eof_delta'] == 0, 'RGB refill deadline missed during attitude regression')
         result['passed'] = True
     except Exception as error:
         result['error'] = repr(error)

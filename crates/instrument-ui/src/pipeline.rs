@@ -59,6 +59,22 @@ impl PresentationFence {
 
 pub const COMPLETION_TIMEOUT_MS: u32 = 100;
 
+/// Late capture is useful only while continuing the same attitude view.
+pub fn capture_delay_ms(
+    previous_attitude: bool,
+    next: instrument_core::Instrument,
+    frame_ms: u32,
+    last_draw_ms: u32,
+) -> u32 {
+    if previous_attitude && next == instrument_core::Instrument::Attitude {
+        frame_ms
+            .saturating_mul(2)
+            .saturating_sub(last_draw_ms.saturating_add(3))
+    } else {
+        0
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum PipelineError {
     Busy,
@@ -159,6 +175,15 @@ impl<T> FramePipeline<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn changing_gauges_does_not_spend_the_old_attitude_deadline_waiting() {
+        use instrument_core::Instrument;
+        assert_eq!(capture_delay_ms(true, Instrument::Attitude, 16, 22), 7);
+        assert_eq!(capture_delay_ms(true, Instrument::Altimeter, 16, 22), 0);
+        assert_eq!(capture_delay_ms(false, Instrument::Attitude, 16, 22), 0);
+        assert_eq!(capture_delay_ms(true, Instrument::Attitude, 16, 40), 0);
+    }
 
     #[test]
     fn presentation_fence_requires_two_events_and_never_renews_deadlines() {

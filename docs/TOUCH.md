@@ -1,5 +1,10 @@
 # Touch barometer editor
 
+For selecting instruments, use the separate [center-hold gauge menu](GAUGE-MENU.md):
+default hold 3 seconds, configurable with `touch menu hold MS`. It shares the
+blue pressed-button feedback and chirps described below; only one popup opens
+at a time. The pressure editor's hold remains 0.25 seconds.
+
 On the altimeter, hold one finger steadily inside the Kollsman window for
 **0.25 seconds**, then lift. The window turns deep blue (`#005A9C`, RGB565 on
 hardware) as soon as a valid opening press is recognized, keeping the regular

@@ -105,6 +105,13 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         ["touch", "sound", "off"] => Ok(Command::Display(DisplayCommand::TouchSound(false))),
         ["touch", "sound", "status"] => Ok(Command::Display(DisplayCommand::TouchSoundStatus)),
         ["touch", "cancel"] => Ok(Command::Display(DisplayCommand::TouchCancel)),
+        ["touch", "menu", "hold", value] => {
+            let ms = value.parse::<u32>().map_err(|_| Error::Range)?;
+            if !(250..=5000).contains(&ms) {
+                return Err(Error::Range);
+            }
+            Ok(Command::Display(DisplayCommand::MenuHold(ms)))
+        }
         ["touch", "hold", value] => {
             let ms = value.parse::<u32>().map_err(|_| Error::Range)?;
             if !(250..=5000).contains(&ms) {
@@ -366,7 +373,7 @@ pub fn execute_with_display(
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
         Command::Echo(_) | Command::Imu(_) | Command::Display(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch sound on|off|status; status; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch menu hold MS; touch sound on|off|status; status; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
         Command::AttitudeDemo(_) | Command::AttitudeDemoStop | Command::AttitudeDemoStatus => {
             let d=app.attitude_demo();
             writeln!(r,"OK attitude_demo state={} elapsed_ms={} duration_ms={} source=sim",d.state.name(),d.elapsed_ms,d.duration_ms)
@@ -412,6 +419,22 @@ fn status(r: &mut Response, app: &App, now: u64, display: &str) -> fmt::Result {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn menu_hold_is_independent_and_bounded() {
+        assert_eq!(
+            parse("touch menu hold 3000"),
+            Ok(Command::Display(DisplayCommand::MenuHold(3000)))
+        );
+        for s in [
+            "touch menu hold 0",
+            "touch menu hold 249",
+            "touch menu hold 5001",
+            "touch menu hold NaN",
+            "touch menu hold 3000 extra",
+        ] {
+            assert!(parse(s).is_err(), "{s}");
+        }
+    }
     #[test]
     fn attitude_demo_cli_is_strict_and_reports_bounded_state() {
         assert_eq!(parse("sim attitude"), Ok(Command::AttitudeDemo(60)));

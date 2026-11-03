@@ -25,6 +25,12 @@ pub struct CachedRenderer<'a> {
     foreground_pixels: Option<&'a mut [u16]>,
     compact_foreground: bool,
     digit_offset: Option<usize>,
+    navigation_pixels: Option<&'a mut [u16]>,
+    navigation_prepared: u8,
+    navigation_key: Option<(
+        crate::navigation::Context,
+        Option<crate::navigation::Button>,
+    )>,
 }
 impl<'a> CachedRenderer<'a> {
     pub fn new(background: &'a mut [u16], width: u32, height: u32) -> Option<Self> {
@@ -39,6 +45,9 @@ impl<'a> CachedRenderer<'a> {
             foreground_pixels: None,
             compact_foreground: false,
             digit_offset: None,
+            navigation_pixels: None,
+            navigation_key: None,
+            navigation_prepared: 0,
         })
     }
     pub fn with_foreground_cache(
@@ -56,6 +65,124 @@ impl<'a> CachedRenderer<'a> {
     pub fn with_foreground_pixels(mut self, pixels: &'a mut [u16]) -> Self {
         self.foreground_pixels = Some(pixels);
         self
+    }
+    /// Prepare only static artwork in CPU-owned storage. No live frame is
+    /// produced and no measurement timestamp is consumed or refreshed.
+    pub fn prepare_background(&mut self, snapshot: Snapshot) -> bool {
+        if !self.prepare(snapshot, false) {
+            return false;
+        }
+        if snapshot.selected == Instrument::Attitude {
+            for _ in 0..8 {
+                self.prepare_navigation(snapshot);
+            }
+        }
+        true
+    }
+    /// Optional CPU-only menu bitmap for the 480-pixel face. Never DMA-owned.
+    /// Other dimensions/capacities use the identical uncached drawing path.
+    pub fn with_navigation_pixels(mut self, pixels: &'a mut [u16]) -> Self {
+        if self.width == 480 && self.height == 480 && pixels.len() == 480 * 480 {
+            self.navigation_pixels = Some(pixels);
+        }
+        self
+    }
+    // Spread cold menu construction over eight normal frames, before the
+    // user can finish the hold. Never publish a partially prepared bitmap.
+    fn prepare_navigation(&mut self, snapshot: Snapshot) {
+        let Some(cache) = self.navigation_pixels.as_deref_mut() else {
+            return;
+        };
+        let context = snapshot.menu.map_or(
+            crate::navigation::Context {
+                selected: snapshot.selected,
+                external: snapshot.external,
+                imu: snapshot.imu_bench,
+                session: snapshot.source_session,
+            },
+            |v| v.context,
+        );
+        if self.navigation_key.is_none_or(|(old, _)| old != context) {
+            self.navigation_key = Some((context, None));
+            self.navigation_prepared = 0;
+        }
+        if self.navigation_prepared < 8 {
+            let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
+            let mut c = Canvas::new(&mut fb);
+            if self.navigation_prepared == 0 {
+                draw_navigation_panel(&mut c);
+            } else {
+                let button = crate::navigation::GAUGES
+                    .get(self.navigation_prepared as usize - 1)
+                    .copied()
+                    .map(crate::navigation::Button::Gauge)
+                    .unwrap_or(crate::navigation::Button::Cancel);
+                draw_navigation_button(
+                    &mut c,
+                    crate::navigation::View {
+                        context,
+                        generation: 0,
+                        pressed: None,
+                    },
+                    button,
+                );
+            }
+            self.navigation_prepared += 1;
+        }
+    }
+    fn navigation(
+        &mut self,
+        pixels: &mut [u16],
+        history: &mut crate::damage::FrameHistory,
+        snapshot: Snapshot,
+    ) {
+        if self.navigation_pixels.is_some() && snapshot.menu.is_some() {
+            self.prepare_navigation(snapshot);
+            while self.navigation_prepared < 8 {
+                self.prepare_navigation(snapshot);
+            }
+        }
+        if let (Some(cache), Some(menu)) = (self.navigation_pixels.as_deref_mut(), snapshot.menu) {
+            let key = (menu.context, menu.pressed);
+            if self.navigation_key != Some(key) {
+                let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
+                let mut c = Canvas::new(&mut fb);
+                // Only the old and new pressed buttons change. Rebuilding all
+                // lettering on each finger transition exceeds attitude's budget.
+                if let Some(old) = self.navigation_key.and_then(|(_, pressed)| pressed) {
+                    draw_navigation_button(&mut c, menu, old);
+                }
+                if let Some(new) = menu.pressed {
+                    draw_navigation_button(&mut c, menu, new);
+                }
+                self.navigation_key = Some(key);
+            }
+            // The entire panel is opaque. Copy only initialized pixels, then
+            // mark them so the moving horizon restores them when it closes.
+            for y in 96..384 {
+                let row = y * 480 + 80..y * 480 + 400;
+                pixels[row.clone()].copy_from_slice(&cache[row]);
+            }
+            history.mark_rect(
+                480,
+                crate::interaction::Rect {
+                    x: 80,
+                    y: 96,
+                    w: 320,
+                    h: 288,
+                },
+            );
+        } else {
+            let fb = crate::raster::Framebuffer::new(pixels, self.width, self.height).unwrap();
+            draw_navigation(
+                &mut crate::damage::Tracked {
+                    last_pixel_tile: u16::MAX,
+                    target: fb,
+                    history,
+                },
+                snapshot,
+            );
+        }
     }
     pub fn draw(&mut self, pixels: &mut [u16], snapshot: Snapshot, pattern: bool) -> bool {
         self.draw_inner(pixels, None, snapshot, pattern, &mut || {})
@@ -162,6 +289,9 @@ impl<'a> CachedRenderer<'a> {
         if !self.prepare(snapshot, pattern) {
             return false;
         }
+        if snapshot.selected == Instrument::Attitude && !pattern {
+            self.prepare_navigation(snapshot);
+        }
         if let Some(history) = history {
             let frame_key = (self.width, self.height, snapshot.selected, pattern);
             if history.key == Some(frame_key)
@@ -178,7 +308,18 @@ impl<'a> CachedRenderer<'a> {
                     self.height as usize,
                 );
             } else {
-                pixels.copy_from_slice(self.background);
+                if snapshot.selected == Instrument::Attitude && !pattern {
+                    // The horizon (or failure face) paints every interior pixel.
+                    // Avoid reading/copying that entire PSRAM area twice on a switch.
+                    crate::attitude::restore_outer(
+                        pixels,
+                        self.background,
+                        self.width,
+                        self.height,
+                    );
+                } else {
+                    pixels.copy_from_slice(self.background);
+                }
                 history.clear();
                 history.key = Some(frame_key);
             }
@@ -216,6 +357,7 @@ impl<'a> CachedRenderer<'a> {
                             }),
                         progress,
                     );
+                    self.navigation(pixels, history, snapshot);
                 } else {
                     draw_overlay(
                         &mut crate::damage::Tracked {
@@ -375,6 +517,10 @@ fn draw_kollsman_value<T: Target>(c: &mut Canvas<T>, baro: f32, background: u16)
     c.text_on(338., KOLLSMAN_TOP + 24., 32., b.str(), (WHITE, background));
 }
 fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
+    draw_gauge_overlay(target, s);
+    draw_navigation(target, s);
+}
+fn draw_gauge_overlay<T: Target>(target: &mut T, s: Snapshot) {
     if s.selected == Instrument::Attitude {
         if s.imu_bench && s.attitude_model().angles.is_none() {
             crate::attitude::waiting(target);
@@ -461,10 +607,12 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
         c.rect(124., 284., 232., 40., ALTITUDE_PANEL);
         c.text_bold_on(240., 307., 32., a.str(), (0, ALTITUDE_PANEL));
     } else {
-        c.line((155., 185.), (296., 285.), 7., RED);
-        c.line((296., 185.), (155., 285.), 7., RED);
-        c.rect(124., 216., 194., 50., rgb(25, 15, 18));
-        c.text(221., 240., 24., "ALT DATA", RED);
+        // The cross and banner share the dial center. The font's ink sits
+        // above its cell center, so lower the lettering three pixels.
+        c.line((169.5, 190.), (310.5, 290.), 7., RED);
+        c.line((310.5, 190.), (169.5, 290.), 7., RED);
+        c.rect(143., 215., 194., 50., rgb(25, 15, 18));
+        c.text(240., 243., 24., "ALT DATA", RED);
         let mut q = Text::new();
         for ch in m.quality.name().bytes() {
             let _ = q.write_char(ch.to_ascii_uppercase() as char);
@@ -476,6 +624,89 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
         if let Some(editor) = s.editor {
             draw_editor(&mut c, editor, s.external);
         }
+    }
+}
+
+fn draw_navigation<T: Target>(target: &mut T, s: Snapshot) {
+    use crate::navigation::{Button, GAUGES};
+    let mut c = Canvas::new(target);
+    if s.center_pressed && s.menu.is_none() {
+        c.circle(240., 240., 24., KOLLSMAN_PRESSED);
+        c.text_on(240., 240., 12., "MENU", (WHITE, KOLLSMAN_PRESSED));
+    }
+    let Some(menu) = s.menu else {
+        return;
+    };
+    draw_navigation_panel(&mut c);
+    for b in GAUGES
+        .into_iter()
+        .map(Button::Gauge)
+        .chain(core::iter::once(Button::Cancel))
+    {
+        draw_navigation_button(&mut c, menu, b);
+    }
+}
+fn draw_navigation_panel<T: Target>(c: &mut Canvas<T>) {
+    let panel = rgb(22, 29, 36);
+    c.rect(80., 96., 320., 288., rgb(145, 155, 165));
+    c.rect(83., 99., 314., 282., panel);
+    c.text_on(240., 117., 21., "SELECT GAUGE", (WHITE, panel));
+}
+fn draw_navigation_button<T: Target>(
+    c: &mut Canvas<T>,
+    menu: crate::navigation::View,
+    b: crate::navigation::Button,
+) {
+    use crate::navigation::Button;
+    let (label, enabled, selected, reason) = match b {
+        Button::Cancel => ("CANCEL", true, false, ""),
+        Button::Gauge(i) => (
+            match i {
+                Instrument::Altimeter => "ALTIMETER",
+                Instrument::Attitude => "ATTITUDE",
+                Instrument::Airspeed => "AIRSPEED",
+                Instrument::Heading => "HEADING",
+                Instrument::Turn => "TURN COORD",
+                Instrument::Vsi => "VERT SPEED",
+            },
+            menu.context.enabled(i),
+            menu.context.selected == i,
+            menu.context.reason(i),
+        ),
+    };
+    let r = b.rect();
+    let bg = if enabled && menu.pressed == Some(b) {
+        KOLLSMAN_PRESSED
+    } else if enabled {
+        rgb(66, 80, 92)
+    } else {
+        rgb(33, 39, 45)
+    };
+    c.rect(
+        r.x as f32,
+        r.y as f32,
+        r.w as f32,
+        r.h as f32,
+        if selected { WARN } else { bg },
+    );
+    c.rect(
+        r.x as f32 + 2.,
+        r.y as f32 + 2.,
+        r.w as f32 - 4.,
+        r.h as f32 - 4.,
+        bg,
+    );
+    let x = r.x as f32 + r.w as f32 / 2.;
+    let y = r.y as f32 + r.h as f32 / 2.;
+    c.text_on(
+        x,
+        y - if enabled { 0. } else { 8. },
+        17.,
+        label,
+        (if enabled { WHITE } else { rgb(137, 147, 155) }, bg),
+    );
+    if !enabled {
+        c.text_on(x, y + 12., 11., reason, (rgb(137, 147, 155), bg));
     }
 }
 
@@ -547,6 +778,116 @@ pub fn test_pattern<T: Target>(target: &mut T) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn retained_faces_switch_and_center_feedback_match_full_frames() {
+        use instrument_core::{App, Command};
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.tick(0);
+        let mut s = Snapshot::from_app(&app);
+        let mut bg_alt = std::vec![0;480*480];
+        let mut bg_att = bg_alt.clone();
+        let mut runs = std::vec![crate::attitude::CopyRun::default();512];
+        let mut glyphs = std::vec![0;49152];
+        let mut menu = bg_alt.clone();
+        let mut alt = CachedRenderer::new(&mut bg_alt, 480, 480).unwrap();
+        let mut att = CachedRenderer::with_foreground_cache(&mut bg_att, 480, 480, &mut runs)
+            .unwrap()
+            .with_foreground_pixels(&mut glyphs)
+            .with_navigation_pixels(&mut menu);
+        s.selected = Instrument::Altimeter;
+        assert!(alt.prepare_background(s));
+        s.selected = Instrument::Attitude;
+        assert!(att.prepare_background(s));
+        let mut frames = core::array::from_fn::<_, 3, _>(|_| std::vec![0;480*480]);
+        let mut histories = core::array::from_fn::<_, 3, _>(|_| crate::damage::FrameHistory::new());
+        let mut expected = std::vec![0;480*480];
+        for n in 0..24 {
+            s.selected = if n % 8 < 2 {
+                Instrument::Altimeter
+            } else {
+                Instrument::Attitude
+            };
+            s.center_pressed = n % 8 == 4 || n % 8 == 5;
+            s.roll.value = Some(n as f32 - 12.);
+            s.pitch.value = Some(n as f32 * 0.5);
+            assert!(draw_frame(&mut expected, 480, 480, s, false));
+            let renderer = if s.selected == Instrument::Attitude {
+                &mut att
+            } else {
+                &mut alt
+            };
+            for (frame, history) in frames.iter_mut().zip(&mut histories) {
+                assert!(renderer.draw_incremental(frame, history, s, false));
+                assert!(
+                    frame == &expected,
+                    "retained face or center feedback mismatch at {n}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn gauge_menu_and_center_feedback_restore_three_buffers_on_every_face() {
+        use crate::{
+            damage::FrameHistory,
+            navigation::{Button, Context, View},
+        };
+        use instrument_core::{App, Command};
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.tick(0);
+        for use_cache in [false, true] {
+            for selected in [
+                Instrument::Altimeter,
+                Instrument::Attitude,
+                Instrument::Heading,
+            ] {
+                app.apply(Command::Select(selected)).unwrap();
+                let mut s = Snapshot::from_app(&app);
+                let mut expected = std::vec![0;480*480];
+                let mut backdrop = expected.clone();
+                let mut menu_cache = expected.clone();
+                let mut renderer = CachedRenderer::new(&mut backdrop, 480, 480).unwrap();
+                if use_cache {
+                    renderer = renderer.with_navigation_pixels(&mut menu_cache);
+                }
+                let mut buffers = core::array::from_fn::<_, 3, _>(|_| expected.clone());
+                let mut history = core::array::from_fn::<_, 3, _>(|_| FrameHistory::new());
+                for n in 0..12 {
+                    s.center_pressed = n == 1 || n == 10;
+                    s.menu = if (2..8).contains(&n) {
+                        Some(View {
+                            generation: 1,
+                            context: Context::from_app(&app),
+                            pressed: match n {
+                                2 => Some(Button::Gauge(Instrument::Attitude)),
+                                4 => Some(Button::Gauge(Instrument::Altimeter)),
+                                6 => Some(Button::Cancel),
+                                _ => None,
+                            },
+                        })
+                    } else {
+                        None
+                    };
+                    s.pitch.value = Some(n as f32 - 4.);
+                    s.roll.value = Some(n as f32 * 5.);
+                    assert!(draw_frame(&mut expected, 480, 480, s, false));
+                    for i in 0..3 {
+                        assert!(renderer.draw_incremental(
+                            &mut buffers[i],
+                            &mut history[i],
+                            s,
+                            false
+                        ));
+                        assert!(
+                            buffers[i] == expected,
+                            "menu damage: {selected:?}, phase {n}, buffer {i}"
+                        );
+                    }
+                }
+            }
+        }
+    }
     use super::*;
     use crate::raster::Framebuffer;
     use instrument_core::{Quality, Reading};
@@ -596,6 +937,8 @@ mod tests {
                 baro_age_ms: None,
                 source_label: "SIM INPUT",
                 kollsman_pressed: false,
+                menu: None,
+                center_pressed: false,
                 selected: Instrument::Altimeter,
                 altitude: Reading {
                     value: Some(0.),
@@ -683,6 +1026,8 @@ mod tests {
                     baro_age_ms: None,
                     source_label: "SIM INPUT",
                     kollsman_pressed: n % 5 < 2,
+                    menu: None,
+                    center_pressed: false,
                     selected: if n % 19 < 3 {
                         Instrument::Attitude
                     } else {
@@ -939,6 +1284,8 @@ mod tests {
                 baro_age_ms: None,
                 source_label: "SIM INPUT",
                 kollsman_pressed: false,
+                menu: None,
+                center_pressed: false,
                 selected: Instrument::Altimeter,
                 altitude: Reading {
                     quality: Quality::Valid,

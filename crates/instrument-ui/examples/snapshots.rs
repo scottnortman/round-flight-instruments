@@ -39,6 +39,8 @@ fn main() -> std::io::Result<()> {
                     baro_age_ms: None,
                     source_label: "SIM INPUT",
                     kollsman_pressed: label == "baro-pressed",
+                    menu: None,
+                    center_pressed: false,
                     selected: Instrument::Altimeter,
                     altitude: Reading {
                         value,

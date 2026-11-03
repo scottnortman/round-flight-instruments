@@ -6,6 +6,7 @@ pub mod attitude;
 pub mod damage;
 pub mod feedback;
 pub mod interaction;
+pub mod navigation;
 pub mod pipeline;
 pub mod raster;
 pub mod render;
@@ -26,6 +27,8 @@ pub struct Snapshot {
     pub source_label: &'static str,
     pub kollsman_pressed: bool,
     pub editor: Option<interaction::EditorView>,
+    pub menu: Option<navigation::View>,
+    pub center_pressed: bool,
     pub selected: Instrument,
     pub altitude: Reading,
     pub pitch: Reading,
@@ -82,6 +85,8 @@ impl Snapshot {
             baro_age_ms: app.external_baro(app.now_ms()).and_then(|b| b.age_ms),
             source_label: app.source_label(),
             kollsman_pressed: false,
+            menu: None,
+            center_pressed: false,
             editor: None,
             selected: app.selected(),
             altitude: app.altimeter_reading(app.now_ms()),
@@ -281,6 +286,8 @@ mod tests {
             baro_age_ms: None,
             source_label: "SIM INPUT",
             kollsman_pressed: false,
+            menu: None,
+            center_pressed: false,
             selected: Instrument::Altimeter,
             altitude: Reading {
                 value: Some(0.),

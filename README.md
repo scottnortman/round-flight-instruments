@@ -1,15 +1,16 @@
 # Round Flight Instruments
 
-Latest tagged checkpoint: **v0.2.0-rc.3**. Attitude rendering and IMU bench motion
-are visually accepted. The current baseline also isolates native SDK crashes
-and improves reconnect handling. Two-plane live recovery and
-post-recovery pressure writeback passed on November 2; changes are not yet released.
+Latest tagged checkpoint: **v0.2.0-rc.4**. Touch gauge selection, Attitude rendering
+and IMU bench motion are implemented. Menu switching and idle display passed
+visual checks; both gauges render above 30 FPS in bench motion tests. The baseline
+also includes native SDK crash isolation, two-plane MSFS recovery and pressure
+writeback verified on November 2. This source checkpoint has no new binary release.
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
 three-pointer altimeter, touch barometer adjustment, a text CLI and a smooth
-0–10,000 ft demonstration. The full six-pack is planned; this development branch
-also adds a standalone attitude renderer. MSFS 2020 input and optional two-way barometer
+0–10,000 ft demonstration, a standalone attitude renderer and touch gauge selection.
+The remaining four six-pack gauges are planned. MSFS 2020 input and optional two-way barometer
 control are bench-tested on the Just Flight Piper Warrior. See the
 [MSFS setup guide](docs/MSFS-TWO-WAY-TEST.md).
 
@@ -53,6 +54,12 @@ holds there. On a fresh boot, missing altitude and a red X are expected until
 you supply simulated data. Settings and simulated values reset on reboot.
 
 ## Attitude gauge development
+
+In this source checkpoint, hold the dial center for **3 seconds**, release,
+then tap Altimeter or Attitude to select a supported face. All six instruments
+are listed; unfinished or source-incompatible choices are disabled. Active
+buttons turn blue and chirp. Set the volatile hold with `touch menu hold 3000`.
+See [touch gauge menu and current MSFS limits](docs/GAUGE-MENU.md).
 
 `feature/attitude-gauge` (checkpoint **v0.2.0-rc.3**) adds the standalone phone-reference attitude face,
 shared pitch/roll CLI inputs and `sim attitude 60`. The board passes a 60-second
@@ -187,7 +194,7 @@ independent of rendering. See [architecture](docs/DISPLAY.md) and
   animation measured **32.33 FPS** with IMU polling; repeated popup/setting
   activity measured **29.22 FPS**. These are measured workloads, not minimum-rate
   guarantees. [Verification and reset investigations](verification/TOUCH.md).
-- Other hardware gauges, touch instrument selection, an encoder, persistent
+- Other hardware gauges, an encoder, persistent
   settings and faster communications remain future work.
 - The IMU has an unresolved stationary gyro offset; its readings and bench tilt
   are not calibrated attitude. [IMU limitations](docs/IMU.md).
