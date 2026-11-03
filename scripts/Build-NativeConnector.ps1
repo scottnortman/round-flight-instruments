@@ -15,6 +15,9 @@ try {
             Copy-Item -LiteralPath (Join-Path $rfiRoot "target\release\$rfiExe") -Destination $rfiPackage
         }
         Copy-Item -LiteralPath (Join-Path $rfiRoot 'docs\NATIVE-CONNECTOR.md') -Destination (Join-Path $rfiPackage 'START-HERE.md')
+        Copy-Item -LiteralPath (Join-Path $rfiRoot 'docs\MSFS-RECOVERY-TEST.md') -Destination (Join-Path $rfiPackage 'MSFS-RECOVERY-TEST.md')
+        Copy-Item -LiteralPath (Join-Path $rfiRoot 'scripts\Run-MSFS-Recovery-Test.ps1') -Destination $rfiPackage
+        Copy-Item -LiteralPath (Join-Path $rfiRoot 'scripts\Collect-Connector-Crash.ps1') -Destination $rfiPackage
         foreach ($rfiName in @('LICENSE','NOTICE','THIRD-PARTY-NOTICES.md')) {
             Copy-Item -LiteralPath (Join-Path $rfiRoot $rfiName) -Destination $rfiPackage
         }

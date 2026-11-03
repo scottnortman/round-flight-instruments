@@ -6,14 +6,19 @@ pub struct External {
     pub session: u64,
     sequence: u64,
     sample: Option<(Frame, u64)>,
+    opened_ms: u64,
 }
 impl External {
     pub const fn new(provider: Provider, session: u64) -> Self {
+        Self::new_at(provider, session, 0)
+    }
+    pub const fn new_at(provider: Provider, session: u64, opened_ms: u64) -> Self {
         Self {
             provider,
             session,
             sequence: 0,
             sample: None,
+            opened_ms,
         }
     }
     pub fn sequence(self) -> u64 {
@@ -34,6 +39,19 @@ impl External {
     pub fn age(self, now: u64) -> Option<u64> {
         let (f, at) = self.sample?;
         Some(now.checked_sub(at)?.saturating_add(f.age_ms as u64))
+    }
+    /// A session that never receives its first frame must also expire. Keep
+    /// measurement age absent until an actual measurement frame arrives.
+    pub fn stale(self, now: u64) -> bool {
+        self.age(now)
+            .or_else(|| {
+                if self.sample.is_none() {
+                    now.checked_sub(self.opened_ms)
+                } else {
+                    None
+                }
+            })
+            .is_some_and(|age| age >= STALE_MS)
     }
     pub fn accept(&mut self, mut frame: Frame, now: u64) -> Result<(), ApplyError> {
         frame.validate().map_err(|_| ApplyError::OutOfRange)?;
@@ -64,11 +82,11 @@ impl External {
     ) -> Reading {
         let age = self.age(now);
         let datum = self.sample.map_or(Datum::Missing, |(f, _)| field(f));
-        let quality = if self.sample.is_some() && age.is_none() {
+        let quality = if now < self.opened_ms || (self.sample.is_some() && age.is_none()) {
             Quality::TimingFault
         } else if let Some(fault) = fault {
             fault
-        } else if age.is_some_and(|a| a >= STALE_MS) {
+        } else if self.stale(now) {
             Quality::Stale
         } else if self.state() != Lifecycle::Running {
             Quality::Missing
@@ -94,6 +112,32 @@ impl External {
 mod tests {
     use super::*;
     use crate::{App, Command, Field};
+    #[test]
+    fn abandoned_handshake_expires_without_inventing_a_sample() {
+        let mut a = App::new();
+        for t in (0..=5000).step_by(10) {
+            a.tick(t);
+        }
+        a.apply(Command::SourceExternal(Provider::Msfs2020, 10))
+            .unwrap();
+        assert_eq!(a.source_label(), "LOADING");
+        for t in (5010..6000).step_by(10) {
+            a.tick(t);
+        }
+        assert_eq!(a.source_label(), "LOADING");
+        a.tick(6000);
+        assert_eq!(a.source_label(), "LINK STALE");
+        assert_eq!(a.altimeter_reading(6000).quality, Quality::Stale);
+        assert_eq!(a.altimeter_reading(6000).value, None);
+        assert_eq!(a.altimeter_reading(6000).age_ms, None);
+        a.apply(Command::Telemetry(Frame {
+            receiver_ms: 6000,
+            ..frame(1)
+        }))
+        .unwrap();
+        assert_eq!(a.source_label(), "MSFS 2020");
+        assert_eq!(a.altimeter_reading(6000).value, Some(8500.));
+    }
     fn frame(sequence: u64) -> Frame {
         Frame {
             session: 10,

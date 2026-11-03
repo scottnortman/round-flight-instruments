@@ -28,6 +28,7 @@ class NativeAcceptance(unittest.TestCase):
             report = json.loads((folders[0] / 'summary.json').read_text())
             records = [json.loads(line) for f in folders[0].glob('events-*.jsonl')
                        for line in f.read_text().splitlines()]
+            self.records = records
             frames = [r for r in records if 'frame' in r]
             sessions = {}
             for r in frames:
@@ -74,6 +75,17 @@ class NativeAcceptance(unittest.TestCase):
         self.assertEqual(report['end'], 'source_disconnected')
         self.assertEqual(report['sessions'], 3)
         self.assertEqual(report['reconnect_attempts'], 3)  # includes one refused open
+        # Transition-only evidence must distinguish SDK opening, fresh telemetry,
+        # and actual receiver state without per-frame diagnostic queries.
+        self.assertEqual(sum('provider_open_begin' in r for r in self.records), 4)
+        self.assertEqual(sum('provider_open_end' in r for r in self.records), 4)
+        probes = [r['session_probe'] for r in self.records if 'session_probe' in r]
+        self.assertEqual(len(probes), 3)
+        self.assertEqual(sum('telemetry_ready' in r for r in self.records), 3)
+        for probe in probes:
+            self.assertIn('altitude_quality=valid', probe['source'])
+            self.assertIn(f"session={probe['session']}", probe['source'])
+            self.assertGreaterEqual(probe['query_end_elapsed_ms'], probe['elapsed_ms'])
         groups = {}
         for r in frames:
             f = r['frame'].split()

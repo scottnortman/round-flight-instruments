@@ -285,9 +285,7 @@ impl App {
             }
         }
         self.external.map_or("SIM INPUT", |e| {
-            if e.age(self.now_ms())
-                .is_some_and(|a| a >= simulator_link::STALE_MS)
-            {
+            if e.stale(self.now_ms()) {
                 return "LINK STALE";
             }
             match e.state() {
@@ -516,7 +514,7 @@ impl App {
                 self.highest_session = session;
                 self.imu_bench = false;
                 self.imu_attitude = Default::default();
-                self.external = Some(external::External::new(provider, session));
+                self.external = Some(external::External::new_at(provider, session, self.now_ms()));
                 self.control = Default::default();
                 self.samples = [None; 8];
                 self.held = [None; 8];

@@ -1,7 +1,9 @@
 # Round Flight Instruments
 
-Latest tagged checkpoint: **v0.2.0-rc.2**. The working attitude branch also contains
-unreleased IMU bench work; hardware timing/visual acceptance is still in progress.
+Latest tagged checkpoint: **v0.2.0-rc.3**. Attitude rendering and IMU bench motion
+are visually accepted. The current baseline also isolates native SDK crashes
+and improves reconnect handling. Two-plane live recovery and
+post-recovery pressure writeback passed on November 2; changes are not yet released.
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
@@ -156,15 +158,16 @@ python scripts/start_msfs.py --port COM5 --writeback --frame-timing
 Run this from the Python bridge package folder. For automatic aircraft-change
 recovery and operation without Python, use the native connector below.
 
-On `feature/msfs-driver`, the [native connector test build](docs/NATIVE-CONNECTOR.md)
-replaces Python with a Rust executable and USB-identity enrollment. Desktop tests
-and the native UART climb pass. Aircraft switches now recover automatically into
-a fresh session: the new aircraft's altitude and QNH automatically replace the
-gauge values, with no restart or `--writeback` flag required. Optional two-way mode
-persists across switches. Live MSFS recovery failed after an aircraft switch and remains under investigation;
-the simulator-PC session logs are needed to resume. Tray UI remains pending.
-Leave optional diagnostic queries
-off for normal use to avoid their visible timing impact.
+The [native connector](docs/NATIVE-CONNECTOR.md) replaces Python with a Rust
+executable and USB-identity enrollment. A hidden
+SimConnect worker contains native crashes and is replaced automatically. Desktop
+tests verify fresh altitude/QNH after recovery and preserve optional two-way mode.
+A two-aircraft live test also passed recovery and pressure writeback; see the
+[acceptance record](verification/MSFS-AIRCRAFT-SWITCH-20261102.md). Receiving simulator values never
+requires `--writeback`; that flag enables gauge-to-simulator edits only. Use the
+[recovery test guide](docs/MSFS-RECOVERY-TEST.md) and return its captured logs.
+Tray UI remains pending. Leave optional diagnostic queries off for normal use
+to avoid their visible timing impact.
 [Two-way setup and test guide](docs/MSFS-TWO-WAY-TEST.md) ·
 [First MSFS test: which PC does what](docs/MSFS-FIRST-TEST.md) ·
 [Run the bridge](docs/TELEMETRY.md) ·
@@ -176,8 +179,10 @@ validated commands; input freshness, display supervision and watchdogs remain
 independent of rendering. See [architecture](docs/DISPLAY.md) and
 [control contracts](docs/BASELINE.md).
 
-- **102 Rust tests**, native-enabled Clippy and six Python tests pass for this
-  checkpoint. Five browser regression suites passed for the standalone baseline.
+- **159 Rust tests**, native-enabled Clippy and eight executable connector
+  acceptance tests pass for this baseline. Updated firmware passes hardware
+  timeout/recovery and safety checks: altimeter **32.32 FPS**, attitude **32.35 FPS**.
+  Five browser regression suites passed for the standalone baseline.
   The rapid-QNH hardware benchmark averaged **31.72 completed FPS**. Normal hardware
   animation measured **32.33 FPS** with IMU polling; repeated popup/setting
   activity measured **29.22 FPS**. These are measured workloads, not minimum-rate

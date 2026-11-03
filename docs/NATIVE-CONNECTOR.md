@@ -3,17 +3,24 @@
 This development build replaces the Python relay with a native Rust executable.
 It uses the existing MSFS SimConnect adapter, altimeter firmware and confirmed
 barometer protocol. **Python is not needed on the simulator PC.** This is still
-a command-line application. Aircraft/flight changes now reconnect automatically
-with a fresh session. **MSFS is the source of truth: its altitude and pressure
+a command-line application. Aircraft/flight changes trigger automatic reconnect attempts
+with a fresh session. SimConnect runs in a hidden worker process; a native crash
+triggers automatic replacement while the connector retains the USB connection.
+Injected native-crash recovery and a two-aircraft live recovery/writeback test
+pass. **MSFS is the source of truth: its altitude and pressure
 setting automatically replace the physical gauge's values after every switch.**
 No `--writeback` flag, restart or confirmation is needed for this default behavior.
 Tray UI and automatic startup remain future work.
 
-The new host executable has passed desktop, fault-injection and native UART
-synthetic-climb tests on the Waveshare. Live MSFS input/writeback through this
-new executable still needs acceptance on the simulator PC. Keep the working
+Earlier native builds passed UART synthetic-climb tests on the Waveshare. This
+worker-isolation build passes offline native-crash and desktop tests, plus live
+two-aircraft recovery and post-recovery barometer edits. Clean shutdown was not
+captured in that live run and remains a separate check. For the current
+build, follow [MSFS-RECOVERY-TEST.md](MSFS-RECOVERY-TEST.md). Keep the working
 `barometer-two-way-v2` package available for comparison. No reflash is needed for
-a board already running that firmware. Only Waveshare SKU 29086 is supported.
+a board already running that firmware. Only Waveshare SKU 29086 is supported. The `altimeter-v1` connector explicitly
+selects the altimeter face at startup and recovery, including when the board was
+previously left in attitude/IMU mode. It does not yet transmit attitude data.
 
 ## On the development PC
 
@@ -93,6 +100,12 @@ connection and establishes a **new session**. It keeps the USB port open, so no
 second serial-open/reset sequence is requested. Load and unpause the new flight;
 numeric readings resume only from fresh, validated simulator responses.
 
+Each connection uses a new worker process. The main connector never loads the
+SDK DLL. A worker crash or liveness timeout invalidates the session and starts
+recovery; a blocked SDK shutdown cannot block the parent's reconnect loop.
+Worker messages and queues are bounded, polling is nonblocking, and uncertain
+barometer writes are never replayed. Protocol/packet errors remain fatal.
+
 The screen may show disconnected, stale or missing data during loading. That is
 expected; the old aircraft's readings are not held as valid. If the simulator is
 temporarily unavailable, reconnection attempts wait 1, 2, 4, then at most 8 seconds
@@ -138,14 +151,28 @@ recovery, not actual MSFS aircraft events. No simulator writes are enabled.
 
 ## Logs and useful options
 
-- Each launch creates `logs/session-<id>/summary.json` and `events-*.jsonl`.
+- Each launch creates `logs/session-<id>/events-*.jsonl` and writes `summary.json`
+  on an ordinary return. Abrupt termination can leave no summary. The supplied
+  `Run-MSFS-Recovery-Test.ps1` saves console output and process exit status under
+  `test-results/` when the child process returns; see the recovery test guide.
   Use `--log-dir PATH` to choose a different root. Existing sessions are not reused.
 - One run's directory contains all its recovered sessions. `start`, `session_end`,
   `recovery_wait` and `reconnect_failed` records mark transitions. Frame sequence
   numbers restart at 1 only with a strictly newer session ID. Summaries count
   sessions/attempts and total frames. Maximum sample gap is measured within
   sessions; intentional reconnect waits are logged separately.
-- Wire logs contain frames/ACKs, control requests/results, and optional diagnostics.
+- `provider_open_begin` / `provider_open_end` bracket each source connection
+  attempt (their clock is labeled `execute_elapsed_ms`); a begin without an end
+  localizes a wait inside the source-opening call. `recovery_device_begin`
+  precedes the device session handshake. These do not add an SDK timeout.
+- `telemetry_ready` records the first numeric altitude/QNH pair per session.
+  About 250 ms later, `session_probe` captures source status and, on hardware,
+  display status/sample once. Telemetry continues during that scheduling delay;
+  the short queries themselves are sequential. This records what was actually
+  selected/presented without continuous extra serial polling. A session that ends
+  before its probe deadline has no probe. A busy display sample is logged as busy.
+- `run_info` identifies diagnostics schema 2; retain the package manifest for the
+  exact binary identity. Wire logs contain frames/ACKs and control requests/results.
   Per-session logs rotate through eight 4 MiB files; old parts in that session are
   replaced. For long runs, sort records by session/sequence/time, not filename.
   Previous session directories are preserved; remove old runs manually when needed.
@@ -155,7 +182,8 @@ recovery, not actual MSFS aircraft events. No simulator writes are enabled.
   queries once per second. `--frame-timing` adds coherent display provenance and
   requires the v2 firmware. Use these only for a short diagnostic capture: the
   extra serial queries caused small visible hand hitches in the hardware test.
-  Normal operation leaves both off; wire/control logs are still recorded.
+  Normal operation leaves both off; wire/control logs and the one-time session
+  probe are still recorded.
 - Serial is 921600 baud, 8N1, no flow control. DTR/RTS are held low; no reset pulse
   is requested. Echo is negotiated and restored on a healthy exit. After an
   uncertain transaction, cleanup sends no commands; `echo on` can be entered

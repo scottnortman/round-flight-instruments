@@ -111,6 +111,14 @@ uses host UTC microseconds as a unique increasing session convention; a regresse
 host clock may require a corrected clock/new session. Session IDs do not compare
 clock domains and do not measure freshness. Aircraft changes require new sessions.
 
+On the recovery branch, a new external session that receives no first frame
+expires after 1,000 ms: readings stay absent and the face reports LINK STALE
+instead of remaining LOADING indefinitely. Measurement age stays absent until a
+frame actually arrives. Fresh explicit Loading frames keep the link alive but
+expose no numeric readings; valid Running frames restore the gauge normally.
+Hardware regression: `python scripts/check-external-timeout.py --port COM5
+--report output/external-timeout.json` (one command, simulated test input).
+
 ```text
 T1 SESSION SEQUENCE RECEIVER_MS AGE_MS STATE INDICATED_FT PRESSURE_FT BARO_INHG *CRC32
 ```

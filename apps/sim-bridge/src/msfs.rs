@@ -262,13 +262,23 @@ impl<A: Api> Msfs<A> {
         let id = self.next_id;
         self.next_id = next;
         if let Err(e) = self.api.request(id, heartbeat) {
-            self.end(now, e);
+            self.api_error(now, e);
             return;
         }
         if heartbeat {
             self.heartbeat = Some((id, now));
         } else {
             self.pending = Some((id, now));
+        }
+    }
+    fn api_error(&mut self, now: u64, error: io::Error) {
+        if matches!(
+            error.kind(),
+            io::ErrorKind::ConnectionReset | io::ErrorKind::BrokenPipe
+        ) {
+            self.recoverable_end(now, RecoveryReason::ConnectionLost, &error.to_string());
+        } else {
+            self.end(now, error);
         }
     }
 }
@@ -325,7 +335,7 @@ impl<A: Api> SimulatorProvider for Msfs<A> {
                     break;
                 }
                 Ok(Some(n)) => self.event(now, n),
-                Err(e) => self.end(now, e),
+                Err(e) => self.api_error(now, e),
             }
             if self.terminal {
                 break;
@@ -348,7 +358,7 @@ impl<A: Api> SimulatorProvider for Msfs<A> {
         }
         let pressure16 = baro_event_units(r.cents).ok_or(ControlError::Invalid)?;
         if let Err(error) = self.api.set_baro(pressure16) {
-            self.end(now, error);
+            self.api_error(now, error);
             return Err(ControlError::Invalid);
         }
         // Cancel the pre-write read. Only a subsequently issued request may confirm.
@@ -385,7 +395,7 @@ impl<A: Api> SimulatorProvider for Msfs<A> {
                     break;
                 }
                 Ok(Some(event)) => self.event(now, event),
-                Err(e) => self.end(now, e),
+                Err(e) => self.api_error(now, e),
             }
             if self.terminal {
                 return self.latest.take();
@@ -497,39 +507,42 @@ impl Api for simconnect_native::Connection {
         self.set_baro(pressure16)
     }
     fn next(&mut self) -> io::Result<Option<Notice>> {
-        self.poll().map(|v| {
-            v.map(|e| match e.kind {
-                0 => Notice::Ignore,
-                1 => Notice::Open,
-                2 => Notice::Exception {
-                    code: e.code,
-                    send: e.request,
-                    index: e.detail,
-                },
-                3 => Notice::Quit,
-                4 => Notice::System {
-                    event: e.code,
-                    value: e.detail,
-                },
-                5 => Notice::Data {
-                    request: e.request,
-                    object: e.code,
-                    values: e.values,
-                },
-                6 => Notice::Heartbeat {
-                    request: e.request,
-                    running: e.code,
-                },
-                _ => Notice::Exception {
-                    code: u32::MAX,
-                    send: 0,
-                    index: 0,
-                },
-            })
-        })
+        self.poll().map(|v| v.map(native_notice))
     }
     fn request(&mut self, id: u32, heartbeat: bool) -> io::Result<()> {
         self.request(id, heartbeat)
+    }
+}
+
+#[cfg(all(windows, feature = "msfs"))]
+pub fn native_notice(e: simconnect_native::Event) -> Notice {
+    match e.kind {
+        0 => Notice::Ignore,
+        1 => Notice::Open,
+        2 => Notice::Exception {
+            code: e.code,
+            send: e.request,
+            index: e.detail,
+        },
+        3 => Notice::Quit,
+        4 => Notice::System {
+            event: e.code,
+            value: e.detail,
+        },
+        5 => Notice::Data {
+            request: e.request,
+            object: e.code,
+            values: e.values,
+        },
+        6 => Notice::Heartbeat {
+            request: e.request,
+            running: e.code,
+        },
+        _ => Notice::Exception {
+            code: u32::MAX,
+            send: 0,
+            index: 0,
+        },
     }
 }
 
@@ -545,6 +558,33 @@ fn baro_event_units(cents: u16) -> Option<u32> {
 mod tests {
     use super::*;
     use std::collections::VecDeque;
+    #[test]
+    fn worker_connection_loss_recovers_but_protocol_errors_do_not() {
+        struct Broken(io::ErrorKind);
+        impl Api for Broken {
+            fn next(&mut self) -> io::Result<Option<Notice>> {
+                Err(io::Error::from(self.0))
+            }
+            fn request(&mut self, _: u32, _: bool) -> io::Result<()> {
+                unreachable!()
+            }
+        }
+        for (kind, expected) in [
+            (
+                io::ErrorKind::ConnectionReset,
+                Some(RecoveryReason::ConnectionLost),
+            ),
+            (
+                io::ErrorKind::BrokenPipe,
+                Some(RecoveryReason::ConnectionLost),
+            ),
+            (io::ErrorKind::InvalidData, None),
+        ] {
+            let mut m = Msfs::new(Broken(kind));
+            assert_eq!(m.poll(0).unwrap().state, Lifecycle::Disconnected);
+            assert_eq!(m.recovery_reason(), expected);
+        }
+    }
     #[derive(Default)]
     struct Fake {
         events: VecDeque<Notice>,

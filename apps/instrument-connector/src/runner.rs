@@ -5,6 +5,7 @@ use crate::logging::Log;
 use connector_runtime::{DeviceLink, MonotonicClock, RetryDelay, Session, State, Statistics, Tick};
 use serde_json::{json, Value};
 use sim_bridge::SimulatorProvider;
+use simulator_link::{Datum, Frame, Lifecycle};
 use std::{
     io,
     sync::atomic::{AtomicBool, Ordering},
@@ -69,6 +70,8 @@ pub fn run(
     let mut sessions = 1u64;
     let mut attempts = 0u64;
     let mut session_id = initial_id;
+    let mut probe_due = None;
+    let mut numeric_seen = false;
     println!("Connected: source={kind} session={session_id} profile=altimeter-v1 writeback={}; Ctrl+C to stop.",options.writeback);
     let outcome = (|| -> io::Result<&str> {
         log.record(json!({"start":{"session":session_id,"source":kind,"profile":"altimeter-v1","writeback":options.writeback}}))?;
@@ -81,7 +84,27 @@ pub fn run(
                 record_tick(log, active.stop()?, start)?;
                 return Ok("stopped");
             }
-            record_tick(log, active.poll()?, start)?;
+            let tick = active.poll()?;
+            if !numeric_seen {
+                if let Some((wire, _)) = &tick.telemetry {
+                    let frame = Frame::decode(wire).map_err(|error| {
+                        io::Error::other(format!("encoded telemetry: {error:?}"))
+                    })?;
+                    if frame.state == Lifecycle::Running
+                        && matches!(frame.indicated_ft, Datum::Value(_))
+                        && matches!(frame.baro_inhg, Datum::Value(_))
+                    {
+                        numeric_seen = true;
+                        // Allow several presentations, without sleeping or stopping
+                        // telemetry. One readback per session, not steady polling.
+                        probe_due = Some(Instant::now() + Duration::from_millis(250));
+                        log.record(json!({"telemetry_ready":{"session":session_id,
+                            "sequence":frame.sequence,"elapsed_ms":start.elapsed().as_millis(),
+                            "frame":wire}}))?;
+                    }
+                }
+            }
+            record_tick(log, tick, start)?;
             if active.state() == State::Disconnected {
                 let Some(reason) = active.recovery_reason() else {
                     if kind == "msfs2020" {
@@ -114,10 +137,14 @@ pub fn run(
                             }
                             // Preserve configured direction, but never pending writes.
                             // Fresh simulator readings are required before any new edit.
+                            log.record(json!({"recovery_device_begin":{"session":next_id,
+                                "elapsed_ms":start.elapsed().as_millis()}}))?;
                             session = Some(handoff.resume(provider, MonotonicClock::default())?);
                             session_id = next_id;
                             sessions = sessions.saturating_add(1);
                             diagnostic = Instant::now();
+                            probe_due = None;
+                            numeric_seen = false;
                             log.record(json!({"start":{"session":session_id,"source":kind,"profile":"altimeter-v1",
                                 "writeback":writeback,"recovered":true,"elapsed_ms":start.elapsed().as_millis()}}))?;
                             println!("Reconnected: session={session_id}; waiting for fresh {kind} readings. Automatic gauge synchronization is active, writeback={writeback}. No restart or flag change needed.");
@@ -134,6 +161,18 @@ pub fn run(
                     }
                 }
                 continue;
+            }
+            if probe_due.is_some_and(|due| Instant::now() >= due) {
+                let mut record =
+                    json!({"session":session_id,"elapsed_ms":start.elapsed().as_millis()});
+                record["source"] = json!(active.source_status()?);
+                if options.hardware {
+                    record["display"] = json!(active.display_status(false)?);
+                    record["sample"] = json!(active.display_status(true)?);
+                }
+                record["query_end_elapsed_ms"] = json!(start.elapsed().as_millis());
+                log.record(json!({"session_probe":record}))?;
+                probe_due = None;
             }
             if (options.diagnostics || options.frame_timing)
                 && diagnostic.elapsed() >= Duration::from_secs(1)

@@ -141,8 +141,16 @@ struct Rig {
     device: Rc<RefCell<DeviceData>>,
 }
 fn rig(writeback: bool) -> Rig {
+    rig_selected(writeback, instrument_core::Instrument::Altimeter)
+}
+fn rig_selected(writeback: bool, selected: instrument_core::Instrument) -> Rig {
     let clock = TestClock(Rc::new(Cell::new(0)));
     let device = Rc::new(RefCell::new(DeviceData::default()));
+    device
+        .borrow_mut()
+        .app
+        .apply(Command::Select(selected))
+        .unwrap();
     let provider = Rc::new(RefCell::new(ProviderData::default()));
     let session = Session::open(
         Box::new(TestProvider(provider.clone())),
@@ -161,6 +169,42 @@ fn rig(writeback: bool) -> Rig {
         provider,
         device,
     }
+}
+#[test]
+fn altimeter_profile_selects_its_face_on_initial_open_and_recovery() {
+    use instrument_core::Instrument;
+    let mut r = rig_selected(false, Instrument::Attitude);
+    r.feed(0, Lifecycle::Running, 29.92);
+    assert_eq!(r.device.borrow().app.selected(), Instrument::Altimeter);
+    assert_eq!(
+        r.device.borrow().app.altimeter_reading(5000).value,
+        Some(4520.)
+    );
+    r.provider.borrow_mut().recovery = Some(RecoveryReason::SessionChanged);
+    r.feed(66, Lifecycle::Disconnected, 29.92);
+    r.device
+        .borrow_mut()
+        .app
+        .apply(Command::Select(Instrument::Attitude))
+        .unwrap();
+    let next = Rc::new(RefCell::new(ProviderData::default()));
+    let mut session = r
+        .session
+        .into_recovery()
+        .unwrap()
+        .resume(Box::new(TestProvider(next.clone())), r.clock.clone())
+        .unwrap();
+    assert_eq!(r.device.borrow().app.selected(), Instrument::Altimeter);
+    assert_eq!(r.device.borrow().app.altimeter_reading(5066).value, None);
+    next.borrow_mut()
+        .observations
+        .push_back(observation(100, Lifecycle::Running, 30.01));
+    r.clock.0.set(100);
+    session.poll().unwrap();
+    assert_eq!(
+        r.device.borrow().app.altimeter_reading(5100).value,
+        Some(4520.)
+    );
 }
 fn observation(at: u64, state: Lifecycle, baro: f32) -> Observation {
     Observation::altimeter(

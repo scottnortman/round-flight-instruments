@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 mod config;
 mod logging;
+#[cfg(all(windows, feature = "msfs"))]
+mod msfs_worker;
 mod runner;
 mod switch_demo;
 mod transport;
@@ -16,7 +18,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 const HELP: &str = r#"Round Instruments native connector (development milestone)
   instrument-connector devices
@@ -34,6 +36,19 @@ Ctrl+C sends Disconnected and releases the port.
 --switch-demo runs three synthetic sessions to test recovery without MSFS.
 "#;
 fn main() {
+    #[cfg(all(windows, feature = "msfs"))]
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "__simconnect-worker")
+    {
+        let args: Vec<_> = std::env::args_os().collect();
+        let code = if args.len() == 3 {
+            msfs_worker::entry(Path::new(&args[2]))
+        } else {
+            2
+        };
+        std::process::exit(code);
+    }
     if let Err(e) = run() {
         eprintln!("Connector stopped: {e}. External data expires; no demo fallback.");
         std::process::exit(1);
@@ -129,6 +144,10 @@ fn run() -> io::Result<()> {
     let root = PathBuf::from(opts.get("--log-dir").map(String::as_str).unwrap_or("logs"));
     let mut log = logging::Log::open(&root, session)?;
     println!("Session {session}; logs: {}", log.directory.display());
+    log.record(
+        json!({"run_info":{"connector_version":env!("CARGO_PKG_VERSION"),
+        "diagnostics_schema":2,"msfs_enabled":cfg!(feature = "msfs")}}),
+    )?;
     let result = execute(&opts, session, &stop, &log, duration);
     let summary = match &result {
         Ok(value) => value.clone(),
@@ -166,7 +185,7 @@ fn create_provider(
         #[cfg(all(windows, feature = "msfs"))]
         {
             Ok(Box::new(sim_bridge::msfs::Msfs::new(
-                simconnect_native::Connection::open(Path::new(path))?,
+                msfs_worker::Connection::open(Path::new(path))?,
             )))
         }
         #[cfg(not(all(windows, feature = "msfs")))]
@@ -192,7 +211,21 @@ fn execute(
     duration: Option<u64>,
 ) -> io::Result<serde_json::Value> {
     let mut demo_index = 0;
-    let mut factory = || create_provider(opts, &mut demo_index);
+    let provider_clock = Instant::now();
+    let mut open_attempt = 0u64;
+    let mut factory = || {
+        open_attempt = open_attempt.saturating_add(1);
+        let began = Instant::now();
+        log.record(json!({"provider_open_begin":{"attempt":open_attempt,
+            "execute_elapsed_ms":provider_clock.elapsed().as_millis()}}))?;
+        println!("Opening simulator source (attempt {open_attempt})...");
+        let result = create_provider(opts, &mut demo_index);
+        log.record(json!({"provider_open_end":{"attempt":open_attempt,
+            "execute_elapsed_ms":provider_clock.elapsed().as_millis(),
+            "duration_ms":began.elapsed().as_millis(),
+            "ok":result.is_ok(),"error":result.as_ref().err().map(ToString::to_string)}}))?;
+        result
+    };
     // Initial simulator connection still fails before touching the device.
     // Only an established session's explicit recovery hint permits retries.
     let provider = factory()?;

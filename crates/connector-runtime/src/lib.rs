@@ -196,6 +196,11 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             }
             let receiver_ms = number(&response, "now_ms")?;
             let ack_at = clock.now_ms();
+            // This session projects only altimeter-v1 data. Explicitly select
+            // that face: a board left in IMU/attitude mode has no external
+            // pitch/roll in T1 and would otherwise show an unrelated red X.
+            let response = device.request("instrument altimeter")?;
+            prefix(&response, "OK instrument=altimeter ")?;
             if writeback {
                 let response = device.request(&format!("control enable {session}"))?;
                 prefix(&response, "OK control enabled=true")?;
