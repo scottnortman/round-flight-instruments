@@ -152,12 +152,19 @@ pub enum ImuCommand {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+// Bounded by-value packets keep the no_std core allocation-free. The console
+// reserves its queue and parser stack once; no allocation occurs per sample.
+#[allow(clippy::large_enum_variant)]
 pub enum Command {
+    ControlClaim(u64, u64),
+    Capabilities,
     SourceDemo,
     SourceImu,
     SourceExternal(simulator_link::Provider, u64),
+    SourceExternal2(simulator_link::Provider, u64),
     SourceStatus,
     Telemetry(simulator_link::Frame),
+    Telemetry2(simulator_link::multi::Frame),
     AttitudeDemo(u32),
     AttitudeDemoStop,
     AttitudeDemoStatus,
@@ -264,14 +271,14 @@ impl App {
     pub fn attitude_demo(&self) -> attitude_demo::Demo {
         self.attitude_demo
     }
-    pub fn external(&self) -> Option<external::External> {
-        self.external
+    pub fn external(&self) -> Option<&external::External> {
+        self.external.as_ref()
     }
     pub fn source_name(&self) -> &'static str {
         if self.imu_bench {
             return "imu_bench";
         }
-        self.external.map_or("sim", |e| e.provider.name())
+        self.external.as_ref().map_or("sim", |e| e.provider.name())
     }
     pub fn source_label(&self) -> &'static str {
         if self.imu_bench {
@@ -285,7 +292,7 @@ impl App {
                 _ => (),
             }
         }
-        self.external.map_or("SIM INPUT", |e| {
+        self.external.as_ref().map_or("SIM INPUT", |e| {
             if e.stale(self.now_ms()) {
                 return "LINK STALE";
             }
@@ -312,7 +319,14 @@ impl App {
         }
     }
     pub fn altimeter_reading(&self, now: u64) -> Reading {
-        if let Some(e) = self.external {
+        if let Some(e) = &self.external {
+            if e.multi_profile {
+                return e.read_quantity(
+                    now,
+                    self.external_fault(Some(Field::PressureAltitudeFt)),
+                    simulator_link::measurements::Quantity::IndicatedAltitudeFt,
+                );
+            }
             e.read(
                 now,
                 self.external_fault(Some(Field::PressureAltitudeFt)),
@@ -323,8 +337,17 @@ impl App {
         }
     }
     pub fn external_baro(&self, now: u64) -> Option<Reading> {
-        self.external
-            .map(|e| e.read(now, self.external_fault(None), |f| f.baro_inhg))
+        self.external.as_ref().map(|e| {
+            if e.multi_profile {
+                e.read_quantity(
+                    now,
+                    self.external_fault(None),
+                    simulator_link::measurements::Quantity::BarometerInHg,
+                )
+            } else {
+                e.read(now, self.external_fault(None), |f| f.baro_inhg)
+            }
+        })
     }
     pub fn takeoff(&self) -> takeoff::Takeoff {
         self.takeoff
@@ -426,7 +449,21 @@ impl App {
                 .imu_attitude
                 .read(field, now, self.external_fault(Some(field)));
         }
-        if let Some(e) = self.external {
+        if let Some(e) = &self.external {
+            if e.multi_profile {
+                use simulator_link::measurements::Quantity as Q;
+                let q = match field {
+                    Field::PressureAltitudeFt => Q::PressureAltitudeFt,
+                    Field::PitchDeg => Q::PitchDeg,
+                    Field::RollDeg => Q::RollDeg,
+                    Field::HeadingDeg => Q::MagneticHeadingDeg,
+                    Field::IasKt => Q::IndicatedAirspeedKt,
+                    Field::TurnDps => Q::TurnRateDps,
+                    Field::Ball => Q::SlipBall,
+                    Field::VsiFpm => Q::VerticalSpeedFpm,
+                };
+                return e.read_quantity(now, self.external_fault(Some(field)), q);
+            }
             return e.read(now, self.external_fault(Some(field)), |f| {
                 if field == Field::PressureAltitudeFt {
                     f.pressure_ft
@@ -505,7 +542,8 @@ impl App {
                 self.running = false;
                 self.selected = Instrument::Attitude;
             }
-            Command::SourceExternal(provider, session) => {
+            Command::SourceExternal(provider, session)
+            | Command::SourceExternal2(provider, session) => {
                 if self.timing_fault {
                     return Err(ApplyError::NotReady);
                 }
@@ -516,11 +554,26 @@ impl App {
                 self.imu_bench = false;
                 self.imu_attitude = Default::default();
                 self.external = Some(external::External::new_at(provider, session, self.now_ms()));
+                self.external.as_mut().unwrap().multi_profile =
+                    matches!(command, Command::SourceExternal2(..));
                 self.control = Default::default();
                 self.samples = [None; 8];
                 self.held = [None; 8];
                 self.takeoff.stop(false);
                 self.attitude_demo.stop(false);
+            }
+            Command::Telemetry2(frame) => {
+                if self.timing_fault {
+                    return Err(ApplyError::NotReady);
+                }
+                let now = self.now_ms();
+                self.external
+                    .as_mut()
+                    .ok_or(ApplyError::Unsupported)?
+                    .accept_multi(frame, now)?;
+                if let Some(v) = self.external_baro(now).and_then(|r| r.value) {
+                    self.baro_inhg = v;
+                }
             }
             Command::Telemetry(frame) => {
                 if self.timing_fault {
@@ -579,7 +632,20 @@ impl App {
             Command::Echo(_) | Command::Imu(_) | Command::Display(_) => {
                 return Err(ApplyError::Unsupported)
             }
-            Command::Select(i) => self.selected = i,
+            Command::Select(i) => {
+                if i != self.selected {
+                    // A host that claimed a write owns this view until its
+                    // bounded confirmation completes. No write starts hidden.
+                    if self.control_dispatch_in_progress() {
+                        return Err(ApplyError::NotReady);
+                    }
+                    // A hidden gauge cannot retain an unsent edit or accept a
+                    // delayed confirmation after the user switches back. Keep
+                    // request IDs monotonic within the current source session.
+                    self.control.pending = None;
+                }
+                self.selected = i;
+            }
             Command::Set(f, v) => {
                 if !f.accepts(v) {
                     return Err(ApplyError::OutOfRange);
@@ -644,6 +710,7 @@ impl App {
                 self.samples[f as usize] = None;
             }
             Command::ControlEnable(session) => self.enable_control(session)?,
+            Command::ControlClaim(session, id) => self.claim_control(session, id)?,
             Command::ControlPoll => (),
             Command::ControlReply(reply) => self.control_reply(reply)?,
             Command::Baro(v) => {
@@ -655,7 +722,7 @@ impl App {
                 }
                 self.baro_inhg = v;
             }
-            Command::Help | Command::Status | Command::Instruments => (),
+            Command::Help | Command::Status | Command::Instruments | Command::Capabilities => (),
         }
         Ok(())
     }

@@ -28,7 +28,7 @@ const HELP: &str = r#"Round Instruments native connector (development milestone)
   instrument-connector run --desktop PATH_TO_DESKTOP_CLI --replay FILE
   instrument-connector run --desktop PATH_TO_DESKTOP_CLI --switch-demo
 Run options: --log-dir PATH (default logs), --duration SECONDS,
-             --diagnostics, --frame-timing (hardware only)
+             --diagnostics, --frame-timing (hardware only), --sixpack (T2 firmware)
 Default: automatically synchronize altitude and QNH from MSFS to the gauge.
 Aircraft switches reconnect automatically; no restart or flag change is needed.
 --writeback optionally enables gauge-to-MSFS edits and persists across switches.
@@ -59,11 +59,10 @@ fn options(args: &[String]) -> io::Result<BTreeMap<String, String>> {
     let mut it = args.iter();
     while let Some(key) = it.next() {
         let val = match key.as_str() {
-            "--msfs" | "--writeback" | "--diagnostics" | "--frame-timing" | "--switch-demo" => {
-                String::new()
-            }
+            "--msfs" | "--writeback" | "--diagnostics" | "--frame-timing" | "--switch-demo"
+            | "--sixpack" | "--app-status" => String::new(),
             "--port" | "--config" | "--dll" | "--desktop" | "--synthetic" | "--replay"
-            | "--log-dir" | "--duration" => it
+            | "--log-dir" | "--duration" | "--stop-file" => it
                 .next()
                 .filter(|v| !v.starts_with("--"))
                 .ok_or_else(|| io::Error::other(format!("value needed for {key}")))?
@@ -135,6 +134,19 @@ fn run() -> io::Result<()> {
     let stop_flag = stop.clone();
     ctrlc::set_handler(move || stop_flag.store(true, Ordering::Release))
         .map_err(io::Error::other)?;
+    if let Some(path) = opts.get("--stop-file") {
+        let path = PathBuf::from(path);
+        let flag = stop.clone();
+        std::thread::spawn(move || {
+            while !flag.load(Ordering::Acquire) {
+                if path.exists() {
+                    flag.store(true, Ordering::Release);
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+        });
+    }
     let session: u64 = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(io::Error::other)?
@@ -149,6 +161,7 @@ fn run() -> io::Result<()> {
         "diagnostics_schema":2,"msfs_enabled":cfg!(feature = "msfs")}}),
     )?;
     let result = execute(&opts, session, &stop, &log, duration);
+    stop.store(true, Ordering::Release);
     let summary = match &result {
         Ok(value) => value.clone(),
         Err(e) => json!({"end":"error","error":e.to_string(),
@@ -210,6 +223,8 @@ fn execute(
     log: &logging::Log,
     duration: Option<u64>,
 ) -> io::Result<serde_json::Value> {
+    #[cfg(all(windows, feature = "msfs"))]
+    let _timer = simconnect_native::timing::TimerResolution::one_ms()?;
     let mut demo_index = 0;
     let provider_clock = Instant::now();
     let mut open_attempt = 0u64;
@@ -247,6 +262,8 @@ fn execute(
         session_id,
         runner::Options {
             writeback: opts.contains_key("--writeback"),
+            multi: opts.contains_key("--sixpack"),
+            app_status: opts.contains_key("--app-status"),
             diagnostics: opts.contains_key("--diagnostics"),
             frame_timing: opts.contains_key("--frame-timing"),
             hardware: opts.contains_key("--config"),

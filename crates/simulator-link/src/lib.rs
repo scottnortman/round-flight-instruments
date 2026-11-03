@@ -4,6 +4,7 @@
 use core::fmt::{self, Write};
 pub mod control;
 pub mod measurements;
+pub mod multi;
 pub const MAX_FRAME: usize = 256;
 pub const STALE_MS: u64 = 1000;
 pub const RECEIVER_LEASE_MS: u64 = 250;

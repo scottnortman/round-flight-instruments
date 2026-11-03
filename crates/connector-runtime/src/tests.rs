@@ -89,6 +89,7 @@ struct DeviceData {
     bad_ack: bool,
     duplicate_control: bool,
     control_delay: u64,
+    switch_before_claim: bool,
 }
 impl Default for DeviceData {
     fn default() -> Self {
@@ -98,6 +99,7 @@ impl Default for DeviceData {
             bad_ack: false,
             duplicate_control: false,
             control_delay: 0,
+            switch_before_claim: false,
         }
     }
 }
@@ -116,6 +118,11 @@ impl DeviceLink for TestDevice {
         d.commands.push(command.into());
         let now = self.clock.now_ms() + 5000; // receiver epoch deliberately differs
         tick(&mut d.app, now);
+        if command.starts_with("control claim ") && d.switch_before_claim {
+            d.app
+                .apply(Command::Select(instrument_core::Instrument::Attitude))
+                .unwrap();
+        }
         let mut response = text_cli::execute(&mut d.app, text_cli::parse(command), now)
             .as_str()
             .trim()
@@ -144,6 +151,9 @@ fn rig(writeback: bool) -> Rig {
     rig_selected(writeback, instrument_core::Instrument::Altimeter)
 }
 fn rig_selected(writeback: bool, selected: instrument_core::Instrument) -> Rig {
+    rig_profile(writeback, selected, false)
+}
+fn rig_profile(writeback: bool, selected: instrument_core::Instrument, multi: bool) -> Rig {
     let clock = TestClock(Rc::new(Cell::new(0)));
     let device = Rc::new(RefCell::new(DeviceData::default()));
     device
@@ -152,7 +162,7 @@ fn rig_selected(writeback: bool, selected: instrument_core::Instrument) -> Rig {
         .apply(Command::Select(selected))
         .unwrap();
     let provider = Rc::new(RefCell::new(ProviderData::default()));
-    let session = Session::open(
+    let session = Session::open_profile(
         Box::new(TestProvider(provider.clone())),
         TestDevice {
             data: device.clone(),
@@ -161,6 +171,7 @@ fn rig_selected(writeback: bool, selected: instrument_core::Instrument) -> Rig {
         clock.clone(),
         10,
         writeback,
+        multi,
     )
     .unwrap();
     Rig {
@@ -594,4 +605,74 @@ fn retry_delay_is_bounded_and_never_wraps() {
     for _ in 0..1000 {
         assert_eq!(retry.next_ms(), 8000);
     }
+}
+
+#[test]
+fn multi_profile_preserves_active_face_and_only_claimed_explicit_edits_write() {
+    use instrument_core::Instrument;
+    let mut r = rig_profile(true, Instrument::Attitude, true);
+    r.feed(0, Lifecycle::Running, 29.92);
+    assert_eq!(r.device.borrow().app.selected(), Instrument::Attitude);
+    assert!(r.provider.borrow().writes.is_empty());
+    assert!(r.device.borrow_mut().app.apply(Command::Baro(30.)).is_err());
+    r.device
+        .borrow_mut()
+        .app
+        .apply(Command::Select(Instrument::Altimeter))
+        .unwrap();
+    r.edit(29.93);
+    r.feed(33, Lifecycle::Running, 29.92);
+    assert_eq!(r.provider.borrow().writes.len(), 1);
+    // A dispatch already admitted by the board finishes before deactivation.
+    assert!(r
+        .device
+        .borrow_mut()
+        .app
+        .apply(Command::Select(Instrument::Attitude))
+        .is_err());
+    assert!(r
+        .device
+        .borrow()
+        .commands
+        .iter()
+        .any(|c| c == "control claim 10 1"));
+    r.provider.borrow_mut().reply.as_mut().unwrap().status = Status::Confirmed;
+    r.feed(66, Lifecycle::Running, 29.93);
+    r.device
+        .borrow_mut()
+        .app
+        .apply(Command::Select(Instrument::Attitude))
+        .unwrap();
+    r.feed(99, Lifecycle::Running, 30.01);
+    assert_eq!(r.provider.borrow().writes.len(), 1);
+    assert_eq!(r.device.borrow().app.baro_inhg(), 30.01);
+    r.provider.borrow_mut().recovery = Some(RecoveryReason::SessionChanged);
+    r.feed(132, Lifecycle::Disconnected, 30.01);
+    let next = Rc::new(RefCell::new(ProviderData::default()));
+    r.session = r
+        .session
+        .into_recovery()
+        .unwrap()
+        .resume(Box::new(TestProvider(next.clone())), r.clock.clone())
+        .unwrap();
+    assert_eq!(r.device.borrow().app.selected(), Instrument::Attitude);
+    assert!(next.borrow().writes.is_empty());
+}
+
+#[test]
+fn gauge_switch_between_poll_and_claim_prevents_aircraft_write() {
+    let mut r = rig_profile(true, instrument_core::Instrument::Altimeter, true);
+    r.feed(0, Lifecycle::Running, 29.92);
+    r.edit(29.93);
+    r.device.borrow_mut().switch_before_claim = true;
+    r.feed(33, Lifecycle::Running, 29.92);
+    assert!(r.provider.borrow().writes.is_empty());
+    assert!(r.device.borrow().app.control_request().is_none());
+    r.device
+        .borrow_mut()
+        .app
+        .apply(Command::Select(instrument_core::Instrument::Altimeter))
+        .unwrap();
+    r.feed(66, Lifecycle::Running, 30.01);
+    assert!(r.provider.borrow().writes.is_empty());
 }

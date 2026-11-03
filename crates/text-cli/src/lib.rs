@@ -4,7 +4,7 @@
 use core::fmt::{self, Write};
 use instrument_core::{App, Command, DisplayCommand, Field, ImuCommand, Instrument};
 
-pub const MAX_LINE: usize = 256;
+pub const MAX_LINE: usize = instrument_core::simulator_link::multi::MAX_FRAME;
 pub const LINE_TIMEOUT_MS: u64 = 30_000;
 pub const MAX_RESPONSE: usize = 1024;
 
@@ -37,6 +37,16 @@ impl Error {
 }
 
 pub fn parse(line: &str) -> Result<Command, Error> {
+    if line.starts_with("T2 ") {
+        return instrument_core::simulator_link::multi::Frame::decode(line)
+            .map(Command::Telemetry2)
+            .map_err(|e| match e {
+                instrument_core::simulator_link::Error::Checksum => Error::Checksum,
+                instrument_core::simulator_link::Error::Range => Error::Range,
+                instrument_core::simulator_link::Error::TooLong => Error::TooLong,
+                _ => Error::Syntax,
+            });
+    }
     if line.starts_with("T1 ") {
         return instrument_core::simulator_link::Frame::decode(line)
             .map(Command::Telemetry)
@@ -77,15 +87,24 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         ["source", "sim"] => Ok(Command::SourceDemo),
         ["source", "imu"] => Ok(Command::SourceImu),
         ["source", "status"] => Ok(Command::SourceStatus),
+        ["protocol", "capabilities"] => Ok(Command::Capabilities),
         ["control", "enable", session] => Ok(Command::ControlEnable(
             session.parse().map_err(|_| Error::Range)?,
         )),
         ["control", "poll"] => Ok(Command::ControlPoll),
+        ["control", "claim", session, id] => Ok(Command::ControlClaim(
+            session.parse().map_err(|_| Error::Number)?,
+            id.parse().map_err(|_| Error::Number)?,
+        )),
         _ if line.starts_with("R1 ") => Ok(Command::ControlReply(
             instrument_core::simulator_link::control::Reply::decode(line)
                 .map_err(|_| Error::Range)?,
         )),
         ["source", "external", provider, session] => Ok(Command::SourceExternal(
+            instrument_core::simulator_link::Provider::parse(provider).ok_or(Error::Syntax)?,
+            session.parse().map_err(|_| Error::Number)?,
+        )),
+        ["source", "external2", provider, session] => Ok(Command::SourceExternal2(
             instrument_core::simulator_link::Provider::parse(provider).ok_or(Error::Syntax)?,
             session.parse().map_err(|_| Error::Number)?,
         )),
@@ -349,6 +368,7 @@ pub fn execute_with_display(
     }
     let mut r = Response::new();
     let result = match cmd {
+        Command::Capabilities => writeln!(r,"OK capabilities protocols=T1,T2 max_line=512 gauges=altimeter,attitude controls=barometer active_only=true control_claim=true"),
         Command::SourceImu | Command::SourceStatus if app.imu_bench() => {
             let p=app.reading(Field::PitchDeg,now); let roll=app.reading(Field::RollDeg,now);
             let held=app.imu_last_good();
@@ -356,11 +376,12 @@ pub fn execute_with_display(
             writeln!(r,"OK source=imu_bench state=bench_only pitch_deg={:?} roll_deg={:?} quality={} age_ms={:?} holding={} held_pitch_roll_deg={:?} held_age_ms={:?} calibration=unverified timebase=receipt writeback=false",p.value,roll.value,p.quality.name(),p.age_ms,holding,held.map(|h|h.pitch_roll_deg),held.map(|h|h.age_ms))
         }
         Command::SourceImu => unreachable!(),
-        Command::SourceDemo | Command::SourceExternal(..) | Command::SourceStatus=> {
+        Command::SourceDemo | Command::SourceExternal(..) | Command::SourceExternal2(..) | Command::SourceStatus=> {
             let e=app.external();let altitude=app.altimeter_reading(now);let baro=app.external_baro(now);
             writeln!(r,"OK source={} session={} sequence={} state={} age_ms={:?} indicated_ft={:?} altitude_quality={} baro_inhg={:?} baro_quality={} writeback={} now_ms={}",app.source_name(),e.map_or(0,|e|e.session),e.map_or(0,|e|e.sequence()),e.map_or("demo",|e|e.state().name()),e.and_then(|e|e.age(now)),if e.is_some(){altitude.value}else{None},altitude.quality.name(),baro.and_then(|b|b.value),baro.map_or("local",|b|b.quality.name()),app.control_enabled(),now)
         }
         Command::ControlEnable(_) => writeln!(r,"OK control enabled=true"),
+        Command::ControlClaim(session,id) => writeln!(r,"OK control claimed session={session} id={id}"),
         Command::ControlReply(_) => writeln!(r,"OK control result"),
         Command::ControlPoll => {
             if let Some(request)=app.control_request() {
@@ -368,6 +389,7 @@ pub fn execute_with_display(
             } else { writeln!(r,"OK control none status={}",app.control_status().map_or("idle",|s|s.name())) }
         }
         Command::Telemetry(f)=>writeln!(r,"OK telemetry session={} seq={} now_ms={} control={}",f.session,f.sequence,now,app.control_request().map_or(0,|r|r.id)),
+        Command::Telemetry2(f)=>writeln!(r,"OK telemetry session={} seq={} now_ms={} control={} instrument={}",f.session,f.sequence,now,app.control_request().map_or(0,|r|r.id),app.selected().name()),
         Command::Takeoff(_) | Command::TakeoffStop | Command::TakeoffStatus => {
             let sweep = app.takeoff();
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)

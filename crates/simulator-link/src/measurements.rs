@@ -30,6 +30,30 @@ pub enum Quantity {
     HeightAboveGroundFt,
 }
 impl Quantity {
+    /// Stable wire IDs. Append new quantities; never renumber existing ones.
+    pub const ALL: [Self; 13] = [
+        Self::IndicatedAltitudeFt,
+        Self::PressureAltitudeFt,
+        Self::BarometerInHg,
+        Self::PitchDeg,
+        Self::RollDeg,
+        Self::IndicatedAirspeedKt,
+        Self::MagneticHeadingDeg,
+        Self::VerticalSpeedFpm,
+        Self::TurnRateDps,
+        Self::SlipBall,
+        Self::TrueHeadingDeg,
+        Self::TrueAirspeedKt,
+        Self::HeightAboveGroundFt,
+    ];
+    pub fn wire_id(self) -> u8 {
+        Self::ALL.iter().position(|q| *q == self).unwrap() as u8 + 1
+    }
+    pub fn from_wire(id: u8) -> Option<Self> {
+        id.checked_sub(1)
+            .and_then(|i| Self::ALL.get(i as usize))
+            .copied()
+    }
     pub const fn unit(self) -> Unit {
         use Quantity::*;
         match self {
@@ -45,7 +69,10 @@ impl Quantity {
     pub const fn stale_after_ms(self) -> u32 {
         use Quantity::*;
         match self {
-            PitchDeg | RollDeg | TurnRateDps | SlipBall => 100,
+            // External simulator attitude includes transport and LCD scanout.
+            // Local/IMU policies live in instrument-core and are unchanged.
+            PitchDeg | RollDeg => 150,
+            TurnRateDps | SlipBall => 100,
             MagneticHeadingDeg | TrueHeadingDeg | IndicatedAirspeedKt | TrueAirspeedKt
             | VerticalSpeedFpm => 500,
             _ => 1000,
@@ -117,7 +144,7 @@ impl Measurement {
 }
 /// A complete, bounded observation. Omitted keys are missing, not carried forward.
 /// Private storage prevents bypassing duplicate and finite/range validation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Measurements {
     items: [Option<Measurement>; MAX_MEASUREMENTS],
     len: usize,

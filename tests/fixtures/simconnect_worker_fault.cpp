@@ -55,12 +55,12 @@ API SimConnect_RequestSystemState(HANDLE, SIMCONNECT_DATA_REQUEST_ID id, const c
 }
 API SimConnect_RequestDataOnSimObject(HANDLE, SIMCONNECT_DATA_REQUEST_ID id, SIMCONNECT_DATA_DEFINITION_ID, SIMCONNECT_OBJECT_ID, SIMCONNECT_PERIOD, SIMCONNECT_DATA_REQUEST_FLAG, DWORD, DWORD, DWORD) {
     if (!malformed && generation == 1 && ++reads == 20) crash();
-    std::vector<char> bytes(72);
+    std::vector<char> bytes(168);
     auto p = reinterpret_cast<SIMCONNECT_RECV_SIMOBJECT_DATA*>(bytes.data());
-    p->dwSize = 72; p->dwVersion = 1; p->dwID = SIMCONNECT_RECV_ID_SIMOBJECT_DATA;
-    p->dwRequestID = id; p->dwObjectID = generation; p->dwDefineID = 1;
-    p->dwDefineCount = malformed ? 3 : 4; p->dwentrynumber = 1; p->dwoutof = 1;
-    const double values[] = {generation == 1 ? 4520. : 12000., 4500., generation == 1 ? 29.92 : 29.80, 0.};
+    p->dwSize = 168; p->dwVersion = 1; p->dwID = SIMCONNECT_RECV_ID_SIMOBJECT_DATA;
+    p->dwRequestID = id; p->dwObjectID = generation; p->dwDefineID = 2;
+    p->dwDefineCount = malformed ? 15 : 16; p->dwentrynumber = 1; p->dwoutof = 1;
+    const double values[] = {generation == 1 ? 4520. : 12000., 4500., generation == 1 ? 29.92 : 29.80, 0., -5., -20., 0., 120., 0., 270., 0., 500., 0., 3., 0., 0.};
     std::memcpy(bytes.data() + 40, values, sizeof(values));
     packets.push_back(bytes); return S_OK;
 }

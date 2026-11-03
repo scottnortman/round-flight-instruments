@@ -162,6 +162,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "instrument-tray"
+version = "0.2.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serialport",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "instrument-ui"
 version = "0.1.0"
 dependencies = [

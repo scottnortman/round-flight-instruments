@@ -98,6 +98,7 @@ pub struct Session<D: DeviceLink, C: Clock> {
     last_frame: u64,
     last_clock: u64,
     writeback: bool,
+    multi: bool,
     seen_control: u64,
     active_control: Option<(u64, u64)>, // request ID and pre-write telemetry sequence
     state: State,
@@ -111,6 +112,7 @@ pub struct RecoveryHandoff<D: DeviceLink> {
     next_session: u64,
     provider_kind: Provider,
     writeback: bool,
+    multi: bool,
 }
 impl<D: DeviceLink> RecoveryHandoff<D> {
     pub fn session_id(&self) -> u64 {
@@ -127,12 +129,13 @@ impl<D: DeviceLink> RecoveryHandoff<D> {
         if provider.kind() != self.provider_kind {
             return Err(invalid("recovery provider changed"));
         }
-        Session::open(
+        Session::open_profile(
             provider,
             self.device,
             clock,
             self.next_session,
             self.writeback,
+            self.multi,
         )
     }
 }
@@ -151,11 +154,21 @@ impl RetryDelay {
 }
 impl<D: DeviceLink, C: Clock> Session<D, C> {
     pub fn open(
+        provider: Box<dyn SimulatorProvider>,
+        device: D,
+        clock: C,
+        session: u64,
+        writeback: bool,
+    ) -> io::Result<Self> {
+        Self::open_profile(provider, device, clock, session, writeback, false)
+    }
+    pub fn open_profile(
         mut provider: Box<dyn SimulatorProvider>,
         mut device: D,
         clock: C,
         session: u64,
         writeback: bool,
+        multi: bool,
     ) -> io::Result<Self> {
         if session == 0 {
             return Err(invalid("zero session"));
@@ -186,8 +199,19 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             }
         }
         let handshake = (|| -> io::Result<(u64, u64)> {
+            if multi {
+                let caps = device.request("protocol capabilities")?;
+                prefix(&caps, "OK capabilities ")?;
+                if !attribute(&caps, "protocols")?.split(',').any(|p| p == "T2")
+                    || attribute(&caps, "active_only")? != "true"
+                    || attribute(&caps, "control_claim")? != "true"
+                {
+                    return Err(invalid("firmware update required for sixpack-v2"));
+                }
+            }
             let response = device.request(&format!(
-                "source external {} {session}",
+                "source {} {} {session}",
+                if multi { "external2" } else { "external" },
                 provider.kind().name()
             ))?;
             prefix(&response, &format!("OK source={} ", provider.kind().name()))?;
@@ -199,8 +223,10 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             // This session projects only altimeter-v1 data. Explicitly select
             // that face: a board left in IMU/attitude mode has no external
             // pitch/roll in T1 and would otherwise show an unrelated red X.
-            let response = device.request("instrument altimeter")?;
-            prefix(&response, "OK instrument=altimeter ")?;
+            if !multi {
+                let response = device.request("instrument altimeter")?;
+                prefix(&response, "OK instrument=altimeter ")?;
+            }
             if writeback {
                 let response = device.request(&format!("control enable {session}"))?;
                 prefix(&response, "OK control enabled=true")?;
@@ -226,6 +252,7 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             last_frame: now,
             last_clock: now,
             writeback,
+            multi,
             seen_control: 0,
             active_control: None,
             state: State::Active,
@@ -260,6 +287,7 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             next_session,
             provider_kind,
             writeback: self.writeback,
+            multi: self.multi,
         })
     }
     fn now(&mut self) -> io::Result<u64> {
@@ -340,13 +368,42 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             .checked_add(1)
             .ok_or_else(|| invalid("sequence exhausted"))?;
         let now = self.now()?;
-        let mut frame = to_frame(observation, self.session, sequence, now)
-            .map_err(|_| invalid("observation outside altimeter-v1 profile"))?;
-        frame.receiver_ms = self.receiver_ms;
-        // Include the sub-millisecond uncertainty of the host's integer clock.
-        frame.age_ms = frame.age_ms.saturating_add(1);
-        let packet = frame.encode().map_err(|_| invalid("invalid frame"))?;
-        let ack = self.device.request(packet.as_str())?;
+        let packet = if self.multi {
+            let age = now
+                .checked_sub(observation.at_ms)
+                .ok_or_else(|| invalid("future observation"))?;
+            let mut measurements = Measurements::new();
+            for mut item in observation.measurements.iter().copied() {
+                item.age_ms = item
+                    .age_ms
+                    .saturating_add(age.saturating_add(1).min(u32::MAX as u64) as u32);
+                measurements
+                    .push(item)
+                    .map_err(|_| invalid("invalid multi observation"))?;
+            }
+            simulator_link::multi::Frame {
+                session: self.session,
+                sequence,
+                receiver_ms: self.receiver_ms,
+                state: observation.state,
+                measurements,
+            }
+            .encode()
+            .map_err(|_| invalid("invalid T2 frame"))?
+            .as_str()
+            .to_owned()
+        } else {
+            let mut frame = to_frame(observation, self.session, sequence, now)
+                .map_err(|_| invalid("observation outside altimeter-v1 profile"))?;
+            frame.receiver_ms = self.receiver_ms;
+            frame.age_ms = frame.age_ms.saturating_add(1);
+            frame
+                .encode()
+                .map_err(|_| invalid("invalid frame"))?
+                .as_str()
+                .to_owned()
+        };
+        let ack = self.device.request(&packet)?;
         prefix(&ack, "OK telemetry ")?;
         if number(&ack, "session")? != self.session || number(&ack, "seq")? != sequence {
             return Err(invalid("telemetry acknowledgement identity mismatch"));
@@ -366,7 +423,7 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             .max_sample_gap_ms
             .max(self.last_ack - self.last_frame);
         self.last_frame = self.last_ack;
-        tick.telemetry = Some((packet.as_str().into(), ack));
+        tick.telemetry = Some((packet, ack));
         if observation.state == Lifecycle::Disconnected {
             self.active_control = None;
             self.state = State::Disconnected;
@@ -421,10 +478,37 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
                         id: advertised,
                         status: Status::Rejected,
                     };
-                    let reply = if request.age_ms > REQUEST_MAX_AGE_MS {
+                    let deadline = Instant::now()
+                        + std::time::Duration::from_millis(u64::from(
+                            REQUEST_MAX_AGE_MS.saturating_sub(request.age_ms),
+                        ));
+                    let mut claimed = true;
+                    if self.multi && request.age_ms <= REQUEST_MAX_AGE_MS {
+                        let before = self.now()?;
+                        let claim = self.device.request(&format!(
+                            "control claim {} {}",
+                            request.session, request.id
+                        ))?;
+                        claimed = !claim.starts_with("ERR not_ready");
+                        if claimed {
+                            prefix(&claim, "OK control claimed ")?;
+                            if number(&claim, "session")? != request.session
+                                || number(&claim, "id")? != request.id
+                            {
+                                return Err(invalid("control claim identity mismatch"));
+                            }
+                        }
+                        request.age_ms = request.age_ms.saturating_add(
+                            self.now()?.saturating_sub(before).min(u32::MAX as u64) as u32,
+                        );
+                    }
+                    let now = self.now()?;
+                    let reply = if !claimed || request.age_ms > REQUEST_MAX_AGE_MS {
                         rejected
                     } else {
-                        self.provider.control(request, now).unwrap_or(rejected)
+                        self.provider
+                            .control_before(request, now, deadline)
+                            .unwrap_or(rejected)
                     };
                     if reply.session != self.session || reply.id != advertised {
                         return Err(invalid("provider control identity mismatch"));

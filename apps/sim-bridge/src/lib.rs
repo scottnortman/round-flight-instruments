@@ -67,6 +67,18 @@ pub enum RecoveryReason {
 /// Polling must return only a newly acquired observation. None never refreshes
 /// a previous sample. Aircraft changes require a new bridge/board session.
 pub trait SimulatorProvider {
+    /// Host dispatch deadline survives queueing and scheduling pauses.
+    fn control_before(
+        &mut self,
+        request: simulator_link::control::Request,
+        now: u64,
+        deadline: std::time::Instant,
+    ) -> Result<simulator_link::control::Reply, ControlError> {
+        if std::time::Instant::now() >= deadline {
+            return Err(ControlError::Invalid);
+        }
+        self.control(request, now)
+    }
     fn kind(&self) -> Provider;
     fn capabilities(&self) -> Capabilities<'_>;
     fn poll(&mut self, now_ms: u64) -> Option<Observation>;
@@ -87,6 +99,19 @@ pub trait SimulatorProvider {
         None
     }
 }
+pub const SIX_PACK_READINGS: &[Key] = &[
+    Key::primary(Quantity::IndicatedAltitudeFt),
+    Key::primary(Quantity::PressureAltitudeFt),
+    Key::primary(Quantity::BarometerInHg),
+    Key::primary(Quantity::PitchDeg),
+    Key::primary(Quantity::RollDeg),
+    Key::primary(Quantity::IndicatedAirspeedKt),
+    Key::primary(Quantity::MagneticHeadingDeg),
+    Key::primary(Quantity::VerticalSpeedFpm),
+    Key::primary(Quantity::TurnRateDps),
+    Key::primary(Quantity::SlipBall),
+];
+
 const READ_ONLY: Capabilities<'static> = Capabilities {
     readings: &[
         Key::primary(Quantity::IndicatedAltitudeFt),
@@ -119,10 +144,13 @@ impl SimulatorProvider for Synthetic {
         Provider::Synthetic
     }
     fn capabilities(&self) -> Capabilities<'_> {
-        READ_ONLY
+        Capabilities {
+            readings: SIX_PACK_READINGS,
+            controls: &[],
+        }
     }
     fn poll(&mut self, now: u64) -> Option<Observation> {
-        if self.finished || self.last.is_some_and(|last| now.saturating_sub(last) < 33) {
+        if self.finished || self.last.is_some_and(|last| now.saturating_sub(last) < 16) {
             return None;
         }
         self.last = Some(now);
@@ -138,16 +166,34 @@ impl SimulatorProvider for Synthetic {
         let position = now.min(self.duration_ms) as f32 / self.duration_ms as f32;
         // Deliberately distinct pressure/indicated values detect accidental
         // reapplication of the firmware's local barometric correction.
-        Some(
-            Observation::altimeter(
-                now,
-                Lifecycle::Running,
-                Datum::Value(10000. * position),
-                Datum::Value(10000. * position - 200.),
-                Datum::Value(30.12),
-            )
-            .expect("bounded synthetic values"),
+        let mut observation = Observation::altimeter(
+            now,
+            Lifecycle::Running,
+            Datum::Value(10000. * position),
+            Datum::Value(10000. * position - 200.),
+            Datum::Value(30.12),
         )
+        .expect("bounded synthetic values");
+        let t = now as f64 / 1000.;
+        for (quantity, value) in [
+            (Quantity::PitchDeg, 20. * (t * 0.5).sin()),
+            (Quantity::RollDeg, 40. * (t * 0.25).sin()),
+            (Quantity::IndicatedAirspeedKt, 120.),
+            (Quantity::MagneticHeadingDeg, 270. + 5. * (t * 0.25).sin()),
+            (Quantity::VerticalSpeedFpm, 1000.),
+            (Quantity::TurnRateDps, 2.),
+            (Quantity::SlipBall, 0.2 * (t * 0.5).sin()),
+        ] {
+            observation
+                .measurements
+                .push(Measurement {
+                    key: Key::primary(quantity),
+                    value: Value::Valid(value),
+                    age_ms: 0,
+                })
+                .expect("bounded synthetic measurement");
+        }
+        Some(observation)
     }
 }
 pub struct Replay {
@@ -388,7 +434,7 @@ mod tests {
             to_frame(p.poll(0).unwrap(), 1, 1, 0).unwrap().indicated_ft,
             Datum::Value(0.)
         );
-        assert!(p.poll(20).is_none());
+        assert!(p.poll(10).is_none());
         assert_eq!(
             to_frame(p.poll(1000).unwrap(), 1, 2, 1000)
                 .unwrap()

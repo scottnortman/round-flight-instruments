@@ -51,7 +51,9 @@ impl<W: Wire> TextDevice<W> {
                 "transport ended; reopen before further I/O",
             ));
         }
-        if command.len() > 256 || !command.bytes().all(|b| b.is_ascii_graphic() || b == b' ') {
+        if command.len() > simulator_link::multi::MAX_FRAME
+            || !command.bytes().all(|b| b.is_ascii_graphic() || b == b' ')
+        {
             return Err(io::Error::other("invalid outgoing command"));
         }
         let deadline = Instant::now() + TIMEOUT;

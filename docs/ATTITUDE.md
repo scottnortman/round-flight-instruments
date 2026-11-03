@@ -62,15 +62,19 @@ It is a bench animation, not a flight-dynamics model.
 The onboard QMI8658 can explicitly drive [IMU bench mode](IMU-ATTITUDE.md) using
 `source imu`. That mode labels uncalibrated accelerometer tilt as IMU BENCH and
 applies the tested upright mounting; it does not integrate the biased gyro.
-Existing estimator/Kalman interfaces remain separate. The current external T1/MSFS profile carries altitude/barometer
-only: selecting attitude with that source shows missing attitude, never fallback
-simulated or fabricated level data. Attitude telemetry integration is later work.
+Existing estimator/Kalman interfaces remain separate. The legacy external T1/MSFS
+profile carries altitude/barometer only. The development T2 profile also transports
+attitude; the installed connector enables live face selection. See
+[Windows driver status](WINDOWS-DRIVER.md) for pending MSFS acceptance. Missing
+external attitude never falls back to simulated or fabricated level data.
 
 ## Correctness and rendering
 
 `instrument-ui::attitude` is portable `no_std` Rust with no unsafe code. It
 consumes immutable validated readings; acquisition and filtering remain outside
-the renderer. Both axes must be valid, finite, in range and younger than 100 ms.
+the renderer. Both axes must be valid, finite and in range. Local simulation uses
+a 100 ms freshness budget; external simulator attitude uses the user-approved
+150 ms budget, including acquisition, transport, rendering and presentation age.
 Missing, stale, failed and timing-fault states clear the horizon, ladder and
 aircraft symbol and display a red X plus the reason. The explicit IMU bench
 mode instead holds its last usable filtered pose without a visible hold annotation, preserving the
@@ -81,7 +85,8 @@ Snapshot transport and render delay add to the older axis's age. Submission and
 the independent display supervisor use the original deadline for SIM/external
 sources. IMU bench disables only numeric display expiry; pipeline watchdogs
 remain active. No frame-rate
-optimization may reset timestamps, extend freshness or disable watchdogs.
+optimization may reset timestamps, silently extend the configured source budget
+or disable watchdogs.
 
 The three-buffer pipeline remains unchanged. Each buffer owns its previous
 attitude and damage tiles. Moving markings are erased using the new horizon;

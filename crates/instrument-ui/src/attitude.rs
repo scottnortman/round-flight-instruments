@@ -4,6 +4,8 @@ use crate::raster::{rgb, Canvas, Target};
 use instrument_core::{Field, Quality, Reading};
 
 pub const STALE_MS: u64 = 100;
+// Includes foreground strokes for every advertised source label.
+pub const FOREGROUND_RUN_CAPACITY: usize = 512;
 pub const PITCH_SCALE: f32 = 4.5;
 const TRANSPARENT: u16 = u16::MAX;
 #[derive(Clone, Copy, Default)]
@@ -98,22 +100,25 @@ pub struct Angles {
     pub pitch_deg: f32,
     pub roll_deg: f32,
 }
-fn checked(r: Reading, field: Field) -> Quality {
+fn checked(r: Reading, field: Field, stale_ms: u64) -> Quality {
     if r.quality != Quality::Valid {
         return r.quality;
     }
     if r.value.is_none_or(|v| !field.accepts(v)) || r.age_ms.is_none() {
         Quality::Failed
-    } else if r.age_ms.is_some_and(|a| a >= STALE_MS) {
+    } else if r.age_ms.is_some_and(|a| a >= stale_ms) {
         Quality::Stale
     } else {
         Quality::Valid
     }
 }
 pub fn model(pitch: Reading, roll: Reading) -> Attitude {
+    model_with_limit(pitch, roll, STALE_MS)
+}
+pub(crate) fn model_with_limit(pitch: Reading, roll: Reading, stale_ms: u64) -> Attitude {
     let qualities = [
-        checked(pitch, Field::PitchDeg),
-        checked(roll, Field::RollDeg),
+        checked(pitch, Field::PitchDeg, stale_ms),
+        checked(roll, Field::RollDeg, stale_ms),
     ];
     let quality = [
         Quality::TimingFault,
@@ -678,7 +683,7 @@ mod tests {
     #[test]
     fn fixed_face_and_original_digits_fit_the_board_fast_cache() {
         let mut background = std::vec![0; 480 * 480];
-        let mut runs = std::vec![CopyRun::default();2048];
+        let mut runs = std::vec![CopyRun::default();FOREGROUND_RUN_CAPACITY];
         let count = cache_foreground(&mut background, 480, 480, "TEST INPUT", &mut runs).unwrap();
         let pixels: usize = runs[..count].iter().map(|run| run.len as usize).sum();
         assert!(pixels + crate::raster::DIGIT_CACHE_LEN <= 49152);

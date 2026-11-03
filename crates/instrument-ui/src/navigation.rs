@@ -40,6 +40,7 @@ impl Button {
 pub struct Context {
     pub selected: Instrument,
     pub external: bool,
+    pub external_attitude: bool,
     pub imu: bool,
     pub session: u64,
 }
@@ -48,6 +49,7 @@ impl Context {
         Self {
             selected: app.selected(),
             external: app.external().is_some(),
+            external_attitude: app.external().is_some_and(|e| e.multi_profile),
             imu: app.imu_bench(),
             session: app.external().map_or(0, |e| e.session),
         }
@@ -55,14 +57,14 @@ impl Context {
     pub fn enabled(self, instrument: Instrument) -> bool {
         match instrument {
             Instrument::Altimeter => !self.imu,
-            Instrument::Attitude => !self.external,
+            Instrument::Attitude => !self.external || self.external_attitude,
             _ => false,
         }
     }
     pub fn reason(self, instrument: Instrument) -> &'static str {
         match instrument {
             Instrument::Altimeter if self.imu => "NO IMU DATA",
-            Instrument::Attitude if self.external => "NO SIM DATA",
+            Instrument::Attitude if self.external && !self.external_attitude => "NO SIM DATA",
             Instrument::Altimeter | Instrument::Attitude => "",
             _ => "NOT BUILT",
         }
@@ -250,6 +252,7 @@ mod tests {
         Context {
             selected: Instrument::Altimeter,
             external: false,
+            external_attitude: false,
             imu: false,
             session: 0,
         }
@@ -341,6 +344,7 @@ mod tests {
         let t = open(&mut c);
         let external = Context {
             external: true,
+            external_attitude: false,
             session: 1,
             ..ctx()
         };

@@ -13,6 +13,8 @@ use std::{
 };
 
 pub struct Options {
+    pub app_status: bool,
+    pub multi: bool,
     pub writeback: bool,
     pub diagnostics: bool,
     pub frame_timing: bool,
@@ -57,24 +59,31 @@ pub fn run(
     factory: &mut dyn FnMut() -> io::Result<Box<dyn SimulatorProvider>>,
 ) -> io::Result<Value> {
     let kind = provider.kind().name();
-    let mut session = Some(Session::open(
+    let profile = if options.multi {
+        "sixpack-v2"
+    } else {
+        "altimeter-v1"
+    };
+    let mut session = Some(Session::open_profile(
         provider,
         device,
         MonotonicClock::default(),
         initial_id,
         options.writeback,
+        options.multi,
     )?);
     let start = Instant::now();
     let mut diagnostic = start;
+    let mut app_update = start;
     let mut total = Statistics::default();
     let mut sessions = 1u64;
     let mut attempts = 0u64;
     let mut session_id = initial_id;
     let mut probe_due = None;
     let mut numeric_seen = false;
-    println!("Connected: source={kind} session={session_id} profile=altimeter-v1 writeback={}; Ctrl+C to stop.",options.writeback);
+    println!("Connected: source={kind} session={session_id} profile={profile} writeback={}; Ctrl+C to stop.",options.writeback);
     let outcome = (|| -> io::Result<&str> {
-        log.record(json!({"start":{"session":session_id,"source":kind,"profile":"altimeter-v1","writeback":options.writeback}}))?;
+        log.record(json!({"start":{"session":session_id,"source":kind,"profile":profile,"writeback":options.writeback}}))?;
         loop {
             let at = Instant::now();
             let active = session
@@ -87,21 +96,60 @@ pub fn run(
             let tick = active.poll()?;
             if !numeric_seen {
                 if let Some((wire, _)) = &tick.telemetry {
-                    let frame = Frame::decode(wire).map_err(|error| {
-                        io::Error::other(format!("encoded telemetry: {error:?}"))
-                    })?;
-                    if frame.state == Lifecycle::Running
-                        && matches!(frame.indicated_ft, Datum::Value(_))
-                        && matches!(frame.baro_inhg, Datum::Value(_))
-                    {
+                    let (running, sequence, indicated, baro) = if options.multi {
+                        use simulator_link::measurements::{Key, Quantity, Value};
+                        let f = simulator_link::multi::Frame::decode(wire)
+                            .map_err(|e| io::Error::other(format!("encoded T2: {e:?}")))?;
+                        let valid = |q| {
+                            f.measurements
+                                .get(Key::primary(q))
+                                .is_some_and(|m| matches!(m.value, Value::Valid(_)))
+                        };
+                        (
+                            f.state == Lifecycle::Running,
+                            f.sequence,
+                            valid(Quantity::IndicatedAltitudeFt),
+                            valid(Quantity::BarometerInHg),
+                        )
+                    } else {
+                        let f = Frame::decode(wire)
+                            .map_err(|e| io::Error::other(format!("encoded T1: {e:?}")))?;
+                        (
+                            f.state == Lifecycle::Running,
+                            f.sequence,
+                            matches!(f.indicated_ft, Datum::Value(_)),
+                            matches!(f.baro_inhg, Datum::Value(_)),
+                        )
+                    };
+                    if running && indicated && baro {
                         numeric_seen = true;
                         // Allow several presentations, without sleeping or stopping
                         // telemetry. One readback per session, not steady polling.
-                        probe_due = Some(Instant::now() + Duration::from_millis(250));
+                        // Three synchronous probes can exhaust a fast attitude
+                        // sample's entire lease. T2 ACKs already identify the
+                        // active face; detailed probes remain explicit opt-in.
+                        if !options.multi || options.diagnostics {
+                            probe_due = Some(Instant::now() + Duration::from_millis(250));
+                        }
                         log.record(json!({"telemetry_ready":{"session":session_id,
-                            "sequence":frame.sequence,"elapsed_ms":start.elapsed().as_millis(),
+                            "sequence":sequence,"elapsed_ms":start.elapsed().as_millis(),
                             "frame":wire}}))?;
                     }
+                }
+            }
+            if options.app_status && app_update.elapsed() >= Duration::from_secs(1) {
+                if let Some((wire, ack)) = &tick.telemetry {
+                    let instrument =
+                        connector_runtime::attribute(ack, "instrument").unwrap_or("altimeter");
+                    let lifecycle = wire
+                        .split_ascii_whitespace()
+                        .nth(if options.multi { 4 } else { 5 })
+                        .unwrap_or("unknown");
+                    println!(
+                        "STATUS {}",
+                        json!({"source":kind,"profile":profile,"instrument":instrument,"state":lifecycle,"writeback":options.writeback,"frames":active.statistics().frames})
+                    );
+                    app_update = Instant::now();
                 }
             }
             record_tick(log, tick, start)?;
@@ -145,7 +193,7 @@ pub fn run(
                             diagnostic = Instant::now();
                             probe_due = None;
                             numeric_seen = false;
-                            log.record(json!({"start":{"session":session_id,"source":kind,"profile":"altimeter-v1",
+                            log.record(json!({"start":{"session":session_id,"source":kind,"profile":profile,
                                 "writeback":writeback,"recovered":true,"elapsed_ms":start.elapsed().as_millis()}}))?;
                             println!("Reconnected: session={session_id}; waiting for fresh {kind} readings. Automatic gauge synchronization is active, writeback={writeback}. No restart or flag change needed.");
                             break;
@@ -188,7 +236,10 @@ pub fn run(
                 diagnostic = Instant::now();
             }
             log.check()?;
-            std::thread::sleep(Duration::from_millis(33).saturating_sub(at.elapsed()));
+            std::thread::sleep(
+                Duration::from_millis(if options.multi { 1 } else { 33 })
+                    .saturating_sub(at.elapsed()),
+            );
         }
     })();
     if let Some(active) = session.as_mut() {

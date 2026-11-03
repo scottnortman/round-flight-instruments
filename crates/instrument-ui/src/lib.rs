@@ -19,6 +19,7 @@ pub struct Snapshot {
     pub imu_bench: bool,
     pub imu_last_good: Option<instrument_core::imu_attitude::Retained>,
     pub external: bool,
+    pub external_attitude: bool,
     pub source_session: u64,
     pub source_sequence: u64,
     /// Receipt time in the console owner clock, not the platform display clock.
@@ -40,7 +41,7 @@ impl Snapshot {
         altimeter::model_with_semantics(self.altitude, self.baro_inhg, self.external)
     }
     pub fn attitude_model(self) -> attitude::Attitude {
-        let mut model = attitude::model(self.pitch, self.roll);
+        let mut model = attitude::model_with_limit(self.pitch, self.roll, self.attitude_stale_ms());
         if self.imu_bench && model.angles.is_none() {
             if let Some(held) = self.imu_last_good.filter(|h| {
                 Field::PitchDeg.accepts(h.pitch_roll_deg[0])
@@ -53,6 +54,14 @@ impl Snapshot {
             }
         }
         model
+    }
+    fn attitude_stale_ms(self) -> u64 {
+        if self.external {
+            instrument_core::simulator_link::measurements::Quantity::PitchDeg.stale_after_ms()
+                as u64
+        } else {
+            attitude::STALE_MS
+        }
     }
     pub fn imu_holding(self) -> bool {
         self.imu_bench
@@ -79,6 +88,7 @@ impl Snapshot {
             imu_bench: app.imu_bench(),
             imu_last_good: app.imu_last_good(),
             external: app.external().is_some(),
+            external_attitude: app.external().is_some_and(|e| e.multi_profile),
             source_session: app.external().map_or(0, |e| e.session),
             source_sequence: app.external().map_or(0, |e| e.sequence()),
             source_received_ms: app.external().and_then(|e| e.received_ms()).unwrap_or(0),
@@ -98,13 +108,14 @@ impl Snapshot {
         }
     }
     pub fn aged(mut self, elapsed_ms: u64) -> Self {
+        let attitude_stale_ms = self.attitude_stale_ms();
         if let Some(held) = &mut self.imu_last_good {
             held.age_ms = held.age_ms.saturating_add(elapsed_ms);
         }
         for reading in [&mut self.pitch, &mut self.roll] {
             reading.age_ms = reading.age_ms.map(|age| age.saturating_add(elapsed_ms));
             if reading.quality == Quality::Valid
-                && reading.age_ms.is_none_or(|age| age >= attitude::STALE_MS)
+                && reading.age_ms.is_none_or(|age| age >= attitude_stale_ms)
             {
                 reading.value = None;
                 reading.quality = Quality::Stale;
@@ -140,8 +151,8 @@ impl Snapshot {
                 return None;
             }
             return self.attitude_model().angles.map(|_| {
-                attitude::STALE_MS
-                    .saturating_sub(self.displayed_age_ms().unwrap_or(attitude::STALE_MS))
+                self.attitude_stale_ms()
+                    .saturating_sub(self.displayed_age_ms().unwrap_or(self.attitude_stale_ms()))
             });
         }
         if self.selected != Instrument::Altimeter {
@@ -234,6 +245,33 @@ mod tests {
         assert_eq!(external.roll.value, None);
     }
     #[test]
+    fn external_attitude_expires_at_150ms_without_changing_local_policy_or_ages() {
+        use instrument_core::Command;
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.apply(Command::Select(Instrument::Attitude)).unwrap();
+        app.tick(0);
+        let mut snapshot = Snapshot::from_app(&app);
+        snapshot.pitch.age_ms = Some(70);
+        snapshot.roll.age_ms = Some(90);
+        assert_eq!(snapshot.numeric_lifetime_ms(), Some(10));
+        snapshot.external = true;
+        snapshot.external_attitude = true;
+        assert_eq!(snapshot.numeric_lifetime_ms(), Some(60));
+        let live = snapshot.aged(59);
+        assert_eq!(live.displayed_age_ms(), Some(149));
+        assert_eq!(live.numeric_lifetime_ms(), Some(1));
+        assert_eq!(live.attitude_model().quality, Quality::Valid);
+        let stale = snapshot.aged(60);
+        assert_eq!(stale.displayed_age_ms(), Some(150));
+        assert_eq!(stale.attitude_model().quality, Quality::Stale);
+        assert!(stale.attitude_model().angles.is_none());
+        assert_eq!(stale.numeric_lifetime_ms(), None);
+        snapshot.roll.quality = Quality::Failed;
+        assert_eq!(snapshot.attitude_model().quality, Quality::Failed);
+        assert!(snapshot.attitude_model().angles.is_none());
+    }
+    #[test]
     fn external_barometer_expires_even_without_altitude() {
         let mut app = App::new();
         app.tick(0);
@@ -280,6 +318,7 @@ mod tests {
             imu_bench: false,
             imu_last_good: None,
             external: false,
+            external_attitude: false,
             source_session: 0,
             source_sequence: 0,
             source_received_ms: 0,

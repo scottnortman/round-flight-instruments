@@ -17,6 +17,8 @@ mod echo;
 
 const COMMAND_CAPACITY: usize = 8;
 const RESPONSE_CAPACITY: usize = 4;
+// Reserve bounded packet storage once with the mailbox, never per-frame boxes.
+#[allow(clippy::large_enum_variant)]
 enum Input {
     Command(Result<Command, Error>),
     Echo(bool),
@@ -146,7 +148,13 @@ where
         })?;
     let _input = thread::Builder::new()
         .name("cli-rx".into())
-        .stack_size(8192)
+        // T2 parses a bounded 24-measurement snapshot by value. Debug host
+        // builds retain extra copies; embedded builds optimize these away.
+        .stack_size(if cfg!(target_os = "espidf") {
+            32768
+        } else {
+            262144
+        })
         .spawn(move || {
             let mut framer = Framer::new();
             let mut echo = echo::Echo::new(options.echo);
@@ -326,7 +334,11 @@ where
         // Tick lateness remains measured by App; this never fabricates samples.
         // Physical receipt and owner publication are separate timing stages.
         // A faster owner handoff in bench-IMU mode does not resample old inputs.
-        let period = if app.imu_bench() { 5 } else { SOURCE_PERIOD_MS };
+        let period = if app.imu_bench() || app.external().is_some_and(|e| e.multi_profile) {
+            5
+        } else {
+            SOURCE_PERIOD_MS
+        };
         let rest = Duration::from_millis(period).saturating_sub(started.elapsed());
         if let Some(wait) = options.owner_wait {
             wait(rest);

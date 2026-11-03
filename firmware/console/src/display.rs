@@ -638,7 +638,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         navigation_pixels,
         wake,
     } = backend;
-    let mut foreground_runs = vec![instrument_ui::attitude::CopyRun::default(); 512];
+    let mut foreground_runs = vec![instrument_ui::attitude::CopyRun::default(); instrument_ui::attitude::FOREGROUND_RUN_CAPACITY];
     let mut renderer = render::CachedRenderer::new(backdrop, 480, 480)
         .ok_or_else(|| io::Error::other("LCD backdrop size"))?;
     let mut attitude_renderer = render::CachedRenderer::with_foreground_cache(

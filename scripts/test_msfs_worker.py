@@ -39,8 +39,8 @@ class WorkerRecovery(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def run_connector(self, malformed=False):
-        case = self.root / ('malformed' if malformed else 'crash')
+    def run_connector(self, malformed=False, multi=False):
+        case = self.root / ('malformed' if malformed else 'multi' if multi else 'crash')
         case.mkdir()
         env = os.environ.copy()
         env['RFI_FIXTURE_STATE'] = str(case / 'opens.txt')
@@ -50,7 +50,7 @@ class WorkerRecovery(unittest.TestCase):
         result = subprocess.run([str(BIN / 'instrument-connector.exe'), 'run',
                                  '--desktop', str(BIN / 'desktop-cli.exe'), '--msfs',
                                  '--dll', str(self.dll), '--duration', '7',
-                                 '--writeback', '--log-dir', str(case / 'logs')],
+                                 '--writeback', '--log-dir', str(case / 'logs')] + (['--sixpack','--app-status'] if multi else []),
                                 env=env, text=True, capture_output=True, timeout=25)
         folder = next((case / 'logs').iterdir())
         self.assertTrue((folder / 'summary.json').exists(),
@@ -90,6 +90,24 @@ class WorkerRecovery(unittest.TestCase):
         frames = [r['frame'].split() for r in records if 'frame' in r]
         self.assertTrue(all(f[6] == '-' for f in frames))
         self.assertEqual(frames[-1][5], 'disconnected')
+
+    def test_sixpack_recovers_all_fields_with_correct_attitude_signs(self):
+        result, report, records, opens = self.run_connector(multi=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(opens, 3)
+        self.assertEqual(report['sessions'], 2)
+        frames = [r['frame'].split() for r in records if 'frame' in r]
+        valid = [f for f in frames if f[4] == 'running' and len(f) > 6]
+        self.assertGreater(len(valid), 20)
+        self.assertEqual(len({f[1] for f in valid}), 2)
+        for f in valid:
+            fields = {int(v.split(':')[0]): v.split(':')[3] for v in f[5:-1]}
+            self.assertEqual(set(fields), set(range(1,11)))
+            self.assertEqual(float(fields[4]), 5.)
+            self.assertEqual(float(fields[5]), 20.)
+            self.assertEqual(float(fields[6]), 120.)
+            self.assertEqual(float(fields[7]), 270.)
+        self.assertIn('STATUS ', result.stdout)
 
 
 if __name__ == '__main__':

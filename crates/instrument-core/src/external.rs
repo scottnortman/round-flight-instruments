@@ -7,6 +7,8 @@ pub struct External {
     sequence: u64,
     sample: Option<(Frame, u64)>,
     opened_ms: u64,
+    pub multi_profile: bool,
+    multi: Option<(simulator_link::multi::Frame, u64)>,
 }
 impl External {
     pub const fn new(provider: Provider, session: u64) -> Self {
@@ -19,12 +21,14 @@ impl External {
             sequence: 0,
             sample: None,
             opened_ms,
+            multi_profile: false,
+            multi: None,
         }
     }
-    pub fn sequence(self) -> u64 {
+    pub fn sequence(&self) -> u64 {
         self.sequence
     }
-    pub fn received_ms(self) -> Option<u64> {
+    pub fn received_ms(&self) -> Option<u64> {
         self.sample.map(|(_, at)| at)
     }
     pub fn clear_altitude(&mut self) {
@@ -32,17 +36,33 @@ impl External {
             f.indicated_ft = Datum::Missing;
             f.pressure_ft = Datum::Missing;
         }
+        if let Some((f, _)) = &mut self.multi {
+            use simulator_link::measurements::{Measurements, Quantity, Value};
+            let mut cleared = Measurements::new();
+            for mut m in f.measurements.iter().copied() {
+                if matches!(
+                    m.key.quantity,
+                    Quantity::IndicatedAltitudeFt | Quantity::PressureAltitudeFt
+                ) {
+                    m.value = Value::Missing;
+                }
+                cleared
+                    .push(m)
+                    .expect("existing bounded validated measurements");
+            }
+            f.measurements = cleared;
+        }
     }
-    pub fn state(self) -> Lifecycle {
+    pub fn state(&self) -> Lifecycle {
         self.sample.map_or(Lifecycle::Loading, |(f, _)| f.state)
     }
-    pub fn age(self, now: u64) -> Option<u64> {
+    pub fn age(&self, now: u64) -> Option<u64> {
         let (f, at) = self.sample?;
         Some(now.checked_sub(at)?.saturating_add(f.age_ms as u64))
     }
     /// A session that never receives its first frame must also expire. Keep
     /// measurement age absent until an actual measurement frame arrives.
-    pub fn stale(self, now: u64) -> bool {
+    pub fn stale(&self, now: u64) -> bool {
         self.age(now)
             .or_else(|| {
                 if self.sample.is_none() {
@@ -53,7 +73,13 @@ impl External {
             })
             .is_some_and(|age| age >= STALE_MS)
     }
-    pub fn accept(&mut self, mut frame: Frame, now: u64) -> Result<(), ApplyError> {
+    pub fn accept(&mut self, frame: Frame, now: u64) -> Result<(), ApplyError> {
+        if self.multi_profile {
+            return Err(ApplyError::Unsupported);
+        }
+        self.accept_base(frame, now)
+    }
+    fn accept_base(&mut self, mut frame: Frame, now: u64) -> Result<(), ApplyError> {
         frame.validate().map_err(|_| ApplyError::OutOfRange)?;
         let elapsed = now
             .checked_sub(frame.receiver_ms)
@@ -74,8 +100,86 @@ impl External {
         self.sample = Some((frame, now));
         Ok(())
     }
+    pub fn accept_multi(
+        &mut self,
+        frame: simulator_link::multi::Frame,
+        now: u64,
+    ) -> Result<(), ApplyError> {
+        if !self.multi_profile {
+            return Err(ApplyError::Unsupported);
+        }
+        let base = Frame {
+            session: frame.session,
+            sequence: frame.sequence,
+            receiver_ms: frame.receiver_ms,
+            age_ms: 0,
+            state: frame.state,
+            // Reuse only session/lifecycle/lease checks from T1. Its narrow
+            // altimeter display ranges must not invalidate another instrument.
+            indicated_ft: Datum::Missing,
+            pressure_ft: Datum::Missing,
+            baro_inhg: Datum::Missing,
+        };
+        // Validate the full snapshot before changing any state, including values
+        // constructed directly by a provider instead of parsed from the wire.
+        for m in frame.measurements.iter() {
+            m.validate().map_err(|_| ApplyError::OutOfRange)?;
+        }
+        self.accept_base(base, now)?;
+        self.multi = Some((frame, now));
+        Ok(())
+    }
+    pub fn read_quantity(
+        &self,
+        now: u64,
+        fault: Option<Quality>,
+        quantity: simulator_link::measurements::Quantity,
+    ) -> Reading {
+        use simulator_link::measurements::{Key, Value};
+        let item = self.multi.as_ref().and_then(|(f, at)| {
+            f.measurements
+                .get(Key::primary(quantity))
+                .map(|m| (f, *at, m))
+        });
+        let age = item.and_then(|(f, at, m)| {
+            now.checked_sub(at)
+                .zip(at.checked_sub(f.receiver_ms))
+                .map(|(local, transit)| {
+                    local
+                        .saturating_add(transit)
+                        .saturating_add(u64::from(m.age_ms))
+                })
+        });
+        let quality = if now < self.opened_ms || (item.is_some() && age.is_none()) {
+            Quality::TimingFault
+        } else if let Some(f) = fault {
+            f
+        } else if age.is_some_and(|a| a >= u64::from(quantity.stale_after_ms())) {
+            Quality::Stale
+        } else if self.state() != Lifecycle::Running {
+            Quality::Missing
+        } else {
+            match item.map(|(_, _, m)| m.value) {
+                Some(Value::Valid(_)) => Quality::Valid,
+                Some(Value::Failed) => Quality::Failed,
+                _ => Quality::Missing,
+            }
+        };
+        Reading {
+            quality,
+            age_ms: age,
+            value: if quality == Quality::Valid {
+                item.and_then(|(_, _, m)| match m.value {
+                    Value::Valid(v) => Some(v as f32),
+                    _ => None,
+                })
+            } else {
+                None
+            },
+        }
+    }
     pub fn read(
-        self,
+        &self,
         now: u64,
         fault: Option<Quality>,
         field: impl FnOnce(Frame) -> Datum,
@@ -112,6 +216,61 @@ impl External {
 mod tests {
     use super::*;
     use crate::{App, Command, Field};
+    #[test]
+    fn multi_gauge_samples_keep_independent_age_and_clear_omitted_fields() {
+        use simulator_link::{
+            measurements::{Key, Measurement, Measurements, Quantity, Value},
+            multi,
+        };
+        let mut app = App::new();
+        app.tick(0);
+        app.apply(Command::SourceExternal2(Provider::Msfs2020, 1))
+            .unwrap();
+        let mut measurements = Measurements::new();
+        for (quantity, value, age_ms) in [
+            (Quantity::IndicatedAltitudeFt, 4520., 0),
+            (Quantity::PressureAltitudeFt, 4520., 0),
+            (Quantity::BarometerInHg, 29.92, 0),
+            (Quantity::PitchDeg, 10., 90),
+            (Quantity::RollDeg, 20., 0),
+        ] {
+            measurements
+                .push(Measurement {
+                    key: Key::primary(quantity),
+                    value: Value::Valid(value),
+                    age_ms,
+                })
+                .unwrap();
+        }
+        let frame = multi::Frame {
+            session: 1,
+            sequence: 1,
+            receiver_ms: 0,
+            state: Lifecycle::Running,
+            measurements,
+        };
+        app.apply(Command::Telemetry2(frame)).unwrap();
+        assert_eq!(app.reading(Field::PitchDeg, 0).value, Some(10.));
+        app.tick(10);
+        assert_eq!(app.reading(Field::PitchDeg, 59).quality, Quality::Valid);
+        assert_eq!(app.reading(Field::PitchDeg, 59).age_ms, Some(149));
+        assert_eq!(app.reading(Field::PitchDeg, 60).quality, Quality::Stale);
+        assert_eq!(app.reading(Field::RollDeg, 10).quality, Quality::Valid);
+        assert_eq!(app.altimeter_reading(10).quality, Quality::Valid);
+        app.apply(Command::Telemetry2(multi::Frame {
+            sequence: 2,
+            receiver_ms: 10,
+            measurements: Measurements::new(),
+            ..frame
+        }))
+        .unwrap();
+        assert_eq!(app.reading(Field::RollDeg, 10).quality, Quality::Missing);
+        assert!(app.apply(Command::Telemetry2(frame)).is_err());
+        assert_eq!(app.altimeter_reading(10).quality, Quality::Missing);
+        assert!(app
+            .apply(Command::Telemetry(super::tests::frame(3)))
+            .is_err());
+    }
     #[test]
     fn abandoned_handshake_expires_without_inventing_a_sample() {
         let mut a = App::new();

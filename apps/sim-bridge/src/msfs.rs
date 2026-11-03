@@ -1,5 +1,6 @@
 //! Primary MSFS 2020 altimeter profile. SDK dependencies stay behind Api.
-use crate::{Capabilities, Observation, SimulatorProvider, READ_ONLY};
+use crate::SIX_PACK_READINGS;
+use crate::{Capabilities, Observation, SimulatorProvider};
 use crate::{Control, ControlError, RecoveryReason};
 use simulator_link::control::{Reply, Request, Status, CONFIRM_MS, READBACK_TOLERANCE};
 use simulator_link::{
@@ -7,6 +8,12 @@ use simulator_link::{
     Lifecycle, Provider,
 };
 use std::io;
+#[cfg(test)]
+fn wide(v: [f64; 4]) -> [f64; 16] {
+    let mut out = [f64::NAN; 16];
+    out[..4].copy_from_slice(&v);
+    out
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Notice {
@@ -29,10 +36,16 @@ pub enum Notice {
     Data {
         request: u32,
         object: u32,
-        values: [f64; 4],
+        values: [f64; 16],
     },
 }
 pub trait Api {
+    fn set_baro_before(&mut self, pressure16: u32, deadline: std::time::Instant) -> io::Result<()> {
+        if std::time::Instant::now() >= deadline {
+            return Err(io::Error::other("control dispatch expired"));
+        }
+        self.set_baro(pressure16)
+    }
     fn set_baro(&mut self, _pressure16: u32) -> io::Result<()> {
         Err(io::Error::other("write unsupported"))
     }
@@ -41,6 +54,7 @@ pub trait Api {
     fn request(&mut self, id: u32, heartbeat: bool) -> io::Result<()>;
 }
 pub struct Msfs<A> {
+    dispatch_deadline: Option<std::time::Instant>,
     api: A,
     control_session: Option<u64>,
     control_last_id: u64,
@@ -66,6 +80,7 @@ pub struct Msfs<A> {
 impl<A: Api> Msfs<A> {
     pub fn new(api: A) -> Self {
         Self {
+            dispatch_deadline: None,
             api,
             control_session: None,
             control_last_id: 0,
@@ -283,6 +298,20 @@ impl<A: Api> Msfs<A> {
     }
 }
 impl<A: Api> SimulatorProvider for Msfs<A> {
+    fn control_before(
+        &mut self,
+        request: Request,
+        now: u64,
+        deadline: std::time::Instant,
+    ) -> Result<Reply, ControlError> {
+        if std::time::Instant::now() >= deadline {
+            return Err(ControlError::Invalid);
+        }
+        self.dispatch_deadline = Some(deadline);
+        let result = self.control(request, now);
+        self.dispatch_deadline = None;
+        result
+    }
     fn recovery_reason(&self) -> Option<RecoveryReason> {
         if self.terminal {
             self.recovery
@@ -296,11 +325,14 @@ impl<A: Api> SimulatorProvider for Msfs<A> {
     fn capabilities(&self) -> Capabilities<'_> {
         if self.control_session.is_some() {
             Capabilities {
-                readings: READ_ONLY.readings,
+                readings: SIX_PACK_READINGS,
                 controls: &[(Control::SetBarometer, 0)],
             }
         } else {
-            READ_ONLY
+            Capabilities {
+                readings: SIX_PACK_READINGS,
+                controls: &[],
+            }
         }
     }
     fn enable_controls(&mut self, session: u64) -> Result<(), ControlError> {
@@ -357,7 +389,10 @@ impl<A: Api> SimulatorProvider for Msfs<A> {
             return Err(ControlError::Invalid);
         }
         let pressure16 = baro_event_units(r.cents).ok_or(ControlError::Invalid)?;
-        if let Err(error) = self.api.set_baro(pressure16) {
+        let deadline = self
+            .dispatch_deadline
+            .unwrap_or_else(|| std::time::Instant::now() + std::time::Duration::from_millis(250));
+        if let Err(error) = self.api.set_baro_before(pressure16, deadline) {
             self.api_error(now, error);
             return Err(ControlError::Invalid);
         }
@@ -466,8 +501,9 @@ impl<A: Api> SimulatorProvider for Msfs<A> {
 }
 /// SimConnect explicitly converts PRESSURE ALTITUDE from its default metres to
 /// requested feet. No local atmospheric correction or assumed unit conversion.
-fn normalize(at: u64, v: [f64; 4]) -> io::Result<Observation> {
-    if !v.iter().all(|v| v.is_finite()) || ![0., 1., 2.].contains(&v[3]) {
+fn normalize<const N: usize>(at: u64, v: [f64; N]) -> io::Result<Observation> {
+    if N < 4 || (N == 4 && (!v[..4].iter().all(|v| v.is_finite()) || ![0., 1., 2.].contains(&v[3])))
+    {
         return Err(io::Error::other("invalid altimeter values/failure enum"));
     }
     let mut measurements = Measurements::new();
@@ -483,6 +519,10 @@ fn normalize(at: u64, v: [f64; 4]) -> io::Result<Observation> {
         (Quantity::PressureAltitudeFt, Value::Valid(v[1])),
         (Quantity::BarometerInHg, Value::Valid(v[2])),
     ] {
+        let value = match value {
+            Value::Valid(n) if N == 16 && !quantity.accepts(n) => Value::Failed,
+            v => v,
+        };
         measurements
             .push(Measurement {
                 key: Key::primary(quantity),
@@ -491,13 +531,45 @@ fn normalize(at: u64, v: [f64; 4]) -> io::Result<Observation> {
             })
             .map_err(|_| io::Error::other("MSFS reading outside engineering envelope"))?;
     }
+    if N == 16 {
+        // SDK attitude signs are positive nose-down/left-bank; canonical signs
+        // are nose-up/right-bank. Ball position is documented as -127..127.
+        for (quantity, value, failure) in [
+            (Quantity::PitchDeg, -v[4], v[6]),
+            (Quantity::RollDeg, -v[5], v[6]),
+            (Quantity::IndicatedAirspeedKt, v[7], v[8]),
+            (
+                Quantity::MagneticHeadingDeg,
+                if v[9] == 360. { 0. } else { v[9] },
+                v[10],
+            ),
+            (Quantity::VerticalSpeedFpm, v[11], v[12]),
+            (Quantity::TurnRateDps, v[13], v[15]),
+            (Quantity::SlipBall, v[14] / 127., v[15]),
+        ] {
+            let value = if failure == 0. && quantity.accepts(value) {
+                Value::Valid(value)
+            } else {
+                Value::Failed
+            };
+            measurements
+                .push(Measurement {
+                    key: Key::primary(quantity),
+                    value,
+                    age_ms: 0,
+                })
+                .map_err(|_| io::Error::other("invalid six-pack sample"))?;
+        }
+    }
     let o = Observation {
         at_ms: at,
         state: Lifecycle::Running,
         measurements,
     };
-    crate::to_frame(o, 1, 1, at)
-        .map_err(|_| io::Error::other("MSFS reading outside board altimeter profile"))?;
+    if N == 4 {
+        crate::to_frame(o, 1, 1, at)
+            .map_err(|_| io::Error::other("MSFS reading outside board altimeter profile"))?;
+    }
     Ok(o)
 }
 
@@ -556,6 +628,44 @@ fn baro_event_units(cents: u16) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn six_pack_signs_units_and_individual_failures_are_explicit() {
+        use super::*;
+        let mut v = [
+            4520., 4500., 29.92, 0., -10., -30., 0., 120., 0., 360., 0., -500., 0., 3., 63.5, 0.,
+        ];
+        let o = normalize(50, v).unwrap();
+        let value = |q| o.measurements.get(Key::primary(q)).unwrap().value;
+        assert_eq!(value(Quantity::PitchDeg), Value::Valid(10.));
+        assert_eq!(value(Quantity::RollDeg), Value::Valid(30.));
+        assert_eq!(value(Quantity::SlipBall), Value::Valid(0.5));
+        assert_eq!(value(Quantity::MagneticHeadingDeg), Value::Valid(0.));
+        assert_eq!(value(Quantity::VerticalSpeedFpm), Value::Valid(-500.));
+        v[6] = 1.;
+        v[8] = f64::NAN;
+        let o = normalize(60, v).unwrap();
+        assert_eq!(
+            o.measurements
+                .get(Key::primary(Quantity::PitchDeg))
+                .unwrap()
+                .value,
+            Value::Failed
+        );
+        assert_eq!(
+            o.measurements
+                .get(Key::primary(Quantity::IndicatedAirspeedKt))
+                .unwrap()
+                .value,
+            Value::Failed
+        );
+        assert_eq!(
+            o.measurements
+                .get(Key::primary(Quantity::IndicatedAltitudeFt))
+                .unwrap()
+                .value,
+            Value::Valid(4520.)
+        );
+    }
     use super::*;
     use std::collections::VecDeque;
     #[test]
@@ -669,7 +779,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request: pre_write,
             object: 1,
-            values: [12., 12., 29.92, 0.],
+            values: wide([12., 12., 29.92, 0.]),
         });
         m.poll(60);
         assert_eq!(m.control_status().unwrap().status, Status::Sent);
@@ -677,7 +787,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request: fresh,
             object: 1,
-            values: [12., 12., 29.921, 0.],
+            values: wide([12., 12., 29.921, 0.]),
         });
         m.poll(80);
         assert_eq!(m.control_status().unwrap().status, Status::Confirmed);
@@ -767,7 +877,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request: id,
             object: 1,
-            values: [8500., 8300., 30.12, 0.],
+            values: wide([8500., 8300., 30.12, 0.]),
         });
         m.poll(now).unwrap()
     }
@@ -778,7 +888,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request: request + 100,
             object: 99,
-            values: [12., 12., 29.92, 0.],
+            values: wide([12., 12., 29.92, 0.]),
         });
         assert!(m.poll(10).is_none());
         assert_eq!(m.object, None);
@@ -789,7 +899,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request,
             object: 7,
-            values: [9999., 9999., 29.92, 0.],
+            values: wide([9999., 9999., 29.92, 0.]),
         });
         let o = m.poll(60).unwrap();
         assert_eq!(o.state, Lifecycle::Disconnected);
@@ -802,7 +912,7 @@ mod tests {
         fresh.api.events.push_back(Notice::Data {
             request,
             object: 7,
-            values: [12., 12., 29.92, 0.],
+            values: wide([12., 12., 29.92, 0.]),
         });
         assert_eq!(fresh.poll(20).unwrap().state, Lifecycle::Running);
         assert_eq!(fresh.object, Some(7));
@@ -815,10 +925,27 @@ mod tests {
         invalid.api.events.push_back(Notice::Data {
             request,
             object: 1,
-            values: [f64::NAN, 12., 29.92, 0.],
+            values: wide([f64::NAN, 12., 29.92, 0.]),
         });
-        assert_eq!(invalid.poll(20).unwrap().state, Lifecycle::Disconnected);
-        assert_eq!(invalid.object, None);
+        let observation = invalid.poll(20).unwrap();
+        assert_eq!(observation.state, Lifecycle::Running);
+        assert_eq!(
+            observation
+                .measurements
+                .get(Key::primary(Quantity::IndicatedAltitudeFt))
+                .unwrap()
+                .value,
+            Value::Failed
+        );
+        assert_eq!(
+            observation
+                .measurements
+                .get(Key::primary(Quantity::BarometerInHg))
+                .unwrap()
+                .value,
+            Value::Valid(29.92)
+        );
+        assert_eq!(invalid.object, Some(1));
     }
     #[test]
     fn coherent_indication_age_and_failure_flags_are_preserved() {
@@ -855,7 +982,7 @@ mod tests {
             Notice::Data {
                 request: old,
                 object: 1,
-                values: [8500., 8300., 30.12, 0.],
+                values: wide([8500., 8300., 30.12, 0.]),
             },
         ]);
         assert_eq!(m.poll(20).unwrap().state, Lifecycle::Paused);
@@ -867,7 +994,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request: old,
             object: 1,
-            values: [9999., 8300., 30.12, 0.],
+            values: wide([9999., 8300., 30.12, 0.]),
         });
         assert!(m.poll(50).is_none());
         assert_eq!(m.object, None);
@@ -881,7 +1008,7 @@ mod tests {
             Notice::Data {
                 request: id,
                 object: 1,
-                values: [8500., 8300., 30.12, 0.],
+                values: wide([8500., 8300., 30.12, 0.]),
             },
             Notice::System { event: 3, value: 0 },
         ]);
@@ -905,7 +1032,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request: id,
             object: 2,
-            values: [8000., 7900., 29.92, 0.],
+            values: wide([8000., 7900., 29.92, 0.]),
         });
         assert_eq!(m.poll(60).unwrap().state, Lifecycle::Disconnected);
         assert_eq!(m.recovery_reason(), Some(RecoveryReason::SessionChanged));
@@ -932,7 +1059,7 @@ mod tests {
         m.api.events.push_back(Notice::Data {
             request: id,
             object: 1,
-            values: [f64::NAN, 0., 29.92, 0.],
+            values: wide([f64::NAN, 0., 29.92, 0.]),
         });
         m.poll(40);
         assert_eq!(m.recovery_reason(), None);

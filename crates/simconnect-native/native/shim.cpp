@@ -12,9 +12,9 @@
 
 struct RfiEvent {
     uint32_t kind, request, code, detail;
-    double values[4]; // indicated ft, pressure ft, inHg, altimeter failure enum
+    double values[16]; // Six-pack definition; explicit SDK units, copied before next dispatch.
 };
-static_assert(sizeof(RfiEvent) == 48, "Rust/C event layout changed");
+static_assert(sizeof(RfiEvent) == 144, "Rust/C event layout changed");
 static_assert(sizeof(SIMCONNECT_RECV_SIMOBJECT_DATA) == 44, "Unexpected SDK packet layout");
 struct Client {
     HMODULE dll = nullptr;
@@ -58,10 +58,14 @@ extern "C" void* rfi_sc_open(const wchar_t* path, uint32_t* stage, uint32_t* err
     auto hr = c->open(&c->connection, "Round Flight Instruments", nullptr, 0, nullptr, SIMCONNECT_OPEN_CONFIGINDEX_LOCAL);
     if (FAILED(hr)) { *error = static_cast<uint32_t>(hr); delete c; return nullptr; }
     *stage = 4;
-    const char* names[] = {"INDICATED ALTITUDE", "PRESSURE ALTITUDE", "KOHLSMAN SETTING HG:1", "PARTIAL PANEL ALTIMETER"};
-    const char* units[] = {"feet", "feet", "inHg", "enum"};
-    for (unsigned i = 0; i < 4; ++i) {
-        hr = c->define(c->connection, 1, names[i], units[i], SIMCONNECT_DATATYPE_FLOAT64, 0, SIMCONNECT_UNUSED);
+    const char* names[] = {"INDICATED ALTITUDE", "PRESSURE ALTITUDE", "KOHLSMAN SETTING HG:1", "PARTIAL PANEL ALTIMETER",
+        "ATTITUDE INDICATOR PITCH DEGREES", "ATTITUDE INDICATOR BANK DEGREES", "PARTIAL PANEL ATTITUDE",
+        "AIRSPEED INDICATED", "PARTIAL PANEL AIRSPEED", "PLANE HEADING DEGREES MAGNETIC", "PARTIAL PANEL HEADING",
+        "VERTICAL SPEED", "PARTIAL PANEL VERTICAL VELOCITY", "TURN INDICATOR RATE", "TURN COORDINATOR BALL", "PARTIAL PANEL TURN COORDINATOR"};
+    const char* units[] = {"feet", "feet", "inHg", "enum", "degrees", "degrees", "enum",
+        "knots", "enum", "degrees", "enum", "feet per minute", "enum", "degrees per second", "position 128", "enum"};
+    for (unsigned i = 0; i < 16; ++i) {
+        hr = c->define(c->connection, 2, names[i], units[i], SIMCONNECT_DATATYPE_FLOAT64, 0, SIMCONNECT_UNUSED);
         if (FAILED(hr)) { *error = static_cast<uint32_t>(hr); delete c; return nullptr; }
     }
     const char* events[] = {"Sim", "Pause_EX1", "AircraftLoaded", "FlightLoaded", "Crashed", "PositionChanged", "CrashReset"};
@@ -72,8 +76,10 @@ extern "C" void* rfi_sc_open(const wchar_t* path, uint32_t* stage, uint32_t* err
     *stage = 0; *error = 0; return c;
 }
 extern "C" void rfi_sc_close(void* client) { delete static_cast<Client*>(client); }
-extern "C" int32_t rfi_sc_set_baro(void* client, uint32_t pressure16) {
+extern "C" uint64_t rfi_sc_uptime_ms() { return GetTickCount64(); }
+extern "C" int32_t rfi_sc_set_baro(void* client, uint32_t pressure16, uint64_t expires_ms) {
     auto c = static_cast<Client*>(client);
+    if (GetTickCount64() >= expires_ms) return E_ABORT;
     // Narrow optional write path; read-only connections never load/map it.
     if (!c->transmit) {
         if (!load(c->dll,"SimConnect_MapClientEventToSimEvent",c->map_event)
@@ -82,6 +88,7 @@ extern "C" int32_t rfi_sc_set_baro(void* client, uint32_t pressure16) {
         if (FAILED(hr)) { c->transmit = nullptr; return hr; }
     }
     if (pressure16 < 15225 || pressure16 > 16797) return E_INVALIDARG;
+    if (GetTickCount64() >= expires_ms) return E_ABORT;
     return c->transmit(c->connection, SIMCONNECT_OBJECT_ID_USER, 100,
         SIMCONNECT_GROUP_PRIORITY_HIGHEST, SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY,
         pressure16, 1, 0, 0, 0); // Value in hPa*16, explicitly primary altimeter index 1.
@@ -89,7 +96,7 @@ extern "C" int32_t rfi_sc_set_baro(void* client, uint32_t pressure16) {
 extern "C" int32_t rfi_sc_request(void* client, uint32_t id, uint32_t heartbeat) {
     auto c = static_cast<Client*>(client);
     return heartbeat ? c->state(c->connection, id, "Sim")
-        : c->request(c->connection, id, 1, SIMCONNECT_OBJECT_ID_USER, SIMCONNECT_PERIOD_ONCE, 0, 0, 0, 0);
+        : c->request(c->connection, id, 2, SIMCONNECT_OBJECT_ID_USER, SIMCONNECT_PERIOD_ONCE, 0, 0, 0, 0);
 }
 // 0=empty, 1=event copied, negative=invalid packet/API failure. Pointer lifetime
 // belongs to the SDK; copy all used fields before the next dispatch call.
@@ -117,14 +124,15 @@ static int32_t decode(SIMCONNECT_RECV* p, DWORD bytes, RfiEvent* out, DWORD defi
     }
     case SIMCONNECT_RECV_ID_SIMOBJECT_DATA: {
         const size_t offset = sizeof(SIMCONNECT_RECV_SIMOBJECT_DATA) - sizeof(DWORD);
-        if (p->dwSize < offset + sizeof(out->values)) return E_UNEXPECTED;
+        const size_t count = definition == 2 ? 16 : 4;
+        if (p->dwSize < offset + count * sizeof(double)) return E_UNEXPECTED;
         auto s = static_cast<SIMCONNECT_RECV_SIMOBJECT_DATA*>(p);
-        if (s->dwDefineID != definition || s->dwDefineCount != 4 || s->dwFlags != 0
+        if (s->dwDefineID != definition || s->dwDefineCount != count || s->dwFlags != 0
             || s->dwentrynumber != 1 || s->dwoutof != 1) return E_UNEXPECTED;
         // USER is a request selector, not the resolved object ID in a reply.
         // Rust binds this ID only after matching a live USER request and its age.
         out->kind = 5; out->request = s->dwRequestID; out->code = s->dwObjectID;
-        std::memcpy(out->values, reinterpret_cast<const char*>(p) + offset, sizeof(out->values)); break;
+        std::memcpy(out->values, reinterpret_cast<const char*>(p) + offset, count * sizeof(double)); break;
     }
     default: break;
     }
@@ -143,7 +151,7 @@ extern "C" int32_t rfi_sc_poll(void* client, RfiEvent* out) {
     auto hr = c->next(c->connection, &p, &bytes);
     if (hr == E_FAIL) return 0; // SDK also uses E_FAIL when its queue is empty.
     if (FAILED(hr)) return hr;
-    const auto result = decode(p, bytes, out);
+    const auto result = decode(p, bytes, out, 2);
     if (result < 0) {
         // One terminal diagnostic, not a per-poll trace. Read only bounded fields.
         std::fprintf(stderr, "Local SimConnect packet validation rejected: bytes=%lu", bytes);

@@ -1,5 +1,7 @@
 //! Windows SDK boundary with a narrow, optional primary-altimeter write path.
 #![deny(unsafe_op_in_unsafe_fn)]
+#[cfg(windows)]
+pub mod timing;
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(C)]
 pub struct Event {
@@ -7,7 +9,7 @@ pub struct Event {
     pub request: u32,
     pub code: u32,
     pub detail: u32,
-    pub values: [f64; 4],
+    pub values: [f64; 16],
 }
 #[cfg(all(windows, feature = "sdk"))]
 mod native {
@@ -18,15 +20,23 @@ mod native {
         fn rfi_sc_close(client: *mut c_void);
         fn rfi_sc_request(client: *mut c_void, id: u32, heartbeat: u32) -> i32;
         fn rfi_sc_poll(client: *mut c_void, event: *mut Event) -> i32;
-        fn rfi_sc_set_baro(client: *mut c_void, pressure16: u32) -> i32;
+        fn rfi_sc_set_baro(client: *mut c_void, pressure16: u32, expires_ms: u64) -> i32;
+        fn rfi_sc_uptime_ms() -> u64;
+    }
+    pub fn uptime_ms() -> u64 {
+        // SAFETY: pure Windows boot-relative clock, no pointer arguments.
+        unsafe { rfi_sc_uptime_ms() }
     }
     pub struct Connection {
         handle: NonNull<c_void>,
     }
     impl Connection {
         pub fn set_baro(&mut self, pressure16: u32) -> io::Result<()> {
+            self.set_baro_before(pressure16, uptime_ms().saturating_add(250))
+        }
+        pub fn set_baro_before(&mut self, pressure16: u32, expires_ms: u64) -> io::Result<()> {
             // SAFETY: exclusive live handle, bounded integer pressure; no borrowed SDK memory.
-            let hr = unsafe { rfi_sc_set_baro(self.handle.as_ptr(), pressure16) };
+            let hr = unsafe { rfi_sc_set_baro(self.handle.as_ptr(), pressure16, expires_ms) };
             if hr < 0 {
                 Err(io::Error::other(format!(
                     "SimConnect KOHLSMAN_SET failed: 0x{hr:08X}"
@@ -73,7 +83,7 @@ mod native {
         }
         pub fn poll(&mut self) -> io::Result<Option<Event>> {
             let mut event = Event::default();
-            // SAFETY: handle is live; output has matching repr(C) layout (48 bytes).
+            // SAFETY: handle is live; output has matching repr(C) layout (144 bytes).
             let result = unsafe { rfi_sc_poll(self.handle.as_ptr(), &mut event) };
             match result {
                 0 => Ok(None),
@@ -97,7 +107,7 @@ mod native {
     }
 }
 #[cfg(all(windows, feature = "sdk"))]
-pub use native::Connection;
+pub use native::{uptime_ms, Connection};
 
 #[cfg(all(test, windows, feature = "sdk"))]
 mod tests {
@@ -179,8 +189,31 @@ mod tests {
     }
     #[test]
     fn official_sdk_layout_and_malformed_packets() {
-        assert_eq!(std::mem::size_of::<super::Event>(), 48);
+        assert_eq!(std::mem::size_of::<super::Event>(), 144);
         // SAFETY: no arguments, local C++ fixtures, no SDK connection or IO.
         assert_eq!(unsafe { rfi_sc_decoder_test() }, 0);
+    }
+    #[test]
+    fn six_pack_definition_copies_all_values_and_rejects_short_payloads() {
+        let hex = include_str!("../tests/fixtures/captured-data.hex").trim();
+        let mut bytes: Vec<u8> = (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect();
+        bytes.resize(168, 0);
+        for (offset, value) in [(0, 168u32), (20, 2), (36, 16)] {
+            bytes[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        for i in 0..16 {
+            bytes[40 + i * 8..48 + i * 8].copy_from_slice(&(i as f64 + 0.25).to_le_bytes());
+        }
+        let (code, out) = decode_bytes(&bytes, 2);
+        assert_eq!(code, 1);
+        for i in 0..16 {
+            assert_eq!(out.values[i], i as f64 + 0.25);
+        }
+        assert!(decode_bytes(&bytes[..167], 2).0 < 0);
+        bytes[36..40].copy_from_slice(&15u32.to_le_bytes());
+        assert!(decode_bytes(&bytes, 2).0 < 0);
     }
 }

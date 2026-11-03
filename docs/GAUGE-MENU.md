@@ -19,6 +19,9 @@ is a shared layout constant in the portable navigation policy, ready for tuning.
 - Local simulation: altimeter and attitude are selectable.
 - Current external T1 stream (including MSFS): altimeter only; attitude says
   NO SIM DATA because pitch/roll are not transported yet.
+- Development T2 stream (`--sixpack`, used by the Windows tray app): altimeter
+  and attitude are selectable without restarting or changing the source.
+  External attitude timing acceptance is pending; see [driver status](WINDOWS-DRIVER.md).
 - IMU bench source: attitude only; altimeter says NO IMU DATA.
 - Airspeed, heading, turn coordinator and vertical speed are visible but disabled
   with NOT BUILT labels until their renderers/data paths are implemented.
@@ -28,11 +31,11 @@ barometer, source timestamps, validity or simulation parameters. A missing-data
 face can still open the menu when the display is healthy. Navigation and pressure
 editing are mutually exclusive. Choosing a gauge does not start a demo.
 
-The simulator measurement abstraction supports expansion, but the current native
-connector and T1 wire profile only drive the altimeter and select it on initial
-connection/recovery. Supporting other live gauges requires their measurements,
-units/validity rules and transport profile/capability handling end to end. This
-feature does not claim MSFS attitude or six-pack support.
+The legacy T1 profile selects Altimeter on connection/recovery. The development
+T2 profile preserves the selected face and transports all-six instrument data
+with individual units, channels, ages and validity. Hidden gauges never render
+or issue aircraft controls. Switching cancels unsent pressure edits; a claimed,
+already dispatched edit must finish or time out before selection can change.
 
 ## CLI and lifetime
 

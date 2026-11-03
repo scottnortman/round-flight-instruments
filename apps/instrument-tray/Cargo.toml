@@ -1,0 +1,13 @@
+[package]
+name = "instrument-tray"
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serialport = { version = "4.10.1", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_UI_Controls_Dialogs", "Win32_System_Threading", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_Security", "Win32_Graphics_Gdi"] }

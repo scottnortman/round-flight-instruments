@@ -37,20 +37,26 @@ impl qmi8658::Bus for ImuBus {
 
 // UART0 has exactly one reader. Read bytes directly so VFS line buffering
 // cannot hide an incomplete line from the shared framer's timeout.
-struct UartRx;
+struct UartRx { buffer: [u8; 512], begin: usize, end: usize }
 impl io::Read for UartRx {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
         if bytes.is_empty() {
             return Ok(0);
         }
-        // SAFETY: the driver is installed before this reader is constructed;
-        // the mutable buffer is live and exclusive for the synchronous call.
-        let n = unsafe { sys::uart_read_bytes(0, bytes.as_mut_ptr().cast(), 1, u32::MAX) };
-        if n == 1 {
-            Ok(1)
-        } else {
-            Err(io::Error::other("UART read failed"))
+        if self.begin == self.end {
+            let mut available=0usize;
+            // SAFETY: sole RX owner, installed driver and live exclusive buffer.
+            unsafe { sys::esp!(sys::uart_get_buffered_data_len(0, &mut available)) }
+                .map_err(io::Error::other)?;
+            let count=available.max(1).min(self.buffer.len());
+            let n=unsafe { sys::uart_read_bytes(0,self.buffer.as_mut_ptr().cast(),count as u32,u32::MAX) };
+            if n<=0 { return Err(io::Error::other("UART read failed")); }
+            self.begin=0; self.end=n as usize;
         }
+        let count=bytes.len().min(self.end-self.begin);
+        bytes[..count].copy_from_slice(&self.buffer[self.begin..self.begin+count]);
+        self.begin+=count;
+        Ok(count)
     }
 }
 
@@ -139,6 +145,10 @@ fn main() {
             0
         ))
         .expect("UART RX driver");
+        // At 921600 baud the default 120-byte interrupt threshold leaves only
+        // eight FIFO bytes (~87 us) for a higher-priority RGB interrupt. T2
+        // snapshots span the FIFO; drain earlier while retaining bounded RX.
+        sys::esp!(sys::uart_set_rx_full_threshold(0, 32)).expect("UART RX FIFO margin");
         // Keep ROM/boot diagnostics at 115200; the application CLI uses
         // 921600/8N1 with no flow control. Finish early logs before switching.
         sys::esp!(sys::uart_wait_tx_done(0, TickType::new_millis(100).ticks()))
@@ -151,8 +161,14 @@ fn main() {
         // (ESP-IDF main defaults to priority 1; pthread workers default to 5).
         sys::vTaskPrioritySet(core::ptr::null_mut(), 10);
     }
+    // UART framing/formatting stays off the raster core. Both workers block on
+    // their queues; owner (10), guard (11), RGB ISR retain higher priority.
+    let mut console_threads=ThreadSpawnConfiguration::get().unwrap_or_default();
+    console_threads.priority=8;
+    console_threads.pin_to_core=Some(Core::Core0);
+    console_threads.set().expect("console scheduling");
     let result = console_runtime::run_with_owner_input(
-        UartRx,
+        UartRx { buffer:[0;512], begin:0, end:0 },
         io::stdout(),
         Arc::new(console_runtime::Metrics::default()),
         |app| {

@@ -22,7 +22,7 @@ const QUEUE: usize = 128;
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
     Read { id: u32, heartbeat: bool },
-    Baro { pressure16: u32 },
+    Baro { pressure16: u32, expires_ms: u64 },
 }
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -33,7 +33,7 @@ enum Message {
         request: u32,
         code: u32,
         detail: u32,
-        bits: [u64; 4],
+        bits: [u64; 16],
     },
     Error {
         retry: bool,
@@ -159,11 +159,28 @@ impl Connection {
     }
 }
 impl Api for Connection {
+    fn set_baro_before(&mut self, pressure16: u32, deadline: std::time::Instant) -> io::Result<()> {
+        let boot = simconnect_native::uptime_ms();
+        let remaining = deadline
+            .saturating_duration_since(std::time::Instant::now())
+            .as_millis()
+            .min(250) as u64;
+        if remaining == 0 {
+            return Err(invalid("control dispatch expired"));
+        }
+        self.send(Request::Baro {
+            pressure16,
+            expires_ms: boot.saturating_add(remaining),
+        })
+    }
     fn request(&mut self, id: u32, heartbeat: bool) -> io::Result<()> {
         self.send(Request::Read { id, heartbeat })
     }
     fn set_baro(&mut self, pressure16: u32) -> io::Result<()> {
-        self.send(Request::Baro { pressure16 })
+        self.send(Request::Baro {
+            pressure16,
+            expires_ms: simconnect_native::uptime_ms().saturating_add(250),
+        })
     }
     fn next(&mut self) -> io::Result<Option<Notice>> {
         if self.messages.overflow.load(Ordering::Acquire) {
@@ -234,6 +251,7 @@ pub fn entry(dll: &Path) -> i32 {
     0
 }
 fn worker(dll: &Path, out: &mut impl Write) -> io::Result<()> {
+    let _timer = simconnect_native::timing::TimerResolution::one_ms()?;
     let mut native = simconnect_native::Connection::open(dll)?;
     write_message(out, &Message::Ready)?;
     let requests = inbox::<Request>(io::stdin());
@@ -244,7 +262,10 @@ fn worker(dll: &Path, out: &mut impl Write) -> io::Result<()> {
         for _ in 0..8 {
             match requests.rx.try_recv() {
                 Ok(Ok(Request::Read { id, heartbeat })) => native.request(id, heartbeat)?,
-                Ok(Ok(Request::Baro { pressure16 })) => native.set_baro(pressure16)?,
+                Ok(Ok(Request::Baro {
+                    pressure16,
+                    expires_ms,
+                })) => native.set_baro_before(pressure16, expires_ms)?,
                 Ok(Err(e)) => return Err(e),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => return Ok(()),
@@ -332,7 +353,8 @@ mod tests {
     #[test]
     fn nonfinite_readings_survive_transport_for_validation() {
         let mut bytes = Vec::new();
-        let values = [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 29.92];
+        let mut values = [0.; 16];
+        values[..4].copy_from_slice(&[f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 29.92]);
         write_message(
             &mut bytes,
             &Message::Event {

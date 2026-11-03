@@ -1,5 +1,14 @@
 # Round Flight Instruments
 
+**Current development:** `feature/windows-instrument-driver` adds an installed
+Windows tray connector, automatic startup/recovery, all-six instrument telemetry,
+and active-gauge-only controls. See the [setup guide](docs/WINDOWS-DRIVER-SETUP.md)
+and [architecture/status](docs/WINDOWS-DRIVER.md). External attitude now uses an
+approved 150 ms freshness budget, with both gauges passing over 32 FPS without
+expiry in the short board regression. The user accepted a five-minute native
+stream with clean motion and touch switching. Live MSFS acceptance remains
+pending; this branch is not yet released.
+
 Latest tagged checkpoint: **v0.2.0-rc.4**. Touch gauge selection, Attitude rendering
 and IMU bench motion are implemented. Menu switching and idle display passed
 visual checks; both gauges render above 30 FPS in bench motion tests. The baseline
@@ -85,7 +94,9 @@ readings retain the last usable pose without a hold annotation, red X, or
 source-age blanking. See [IMU bench controls and limitations](docs/IMU-ATTITUDE.md).
 The 15-sample IMU motion and adjusted 30/60 bank labels were visually accepted.
 See the [IMU checkpoint and verification](verification/IMU-ATTITUDE.md).
-Current MSFS telemetry does not yet drive the attitude face.
+The tagged T1 baseline does not transport attitude. This development branch's
+T2 profile carries attitude and allows live face selection; see the development
+validation status above before using the preview.
 
 ## Control the gauge
 

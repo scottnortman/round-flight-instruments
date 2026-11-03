@@ -9,6 +9,7 @@ pub struct Pending {
     at: u64,
     sequence: u64,
     status: Status,
+    pub(crate) claimed: bool,
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BaroControl {
@@ -17,6 +18,22 @@ pub struct BaroControl {
     pub(crate) pending: Option<Pending>,
 }
 impl App {
+    pub(crate) fn claim_control(&mut self, session: u64, id: u64) -> Result<(), ApplyError> {
+        let r = self.control_request().ok_or(ApplyError::NotReady)?;
+        if !self.external.is_some_and(|e| e.multi_profile) || r.session != session || r.id != id {
+            return Err(ApplyError::NotReady);
+        }
+        let pending = self.control.pending.as_mut().ok_or(ApplyError::NotReady)?;
+        if pending.claimed {
+            return Err(ApplyError::NotReady);
+        }
+        pending.claimed = true;
+        Ok(())
+    }
+    pub(crate) fn control_dispatch_in_progress(&self) -> bool {
+        self.control.pending.is_some_and(|p| p.claimed)
+            && self.control_status() == Some(Status::Sent)
+    }
     pub(crate) fn refresh_control(&mut self) {
         if let (Some(mut p), Some(status)) = (self.control.pending, self.control_status()) {
             p.status = status;
@@ -24,8 +41,10 @@ impl App {
         }
     }
     pub(crate) fn control_data_ready(&self) -> bool {
-        self.external
-            .is_some_and(|e| e.state() == Lifecycle::Running)
+        self.selected == crate::Instrument::Altimeter
+            && self
+                .external
+                .is_some_and(|e| e.state() == Lifecycle::Running)
             && self.altimeter_reading(self.now_ms()).quality == Quality::Valid
             && self
                 .external_baro(self.now_ms())
@@ -114,6 +133,7 @@ impl App {
             at: self.now_ms(),
             sequence: e.sequence(),
             status: Status::Sent,
+            claimed: false,
         });
         Ok(())
     }
@@ -223,5 +243,32 @@ mod tests {
         assert!(!a.control_enabled());
         assert!(a.control_request().is_none());
         assert!(a.apply(Command::ControlEnable(10)).is_err());
+    }
+    #[test]
+    fn hidden_altimeter_cannot_write_and_switching_back_cannot_replay_an_edit() {
+        let mut a = ready();
+        a.apply(Command::ControlEnable(10)).unwrap();
+        a.apply(Command::Baro(29.92)).unwrap();
+        let old = a.control_request().unwrap();
+        a.apply(Command::Select(crate::Instrument::Attitude))
+            .unwrap();
+        assert!(!a.baro_edit_allowed());
+        assert!(a.control_request().is_none());
+        assert!(a.apply(Command::Baro(30.01)).is_err());
+        // Hidden telemetry still follows the simulator without a local edit.
+        feed(&mut a, 40, 2, 30.20, Lifecycle::Running);
+        assert_eq!(a.baro_inhg(), 30.20);
+        a.apply(Command::Select(crate::Instrument::Altimeter))
+            .unwrap();
+        assert!(a.control_request().is_none());
+        assert!(a
+            .apply(Command::ControlReply(Reply {
+                session: old.session,
+                id: old.id,
+                status: Status::Confirmed,
+            }))
+            .is_err());
+        a.apply(Command::Baro(29.92)).unwrap();
+        assert!(a.control_request().unwrap().id > old.id);
     }
 }

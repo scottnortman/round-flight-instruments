@@ -12,7 +12,7 @@ metadata = json.loads(subprocess.check_output([
     '--features', 'instrument-connector/msfs']))
 packages = {p['id']: p for p in metadata['packages']}
 nodes = {p['id']: p for p in metadata['resolve']['nodes']}
-pending = [p['id'] for p in packages.values() if p['name'] in ('instrument-connector', 'desktop-cli')]
+pending = [p['id'] for p in packages.values() if p['name'] in ('instrument-connector', 'desktop-cli', 'instrument-tray')]
 seen = set()
 while pending:
     identity = pending.pop()
