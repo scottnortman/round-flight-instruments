@@ -2,6 +2,8 @@
 
 Latest source checkpoint: **v0.2.0-rc.5**. Altimeter, Attitude and Turn Coordinator
 are implemented with touch gauge selection, blue pressed feedback and chirps.
+Development builds now use a 4 MiB application slot and one shared menu cache.
+See the measured [flash/RAM budget and six-gauge plan](docs/MEMORY-BUDGET.md).
 Bench motion and the corrected Turn menu run above **32 FPS**. See the
 [Turn Coordinator guide](docs/TURN-COORDINATOR.md) and
 [menu verification](verification/TURN-MENU-FIX.md).

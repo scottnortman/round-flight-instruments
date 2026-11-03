@@ -2,8 +2,19 @@ param([switch]$WatchdogSelfTest)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Enter-DevShell.ps1')
 $rfiPreviousTarget = $env:CARGO_TARGET_DIR
+$rfiPreviousDefaults = $env:ESP_IDF_SDKCONFIG_DEFAULTS
 try {
     $env:CARGO_TARGET_DIR = 'D:\rfi-c'
+    New-Item -ItemType Directory -Path $env:CARGO_TARGET_DIR -Force | Out-Null
+    # esp-idf-sys creates its CMake project outside this checkout. Resolve the
+    # canonical CSV here rather than depending on that generated project path.
+    $rfiConsole = Join-Path (Split-Path $PSScriptRoot -Parent) 'firmware\console'
+    $rfiCsv = (Resolve-Path (Join-Path $rfiConsole 'partitions.csv')).Path
+    $rfiDefaults = (Get-Content (Join-Path $rfiConsole 'sdkconfig.defaults') -Raw).Replace('CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"', ('CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="' + $rfiCsv.Replace('\','/') + '"'))
+    $env:ESP_IDF_SDKCONFIG_DEFAULTS = Join-Path $env:CARGO_TARGET_DIR 'rfi-sdkconfig.defaults'
+    if (-not (Test-Path $env:ESP_IDF_SDKCONFIG_DEFAULTS) -or (Get-Content $env:ESP_IDF_SDKCONFIG_DEFAULTS -Raw) -cne $rfiDefaults) {
+        [IO.File]::WriteAllText($env:ESP_IDF_SDKCONFIG_DEFAULTS, $rfiDefaults)
+    }
     Push-Location (Join-Path (Split-Path $PSScriptRoot -Parent) 'firmware\console')
     try {
         $rfiBuildArgs = @('build','--locked','--message-format=json')
@@ -24,6 +35,9 @@ try {
         if (-not $rfiIdfOut -or -not $rfiExecutable) { throw 'Cargo did not identify matching IDF output and executable' }
         $rfiSdk = Join-Path $rfiIdfOut 'sdkconfig'
         $rfiBoot = Join-Path $rfiIdfOut 'build\bootloader\bootloader.bin'
+        $rfiPartition = Join-Path $rfiIdfOut 'build\partition_table\partition-table.bin'
+        python (Join-Path $PSScriptRoot 'partition_layout.py') --csv $rfiCsv --binary $rfiPartition --sdkconfig $rfiSdk
+        if ($LASTEXITCODE -ne 0) { throw 'Generated partition table verification failed' }
         if (-not (Test-Path -LiteralPath $rfiBoot)) { throw 'Matching bootloader missing' }
         $rfiConfig = Get-Content -LiteralPath $rfiSdk
         foreach ($rfiRequired in @(
@@ -60,7 +74,7 @@ try {
             throw 'Legacy I2C implementation linked alongside master driver'
         }
         if (-not ($rfiSymbols -match '\bi2c_new_master_bus$')) { throw 'Current I2C master driver missing' }
-        [ordered]@{executable=$rfiExecutable;sdkconfig=$rfiSdk;bootloader=$rfiBoot;watchdog_self_test=[bool]$WatchdogSelfTest;sha256=(Get-FileHash -LiteralPath $rfiExecutable).Hash} | ConvertTo-Json | Set-Content -LiteralPath 'D:\rfi-c\console-build-artifacts.json' -Encoding UTF8
+        [ordered]@{executable=$rfiExecutable;sdkconfig=$rfiSdk;bootloader=$rfiBoot;bootloader_sha256=(Get-FileHash $rfiBoot).Hash;partition_csv=$rfiCsv;partition_csv_sha256=(Get-FileHash $rfiCsv).Hash;partition_binary=$rfiPartition;partition_binary_sha256=(Get-FileHash $rfiPartition).Hash;watchdog_self_test=[bool]$WatchdogSelfTest;sha256=(Get-FileHash -LiteralPath $rfiExecutable).Hash} | ConvertTo-Json | Set-Content -LiteralPath 'D:\rfi-c\console-build-artifacts.json' -Encoding UTF8
         Write-Output 'Console build and generated SDK safety settings verified.'
     } finally { Pop-Location }
-} finally { $env:CARGO_TARGET_DIR = $rfiPreviousTarget }
+} finally { $env:CARGO_TARGET_DIR = $rfiPreviousTarget; $env:ESP_IDF_SDKCONFIG_DEFAULTS = $rfiPreviousDefaults }

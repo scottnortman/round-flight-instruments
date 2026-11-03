@@ -14,7 +14,7 @@ try {
         New-Item -ItemType Directory -Path $rfiPackage | Out-Null
         foreach ($rfiSubdir in @('bin','scripts','fixtures','logs')) { New-Item -ItemType Directory -Path (Join-Path $rfiPackage $rfiSubdir) | Out-Null }
         foreach ($rfiExe in @('sim-bridge.exe','desktop-cli.exe')) { Copy-Item -LiteralPath (Join-Path $rfiRoot "target\release\$rfiExe") -Destination (Join-Path $rfiPackage "bin\$rfiExe") }
-        foreach ($rfiScript in @('cli.py','sim_bridge.py','start_msfs.py','flash_test_firmware.py')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $rfiScript) -Destination (Join-Path $rfiPackage "scripts\$rfiScript") }
+        foreach ($rfiScript in @('cli.py','sim_bridge.py','start_msfs.py','flash_test_firmware.py','partition_layout.py')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $rfiScript) -Destination (Join-Path $rfiPackage "scripts\$rfiScript") }
         Copy-Item -LiteralPath (Join-Path $rfiRoot 'fixtures\altimeter-lifecycle.txt') -Destination (Join-Path $rfiPackage 'fixtures')
         Copy-Item -LiteralPath (Join-Path $rfiRoot 'docs\MSFS-TWO-WAY-TEST.md') -Destination (Join-Path $rfiPackage 'START-HERE.md')
         Copy-Item -LiteralPath (Join-Path $rfiRoot 'docs\MSFS-TWO-WAY-TEST.md') -Destination (Join-Path $rfiPackage 'TWO-WAY-TEST.md')
@@ -23,8 +23,18 @@ try {
             $rfiFirmware = Get-Content -LiteralPath 'D:\rfi-c\console-build-artifacts.json' -Raw | ConvertFrom-Json
             if ($rfiFirmware.watchdog_self_test -or (Get-FileHash -LiteralPath $rfiFirmware.executable).Hash -ne $rfiFirmware.sha256) { throw 'Firmware artifact verification failed' }
             New-Item -ItemType Directory -Path (Join-Path $rfiPackage 'firmware') | Out-Null
-            espflash save-image --skip-update-check --chip esp32s3 --flash-size 16mb --merge --skip-padding --bootloader $rfiFirmware.bootloader --partition-table D:\rfi-e\esp-idf\v5.5.5\components\partition_table\partitions_singleapp.csv $rfiFirmware.executable (Join-Path $rfiPackage 'firmware\round-instruments.bin')
+            python (Join-Path $PSScriptRoot 'partition_layout.py') --csv $rfiFirmware.partition_csv --binary $rfiFirmware.partition_binary --sdkconfig $rfiFirmware.sdkconfig
+            if ($LASTEXITCODE -ne 0) { throw 'Partition verification failed' }
+            foreach ($rfiArtifact in @('bootloader','partition_csv','partition_binary')) {
+                if ((Get-FileHash $rfiFirmware.$rfiArtifact).Hash -ne $rfiFirmware.($rfiArtifact + '_sha256')) { throw "Changed firmware artifact: $rfiArtifact" }
+            }
+            # Separate segments leave NVS/PHY untouched; a merged image writes
+            # padding over those sectors even if their offsets are unchanged.
+            espflash save-image --skip-update-check --chip esp32s3 --flash-size 16mb --partition-table $rfiFirmware.partition_csv $rfiFirmware.executable (Join-Path $rfiPackage 'firmware\application.bin')
             if ($LASTEXITCODE -ne 0) { throw 'Firmware image generation failed' }
+            Copy-Item $rfiFirmware.bootloader (Join-Path $rfiPackage 'firmware\bootloader.bin')
+            Copy-Item $rfiFirmware.partition_binary (Join-Path $rfiPackage 'firmware\partition-table.bin')
+            Copy-Item $rfiFirmware.partition_csv (Join-Path $rfiPackage 'firmware\partitions.csv')
             Copy-Item -LiteralPath $rfiFirmware.executable -Destination (Join-Path $rfiPackage 'firmware\rfi-console.elf')
         }
         Copy-Item -LiteralPath (Join-Path $rfiRoot 'LICENSE') -Destination $rfiPackage

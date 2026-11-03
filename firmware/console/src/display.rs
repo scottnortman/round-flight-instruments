@@ -407,6 +407,23 @@ impl Service {
     pub fn handle(&self, command: DisplayCommand) -> Response {
         let s = &self.shared;
         match command {
+            DisplayCommand::MemoryStatus => {
+                let internal = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
+                let external = sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT;
+                let dma = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_DMA;
+                let partition = unsafe { sys::esp_ota_get_running_partition().as_ref() };
+                let (app_offset, app_size) = partition.map_or((0, 0), |p| (p.address, p.size));
+                // Query-only diagnostics. No allocation or display/source change.
+                return unsafe { reply(format_args!(
+                    "OK memory app_offset_bytes={app_offset} app_size_bytes={app_size} internal_total_bytes={} internal_free_bytes={} internal_min_free_bytes={} internal_largest_bytes={} psram_total_bytes={} psram_free_bytes={} psram_min_free_bytes={} psram_largest_bytes={} dma_free_bytes={} dma_largest_bytes={} display_stack_min_free_bytes={} internal_caps=internal+8bit",
+                    sys::heap_caps_get_total_size(internal),sys::heap_caps_get_free_size(internal),
+                    sys::heap_caps_get_minimum_free_size(internal),sys::heap_caps_get_largest_free_block(internal),
+                    sys::heap_caps_get_total_size(external),sys::heap_caps_get_free_size(external),
+                    sys::heap_caps_get_minimum_free_size(external),sys::heap_caps_get_largest_free_block(external),
+                    sys::heap_caps_get_free_size(dma),sys::heap_caps_get_largest_free_block(dma),
+                    s.stack_min.load(Ordering::Acquire)
+                )) };
+            }
             DisplayCommand::SampleStatus => {
                 let v = match s.sample.try_lock() {
                     Ok(v) => *v,
@@ -515,7 +532,6 @@ struct Backend {
     turn_backdrop: &'static mut [u16],
     foreground_pixels: &'static mut [u16],
     navigation_pixels: &'static mut [u16],
-    turn_navigation_pixels: &'static mut [u16],
     wake: Queue<u32>,
 }
 // Initialization transfers this handle exactly once to the sole drawing task.
@@ -606,17 +622,6 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
     }
     let navigation_pixels =
         unsafe { core::slice::from_raw_parts_mut(navigation_pixels.cast::<u16>(), 480 * 480) };
-    // CPU-only artwork, never submitted to DMA. Turn needs bounded menu cost
-    // under the same 100 ms local lifetime as Attitude.
-    let turn_navigation_pixels = unsafe {
-        sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
-    };
-    if turn_navigation_pixels.is_null() {
-        return Err(io::Error::other("LCD turn navigation cache allocation"));
-    }
-    let turn_navigation_pixels = unsafe {
-        core::slice::from_raw_parts_mut(turn_navigation_pixels.cast::<u16>(), 480 * 480)
-    };
     let foreground_pixels =
         unsafe { sys::heap_caps_calloc(49152, 2, sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
     if foreground_pixels.is_null() {
@@ -655,7 +660,6 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
         turn_backdrop,
         foreground_pixels,
         navigation_pixels,
-        turn_navigation_pixels,
         wake,
     })
 }
@@ -668,15 +672,13 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         turn_backdrop,
         foreground_pixels,
         navigation_pixels,
-        turn_navigation_pixels,
         wake,
     } = backend;
     let mut foreground_runs = vec![instrument_ui::attitude::CopyRun::default(); instrument_ui::attitude::FOREGROUND_RUN_CAPACITY];
     let mut renderer = render::CachedRenderer::new(backdrop, 480, 480)
         .ok_or_else(|| io::Error::other("LCD backdrop size"))?;
     let mut turn_renderer = render::CachedRenderer::new(turn_backdrop,480,480)
-        .ok_or_else(|| io::Error::other("LCD turn backdrop size"))?
-        .with_navigation_pixels(turn_navigation_pixels);
+        .ok_or_else(|| io::Error::other("LCD turn backdrop size"))?;
     let mut attitude_renderer = render::CachedRenderer::with_foreground_cache(
         attitude_backdrop,
         480,
@@ -684,9 +686,10 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         &mut foreground_runs,
     )
     .ok_or_else(|| io::Error::other("LCD backdrop size"))?
-    .with_foreground_pixels(foreground_pixels)
-    .with_navigation_pixels(navigation_pixels);
-    // Warm both static faces before the first visible frame. Switching views
+    .with_foreground_pixels(foreground_pixels);
+    let mut navigation_cache = render::NavigationCache::new(navigation_pixels)
+        .ok_or_else(|| io::Error::other("LCD shared navigation cache size"))?;
+    // Warm all three static faces before the first visible frame. Switching views
     // must not discard/rebuild the other face while a 100 ms attitude deadline
     // is running. These CPU-only caches contain artwork, not sampled readings.
     let mut warm = loop {
@@ -701,6 +704,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         }
         thread::sleep(Duration::from_millis(10));
     };
+    let initial_selected = warm.selected;
     warm.selected = Instrument::Altimeter;
     if !renderer.prepare_background(warm) {
         return Err(io::Error::other("altimeter preparation"));
@@ -711,6 +715,8 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     if !attitude_renderer.prepare_background(warm) {
         return Err(io::Error::other("attitude preparation"));
     }
+    warm.selected = initial_selected;
+    navigation_cache.prepare_background(warm);
     let mut applied_pclk = 18_000_000;
     s.applied_pclk.store(applied_pclk, Ordering::Release);
     let mut histories =
@@ -838,13 +844,12 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
             } else {
                 &mut renderer
             };
-            if !active_renderer.draw_incremental_with_progress(
-                pixels,
-                &mut histories[back],
-                snapshot,
-                pattern,
-                &mut progress,
-            ) {
+            let drawn = if pattern {
+                active_renderer.draw_incremental_with_progress(pixels, &mut histories[back], snapshot, true, &mut progress)
+            } else {
+                active_renderer.draw_incremental_with_menu(pixels, &mut histories[back], snapshot, &mut navigation_cache, &mut progress)
+            };
+            if !drawn {
                 return Err(io::Error::other("frame size"));
             }
             if completion_error.is_some() {

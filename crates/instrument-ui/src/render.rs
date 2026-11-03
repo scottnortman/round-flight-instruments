@@ -13,6 +13,126 @@ const ALTITUDE_PANEL: u16 = rgb(190, 190, 190);
 const DIAL_NUMBER_RADIUS: f32 = 169.;
 const KOLLSMAN_TOP: f32 = 211.;
 const KOLLSMAN_PRESSED: u16 = rgb(0, 90, 156);
+/// One caller-owned CPU-only menu bitmap shared across any number of faces.
+/// Its context key includes the selected gauge, provider session and source mode.
+/// No allocation, sampled data or DMA ownership is retained here.
+pub struct NavigationCache<'a> {
+    pixels: &'a mut [u16],
+    prepared: u8,
+    key: Option<(crate::navigation::Context, Option<crate::navigation::Button>)>,
+}
+impl<'a> NavigationCache<'a> {
+    pub fn new(pixels: &'a mut [u16]) -> Option<Self> {
+        (pixels.len() == 480 * 480).then_some(Self { pixels, prepared: 0, key: None })
+    }
+    /// Warm CPU-only artwork before the first visible frame. This does not
+    /// publish pixels or renew any measurement's presentation deadline.
+    pub fn prepare_background(&mut self, snapshot: Snapshot) {
+        for _ in 0..8 { self.prepare(snapshot); }
+    }
+    // Spread cold menu construction over eight normal frames, before the
+    // user can finish the hold. Never publish a partially prepared bitmap.
+    fn prepare(&mut self, snapshot: Snapshot) {
+        let cache = &mut *self.pixels;
+        let context = snapshot.menu.map_or(
+            crate::navigation::Context {
+                selected: snapshot.selected,
+                external: snapshot.external,
+                external_attitude: snapshot.external_attitude,
+                imu: snapshot.imu_bench,
+                session: snapshot.source_session,
+            },
+            |v| v.context,
+        );
+        if self.key.is_none_or(|(old, _)| old != context) {
+            // Selection is an inexpensive outline on the output frame. Reuse
+            // all cached lettering when only the gauge/session changes; retain
+            // pressed state until the next menu view restores that button.
+            if let Some((old, pressed)) = self.key {
+                if self.prepared == 8 && crate::navigation::GAUGES.into_iter().all(|g|
+                    old.enabled(g) == context.enabled(g) && old.reason(g) == context.reason(g)) {
+                    self.key = Some((context, pressed));
+                    return;
+                }
+            }
+            // The panel/title never depend on context. Retain them across
+            // switches: repainting their large PSRAM area costs a full frame.
+            let panel_ready = self.key.is_some();
+            self.key = Some((context, None));
+            self.prepared = u8::from(panel_ready);
+        }
+        if self.prepared < 8 {
+            let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
+            let mut c = Canvas::new(&mut fb);
+            if self.prepared == 0 {
+                draw_navigation_panel(&mut c);
+            } else {
+                let button = crate::navigation::GAUGES
+                    .get(self.prepared as usize - 1)
+                    .copied()
+                    .map(crate::navigation::Button::Gauge)
+                    .unwrap_or(crate::navigation::Button::Cancel);
+                draw_navigation_cached_button(
+                    &mut c,
+                    crate::navigation::View {
+                        context,
+                        generation: 0,
+                        pressed: None,
+                    },
+                    button,
+                );
+            }
+            self.prepared += 1;
+        }
+    }
+    fn navigation(
+        &mut self,
+        pixels: &mut [u16],
+        history: &mut crate::damage::FrameHistory,
+        snapshot: Snapshot,
+    ) {
+        if snapshot.menu.is_some() {
+            self.prepare(snapshot);
+            while self.prepared < 8 {
+                self.prepare(snapshot);
+            }
+        }
+        if let Some(menu) = snapshot.menu {
+            let cache = &mut *self.pixels;
+            let key = (menu.context, menu.pressed);
+            if self.key != Some(key) {
+                let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
+                let mut c = Canvas::new(&mut fb);
+                // Only the old and new pressed buttons change. Rebuilding all
+                // lettering on each finger transition exceeds attitude's budget.
+                if let Some(old) = self.key.and_then(|(_, pressed)| pressed) {
+                    draw_navigation_cached_button(&mut c, menu, old);
+                }
+                if let Some(new) = menu.pressed {
+                    draw_navigation_cached_button(&mut c, menu, new);
+                }
+                self.key = Some(key);
+            }
+            // The entire panel is opaque. Copy only initialized pixels, then
+            // mark them so the moving horizon restores them when it closes.
+            for y in 96..384 {
+                let row = y * 480 + 80..y * 480 + 400;
+                pixels[row.clone()].copy_from_slice(&cache[row]);
+            }
+            let mut fb = crate::raster::Framebuffer::new(pixels, 480, 480).unwrap();
+            draw_navigation_selection(&mut Canvas::new(&mut fb), menu.context.selected);
+            history.mark_rect(
+                480,
+                crate::interaction::Rect {
+                    x: 80,
+                    y: 96,
+                    w: 320,
+                    h: 288,
+                },
+            );
+        }
+    }
+}
 /// Optional caller-owned backdrop cache. No allocation or hardware dependence;
 /// every output frame is restored completely before drawing dynamic content.
 pub struct CachedRenderer<'a> {
@@ -25,12 +145,7 @@ pub struct CachedRenderer<'a> {
     foreground_pixels: Option<&'a mut [u16]>,
     compact_foreground: bool,
     digit_offset: Option<usize>,
-    navigation_pixels: Option<&'a mut [u16]>,
-    navigation_prepared: u8,
-    navigation_key: Option<(
-        crate::navigation::Context,
-        Option<crate::navigation::Button>,
-    )>,
+    navigation_cache: Option<NavigationCache<'a>>,
 }
 impl<'a> CachedRenderer<'a> {
     pub fn new(background: &'a mut [u16], width: u32, height: u32) -> Option<Self> {
@@ -45,9 +160,7 @@ impl<'a> CachedRenderer<'a> {
             foreground_pixels: None,
             compact_foreground: false,
             digit_offset: None,
-            navigation_pixels: None,
-            navigation_key: None,
-            navigation_prepared: 0,
+            navigation_cache: None,
         })
     }
     pub fn with_foreground_cache(
@@ -83,110 +196,39 @@ impl<'a> CachedRenderer<'a> {
     /// Other dimensions/capacities use the identical uncached drawing path.
     pub fn with_navigation_pixels(mut self, pixels: &'a mut [u16]) -> Self {
         if self.width == 480 && self.height == 480 && pixels.len() == 480 * 480 {
-            self.navigation_pixels = Some(pixels);
+            self.navigation_cache = NavigationCache::new(pixels);
         }
         self
     }
-    // Spread cold menu construction over eight normal frames, before the
-    // user can finish the hold. Never publish a partially prepared bitmap.
     fn prepare_navigation(&mut self, snapshot: Snapshot) {
-        let Some(cache) = self.navigation_pixels.as_deref_mut() else {
-            return;
-        };
-        let context = snapshot.menu.map_or(
-            crate::navigation::Context {
-                selected: snapshot.selected,
-                external: snapshot.external,
-                external_attitude: snapshot.external_attitude,
-                imu: snapshot.imu_bench,
-                session: snapshot.source_session,
-            },
-            |v| v.context,
-        );
-        if self.navigation_key.is_none_or(|(old, _)| old != context) {
-            self.navigation_key = Some((context, None));
-            self.navigation_prepared = 0;
-        }
-        if self.navigation_prepared < 8 {
-            let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
-            let mut c = Canvas::new(&mut fb);
-            if self.navigation_prepared == 0 {
-                draw_navigation_panel(&mut c);
-            } else {
-                let button = crate::navigation::GAUGES
-                    .get(self.navigation_prepared as usize - 1)
-                    .copied()
-                    .map(crate::navigation::Button::Gauge)
-                    .unwrap_or(crate::navigation::Button::Cancel);
-                draw_navigation_button(
-                    &mut c,
-                    crate::navigation::View {
-                        context,
-                        generation: 0,
-                        pressed: None,
-                    },
-                    button,
-                );
-            }
-            self.navigation_prepared += 1;
-        }
+        if let Some(cache) = self.navigation_cache.as_mut() { cache.prepare(snapshot); }
     }
     fn navigation(
-        &mut self,
+        cache: Option<&mut NavigationCache<'_>>,
+        size: (u32, u32),
         pixels: &mut [u16],
         history: &mut crate::damage::FrameHistory,
         snapshot: Snapshot,
     ) {
-        if self.navigation_pixels.is_some() && snapshot.menu.is_some() {
-            self.prepare_navigation(snapshot);
-            while self.navigation_prepared < 8 {
-                self.prepare_navigation(snapshot);
-            }
-        }
-        if let (Some(cache), Some(menu)) = (self.navigation_pixels.as_deref_mut(), snapshot.menu) {
-            let key = (menu.context, menu.pressed);
-            if self.navigation_key != Some(key) {
-                let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
-                let mut c = Canvas::new(&mut fb);
-                // Only the old and new pressed buttons change. Rebuilding all
-                // lettering on each finger transition exceeds attitude's budget.
-                if let Some(old) = self.navigation_key.and_then(|(_, pressed)| pressed) {
-                    draw_navigation_button(&mut c, menu, old);
-                }
-                if let Some(new) = menu.pressed {
-                    draw_navigation_button(&mut c, menu, new);
-                }
-                self.navigation_key = Some(key);
-            }
-            // The entire panel is opaque. Copy only initialized pixels, then
-            // mark them so the moving horizon restores them when it closes.
-            for y in 96..384 {
-                let row = y * 480 + 80..y * 480 + 400;
-                pixels[row.clone()].copy_from_slice(&cache[row]);
-            }
-            history.mark_rect(
-                480,
-                crate::interaction::Rect {
-                    x: 80,
-                    y: 96,
-                    w: 320,
-                    h: 288,
-                },
-            );
+        if let Some(cache) = cache.filter(|_| snapshot.menu.is_some()) {
+            cache.navigation(pixels, history, snapshot);
         } else {
-            let fb = crate::raster::Framebuffer::new(pixels, self.width, self.height).unwrap();
-            draw_navigation(
-                &mut crate::damage::Tracked {
-                    last_pixel_tile: u16::MAX,
-                    target: fb,
-                    history,
-                },
-                snapshot,
-            );
+            let fb = crate::raster::Framebuffer::new(pixels, size.0, size.1).unwrap();
+            draw_navigation(&mut crate::damage::Tracked {
+                last_pixel_tile: u16::MAX, target: fb, history,
+            }, snapshot);
         }
     }
+    /// Draw using a menu cache shared by all faces in the calling display task.
+    pub fn draw_incremental_with_menu(
+        &mut self, pixels: &mut [u16], history: &mut crate::damage::FrameHistory,
+        snapshot: Snapshot, menu: &mut NavigationCache<'_>, progress: &mut dyn FnMut(),
+    ) -> bool {
+        let menu = (self.width == 480 && self.height == 480).then_some(menu);
+        self.draw_inner(pixels, Some(history), snapshot, false, progress, menu)
+    }
     pub fn draw(&mut self, pixels: &mut [u16], snapshot: Snapshot, pattern: bool) -> bool {
-        self.draw_inner(pixels, None, snapshot, pattern, &mut || {})
+        self.draw_inner(pixels, None, snapshot, pattern, &mut || {}, None)
     }
     /// History belongs exclusively to this pixel buffer. A new history forces
     /// complete initialization; layout/view changes force full restore.
@@ -197,7 +239,7 @@ impl<'a> CachedRenderer<'a> {
         snapshot: Snapshot,
         pattern: bool,
     ) -> bool {
-        self.draw_inner(pixels, Some(history), snapshot, pattern, &mut || {})
+        self.draw_inner(pixels, Some(history), snapshot, pattern, &mut || {}, None)
     }
     /// Bounded progress notifications let a backend retire earlier transfers
     /// while drawing into independent storage. The callback receives no pixels
@@ -210,7 +252,7 @@ impl<'a> CachedRenderer<'a> {
         pattern: bool,
         progress: &mut dyn FnMut(),
     ) -> bool {
-        self.draw_inner(pixels, Some(history), snapshot, pattern, progress)
+        self.draw_inner(pixels, Some(history), snapshot, pattern, progress, None)
     }
     fn prepare(&mut self, snapshot: Snapshot, pattern: bool) -> bool {
         let key = (
@@ -283,6 +325,7 @@ impl<'a> CachedRenderer<'a> {
         snapshot: Snapshot,
         pattern: bool,
         progress: &mut dyn FnMut(),
+        mut menu: Option<&mut NavigationCache<'_>>,
     ) -> bool {
         if pixels.len() != self.background.len() {
             return false;
@@ -291,7 +334,8 @@ impl<'a> CachedRenderer<'a> {
             return false;
         }
         if !pattern {
-            self.prepare_navigation(snapshot);
+            if let Some(cache) = menu.as_deref_mut() { cache.prepare(snapshot); }
+            else { self.prepare_navigation(snapshot); }
         }
         if let Some(history) = history {
             let frame_key = (self.width, self.height, snapshot.selected, pattern);
@@ -368,7 +412,11 @@ impl<'a> CachedRenderer<'a> {
                         snapshot,
                     );
                 }
-                self.navigation(pixels, history, snapshot);
+                if let Some(cache) = menu {
+                    Self::navigation(Some(cache), (self.width, self.height), pixels, history, snapshot);
+                } else {
+                    Self::navigation(self.navigation_cache.as_mut(), (self.width, self.height), pixels, history, snapshot);
+                }
             }
             return true;
         }
@@ -661,10 +709,23 @@ fn draw_navigation_panel<T: Target>(c: &mut Canvas<T>) {
     c.rect(83., 99., 314., 282., panel);
     c.text_on(240., 117., 21., "SELECT GAUGE", (WHITE, panel));
 }
-fn draw_navigation_button<T: Target>(
-    c: &mut Canvas<T>,
-    menu: crate::navigation::View,
-    b: crate::navigation::Button,
+fn draw_navigation_selection<T: Target>(c: &mut Canvas<T>, selected: Instrument) {
+    let r = crate::navigation::Button::Gauge(selected).rect();
+    let (x, y, w, h) = (r.x as f32, r.y as f32, r.w as f32, r.h as f32);
+    c.rect(x, y, w, 2., WARN);
+    c.rect(x, y + h - 2., w, 2., WARN);
+    c.rect(x, y + 2., 2., h - 4., WARN);
+    c.rect(x + w - 2., y + 2., 2., h - 4., WARN);
+}
+fn draw_navigation_cached_button<T: Target>(c: &mut Canvas<T>, menu: crate::navigation::View, b: crate::navigation::Button) {
+    draw_navigation_button_inner(c, menu, b, false);
+}
+fn draw_navigation_button<T: Target>(c: &mut Canvas<T>, menu: crate::navigation::View, b: crate::navigation::Button) {
+    draw_navigation_button_inner(c, menu, b, true);
+}
+fn draw_navigation_button_inner<T: Target>(
+    c: &mut Canvas<T>, menu: crate::navigation::View, b: crate::navigation::Button,
+    include_selection: bool,
 ) {
     use crate::navigation::Button;
     let (label, enabled, selected, reason) = match b {
@@ -696,7 +757,7 @@ fn draw_navigation_button<T: Target>(
         r.y as f32,
         r.w as f32,
         r.h as f32,
-        if selected { WARN } else { bg },
+        if selected && include_selection { WARN } else { bg },
     );
     c.rect(
         r.x as f32 + 2.,
@@ -788,6 +849,71 @@ pub fn test_pattern<T: Target>(target: &mut T) {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn shared_menu_falls_back_on_other_display_sizes() {
+        use instrument_core::{App, Command};
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.tick(0);
+        let mut s = Snapshot::from_app(&app);
+        s.menu = Some(crate::navigation::View {
+            context: crate::navigation::Context::from_app(&app), generation: 1, pressed: None,
+        });
+        assert!(NavigationCache::new(&mut [0; 4]).is_none());
+        let mut menu_pixels = std::vec![0xffff;480*480];
+        let mut menu = NavigationCache::new(&mut menu_pixels).unwrap();
+        for size in [64, 240] {
+            let mut background = std::vec![0;size*size];
+            let mut pixels = background.clone();
+            let mut expected = background.clone();
+            let mut renderer = CachedRenderer::new(&mut background, size as u32, size as u32).unwrap();
+            let mut history = crate::damage::FrameHistory::new();
+            assert!(renderer.draw_incremental_with_menu(&mut pixels, &mut history, s, &mut menu, &mut || {}));
+            assert!(draw_frame(&mut expected, size as u32, size as u32, s, false));
+            assert_eq!(pixels, expected);
+        }
+    }
+
+    #[test]
+    fn one_menu_cache_survives_face_session_and_pressed_state_changes() {
+        use instrument_core::{App, Command, Instrument};
+        use crate::navigation::{Button, Context, View};
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.tick(0);
+        let mut backgrounds = core::array::from_fn::<_, 3, _>(|_| std::vec![0;480*480]);
+        let mut renderers: std::vec::Vec<_> = backgrounds.iter_mut()
+            .map(|b| CachedRenderer::new(b, 480, 480).unwrap()).collect();
+        let mut menu_pixels = std::vec![0;480*480];
+        let mut menu = NavigationCache::new(&mut menu_pixels).unwrap();
+        let mut buffers = core::array::from_fn::<_, 3, _>(|_| std::vec![0;480*480]);
+        let mut histories = core::array::from_fn::<_, 3, _>(|_| crate::damage::FrameHistory::new());
+        let mut expected = std::vec![0;480*480];
+        for n in 0..24 {
+            let i = (n / 4) % 3;
+            let selected = [Instrument::Altimeter, Instrument::Attitude, Instrument::Turn][i];
+            app.apply(Command::Select(selected)).unwrap();
+            let mut s = Snapshot::from_app(&app);
+            s.source_session = (n / 12) as u64;
+            s.external = n >= 12;
+            s.external_attitude = n >= 12;
+            s.center_pressed = n % 4 == 3;
+            // Open immediately on a cold context as well as after warming;
+            // switch directly while a pressed button remains in the old cache.
+            s.menu = (n % 4 != 3).then_some(View {
+                context: Context { selected, external: s.external, external_attitude: s.external_attitude,
+                    imu: false, session: s.source_session }, generation: n as u32,
+                pressed: match n % 4 { 0 => Some(Button::Cancel), 1 => None,
+                    _ => Some(Button::Gauge(Instrument::Altimeter)) },
+            });
+            assert!(draw_frame(&mut expected, 480, 480, s, false));
+            for b in 0..3 {
+                assert!(renderers[i].draw_incremental_with_menu(&mut buffers[b], &mut histories[b], s, &mut menu, &mut || {}));
+                assert_eq!(buffers[b], expected, "face/session/press step {n}, buffer {b}");
+            }
+        }
+    }
+
+    #[test]
     fn turn_prepares_navigation_cache_before_the_hold_completes() {
         use instrument_core::{App, Command, Instrument};
         let mut app = App::new();
@@ -805,7 +931,7 @@ mod tests {
         for _ in 0..8 {
             assert!(renderer.draw_incremental(&mut pixels, &mut history, s, false));
         }
-        assert_eq!(renderer.navigation_prepared,8,"Turn must prepare cached menu artwork before a long press; full lettering redraw exhausts its numeric lifetime");
+        assert_eq!(renderer.navigation_cache.as_ref().unwrap().prepared,8,"Turn must prepare cached menu artwork before a long press; full lettering redraw exhausts its numeric lifetime");
     }
     #[test]
     fn retained_faces_switch_and_center_feedback_match_full_frames() {

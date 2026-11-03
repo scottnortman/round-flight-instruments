@@ -33,7 +33,10 @@ custom aircraft may need a different control profile.
    The script verifies the image against the package manifest, then uses
    esptool's ESP32-S3 chip check and normal flash verification. Wait for successful
    completion and restart. This replaces the firmware; manual/demo settings are
-   volatile. If the package has no `firmware` folder, obtain the firmware-inclusive
+   volatile. Current development packages use a 4 MiB app partition and separate
+   bootloader/table/application segments; the supplied helper validates them and
+   preserves NVS/PHY. Use the helper from the same package as its images.
+   If the package has no `firmware` folder, obtain the firmware-inclusive
    package or update on the development PC with `scripts/Flash-Console.ps1`.
 
 ## First confirm read-only behavior

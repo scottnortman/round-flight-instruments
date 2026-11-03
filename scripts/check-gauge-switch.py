@@ -18,6 +18,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', default='COM5')
     parser.add_argument('--count', type=int, default=12, choices=range(2, 51, 2))
+    parser.add_argument('--gauges', nargs='+', choices=['altimeter', 'attitude', 'turn'],
+                        default=['attitude', 'altimeter'])
     parser.add_argument('--check-rgb', action='store_true', help='require temporary SDK scanout probe')
     parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
@@ -36,7 +38,7 @@ def main():
             require('rgb_short_eofs' in before, 'RGB probe is not installed')
         started = time.monotonic()
         for index in range(args.count):
-            gauge = 'attitude' if index % 2 == 0 else 'altimeter'
+            gauge = args.gauges[index % len(args.gauges)]
             ok('instrument ' + gauge)
             deadline = time.monotonic() + 2
             while True:

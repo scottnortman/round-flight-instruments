@@ -14,6 +14,11 @@ if ((Get-FileHash -LiteralPath $rfiBackup -Algorithm SHA256).Hash -ne $rfiExpect
 }
 $rfiArtifacts = Get-Content -LiteralPath 'D:\rfi-c\console-build-artifacts.json' -Raw | ConvertFrom-Json
 if ((Get-FileHash -LiteralPath $rfiArtifacts.executable).Hash -ne $rfiArtifacts.sha256) { throw 'Executable changed after verification' }
-espflash flash --chip esp32s3 --port $Port --baud 460800 --non-interactive --skip-update-check --flash-size 16mb --bootloader $rfiArtifacts.bootloader --partition-table D:\rfi-e\esp-idf\v5.5.5\components\partition_table\partitions_singleapp.csv $rfiArtifacts.executable
+foreach ($rfiArtifact in @('bootloader','partition_csv','partition_binary')) {
+    if ((Get-FileHash -LiteralPath $rfiArtifacts.$rfiArtifact).Hash -ne $rfiArtifacts.($rfiArtifact + '_sha256')) { throw "Changed build artifact: $rfiArtifact" }
+}
+python (Join-Path $PSScriptRoot 'partition_layout.py') --csv $rfiArtifacts.partition_csv --binary $rfiArtifacts.partition_binary --sdkconfig $rfiArtifacts.sdkconfig
+if ($LASTEXITCODE -ne 0) { throw 'Partition table verification failed' }
+espflash flash --chip esp32s3 --port $Port --baud 460800 --non-interactive --skip-update-check --flash-size 16mb --bootloader $rfiArtifacts.bootloader --partition-table $rfiArtifacts.partition_csv $rfiArtifacts.executable
 if ($LASTEXITCODE -ne 0) { throw "Flashing failed: $LASTEXITCODE" }
 Write-Output 'Application CLI: 921600/8N1, no flow control. Wait for READY before commands; early boot logs use 115200.'

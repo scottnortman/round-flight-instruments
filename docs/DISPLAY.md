@@ -53,13 +53,18 @@ The UI crate is no_std and forbids unsafe code. Its pixel target supports both
 individual pixels and batched horizontal spans. Framebuffer spans clip once and
 fill contiguous storage. The board uses three 480x480 RGB565 framebuffers in
 PSRAM (1,382,400 bytes), two internal 16-line bounce buffers (30,720 bytes), and
-two separate 460800-byte CPU-only face backdrops and a menu bitmap of the same
-size: 2,764,800 bytes of image PSRAM in total. Both faces are prepared before the
+three separate 460800-byte CPU-only face backdrops and one shared menu bitmap:
+3,225,600 bytes of image PSRAM in total. All three faces are prepared before the
 first visible frame and retained across gauge switches. An entering attitude
 frame restores only the outer bezel; its horizon paints the whole interior,
-avoiding a redundant PSRAM copy. The menu cache is also prepared at startup;
-later context changes are built in bounded pieces, and press changes repaint
+avoiding a redundant PSRAM copy. The shared menu cache is warmed before the first
+visible frame. Gauge/session changes reuse its panel and lettering; selection
+is a small outline on the output frame. Capability changes prepare button artwork
+over successive frames, and press changes repaint
 only affected buttons. These caches never participate in DMA ownership.
+The shared cache includes the selected gauge and source/session in its key;
+partially prepared artwork is never published. Opening a cold menu completes
+preparation before copying it. See the measured [memory budget](MEMORY-BUDGET.md).
 The attitude foreground adds 96 KiB of internal pixel storage plus bounded
 run descriptors. The instruction cache is 32 KiB and the RTOS tick is 1 ms.
 The source period remains 10 ms; shorter scheduler ticks permit brief blocking

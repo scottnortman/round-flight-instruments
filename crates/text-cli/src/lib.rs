@@ -119,6 +119,7 @@ pub fn parse(line: &str) -> Result<Command, Error> {
             Ok(Command::Takeoff(seconds))
         }
         ["display", "sample"] => Ok(Command::Display(DisplayCommand::SampleStatus)),
+        ["memory", "status"] => Ok(Command::Display(DisplayCommand::MemoryStatus)),
         ["touch", "status"] => Ok(Command::Display(DisplayCommand::TouchStatus)),
         ["touch", "sound", "on"] => Ok(Command::Display(DisplayCommand::TouchSound(true))),
         ["touch", "sound", "off"] => Ok(Command::Display(DisplayCommand::TouchSound(false))),
@@ -405,7 +406,7 @@ pub fn execute_with_display(
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
         Command::Echo(_) | Command::Imu(_) | Command::Display(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch menu hold MS; touch sound on|off|status; status; sim turn [SECONDS|stop|status]; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch menu hold MS; touch sound on|off|status; status; sim turn [SECONDS|stop|status]; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; echo on|off|status; memory status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
         Command::TurnDemo(_) | Command::TurnDemoStop | Command::TurnDemoStatus => {
             let d = app.turn_demo();
             writeln!(r,"OK turn_demo state={} elapsed_ms={} duration_ms={} source=sim",d.state.name(),d.elapsed_ms,d.duration_ms)
@@ -455,6 +456,17 @@ fn status(r: &mut Response, app: &App, now: u64, display: &str) -> fmt::Result {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn memory_diagnostics_are_query_only_and_hardware_specific() {
+        use super::*;
+        assert_eq!(parse("memory status"), Ok(Command::Display(DisplayCommand::MemoryStatus)));
+        for line in ["memory", "memory reset", "memory status extra"] { assert!(parse(line).is_err()); }
+        let mut app = App::new();
+        assert_eq!(execute(&mut app, parse("memory status"), 0).as_str(), "ERR display_unsupported_target\n");
+        let help = execute(&mut app, parse("help"), 0);
+        assert!(help.as_str().contains("memory status"));
+        assert!(help.as_str().ends_with('\n'));
+    }
     #[test]
     fn turn_demo_cli_has_strict_duration_and_explicit_state() {
         use super::*;

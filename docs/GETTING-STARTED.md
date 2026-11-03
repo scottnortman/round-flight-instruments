@@ -333,10 +333,19 @@ existing setup; it has not been tested as a clean-machine automated installer.
 
 The probe and firmware build do not open the serial port or flash. The firmware
 build records exact Cargo-reported ELF, SDK config and bootloader paths plus an
-ELF hash in `D:/rfi-c/console-build-artifacts.json`. It checks generated SDK safety
+ELF hash in `D:/rfi-c/console-build-artifacts.json`. It also records the canonical
+partition CSV, generated binary, bootloader and their hashes. It checks generated SDK safety
 settings, including disabled forced per-VSYNC restart. Preserve the current
 profile: raster code is optimized separately from control/FFI. An arbitrary
 optimization change can alter behavior and requires revalidation.
+
+Use this wrapper for firmware builds: it resolves the project-owned
+`firmware/console/partitions.csv` to an absolute path in generated defaults
+outside the checkout. The SDK's generated CMake project lives in the target
+directory. Raw `cargo build` alone does not resolve that custom CSV path.
+The wrapper verifies the generated table's entries and MD5 before reporting
+success: 16 MiB flash, a 4 MiB factory application at `0x10000`, unchanged NVS
+at `0x9000` and PHY at `0xf000`. This layout has no OTA slots.
 
 For firmware formatting (separate from root workspace):
 
@@ -363,11 +372,15 @@ workstation, with its backup present and the terminal disconnected:
 ```
 
 It builds, checks adapter identity, verifies the recovery-image checksum and
-ELF hash, then writes the matching bootloader, partition table and application
+ELF and table/bootloader hashes, then writes the matching bootloader, partition table and application
 at flash-tool baud 460800. This replaces installed firmware and resets the
 board. It does not modify eFuses. Wait for application startup before reconnecting
 at 921600. For a different board, deliberately provision its own identity and
 recovery checks in the script before flashing; a fresh clone is not sufficient.
+Only those three flash segments are written; NVS/PHY are preserved. The first
+4 MiB-layout migration was verified with flash readback and byte-for-byte
+persistent-data comparison. Query `memory status` to see the installed app
+offset/size and free/minimum/largest-block RAM; see [memory budget](MEMORY-BUDGET.md).
 
 `Test-BoardWatchdog.ps1` intentionally flashes a repeatedly stalling/resetting
 build, then restores normal firmware during cleanup. It is an explicit fault
