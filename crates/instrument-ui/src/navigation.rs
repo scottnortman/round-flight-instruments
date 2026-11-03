@@ -57,15 +57,17 @@ impl Context {
     pub fn enabled(self, instrument: Instrument) -> bool {
         match instrument {
             Instrument::Altimeter => !self.imu,
+            Instrument::Turn => !self.imu && (!self.external || self.external_attitude),
             Instrument::Attitude => !self.external || self.external_attitude,
             _ => false,
         }
     }
     pub fn reason(self, instrument: Instrument) -> &'static str {
         match instrument {
-            Instrument::Altimeter if self.imu => "NO IMU DATA",
+            Instrument::Altimeter | Instrument::Turn if self.imu => "NO IMU DATA",
+            Instrument::Turn if self.external && !self.external_attitude => "NO SIM DATA",
             Instrument::Attitude if self.external && !self.external_attitude => "NO SIM DATA",
-            Instrument::Altimeter | Instrument::Attitude => "",
+            Instrument::Altimeter | Instrument::Attitude | Instrument::Turn => "",
             _ => "NOT BUILT",
         }
     }
@@ -157,6 +159,20 @@ impl Controller {
         context: Context,
         presented: u32,
     ) -> Option<Instrument> {
+        self.update_visible(now, input, allowed, true, context, presented)
+    }
+    /// Numeric data can expire while the display pipeline is operational.
+    /// Preserve an open menu during that brief dark interval, but discard any
+    /// gesture and require a fresh visible release before another press.
+    pub fn update_visible(
+        &mut self,
+        now: u64,
+        input: Option<Input>,
+        allowed: bool,
+        visible: bool,
+        context: Context,
+        presented: u32,
+    ) -> Option<Instrument> {
         self.press_started = false;
         let bad_gap = self
             .last_tick
@@ -177,6 +193,15 @@ impl Controller {
         }
         if self.view.is_some() && now.saturating_sub(self.activity) >= EDIT_TIMEOUT_MS {
             self.cancel();
+            return None;
+        }
+        if !visible {
+            self.armed = false;
+            self.holding = None;
+            self.pressed_id = None;
+            if let Some(view) = &mut self.view {
+                view.pressed = None;
+            }
             return None;
         }
         if let Some(v) = self.view.as_mut() {
@@ -304,6 +329,62 @@ mod tests {
         assert_eq!(feed(&mut c, t + 50, Contact::Up), None);
     }
     #[test]
+    fn brief_numeric_blanking_preserves_menu_but_never_accepts_a_hidden_gesture() {
+        let mut c = Controller::default();
+        let t = open(&mut c);
+        let generation = c.view().unwrap().generation;
+        let target = Button::Gauge(Instrument::Attitude).rect();
+        let down = Contact::Down {
+            id: 0,
+            x: target.x + 10,
+            y: target.y + 10,
+        };
+        let update = |c: &mut Controller, dt, contact, visible, allowed| {
+            c.update_visible(
+                t + dt,
+                Some(Input {
+                    at_ms: t + dt,
+                    contact,
+                }),
+                allowed,
+                visible,
+                ctx(),
+                generation,
+            )
+        };
+        assert_eq!(update(&mut c, 10, Contact::Up, true, true), None);
+        assert_eq!(update(&mut c, 20, down, true, true), None);
+        assert!(c.view().unwrap().pressed.is_some());
+        assert_eq!(update(&mut c, 30, Contact::Up, false, true), None);
+        assert!(c.view().is_some() && c.view().unwrap().pressed.is_none());
+        assert_eq!(update(&mut c, 40, down, true, true), None);
+        assert!(c.view().unwrap().pressed.is_none());
+        assert_eq!(update(&mut c, 50, Contact::Up, true, true), None);
+        assert_eq!(update(&mut c, 60, down, true, true), None);
+        assert_eq!(
+            update(&mut c, 70, Contact::Up, true, true),
+            Some(Instrument::Attitude)
+        );
+        let mut c = Controller::default();
+        let t = open(&mut c);
+        let generation = c.view().unwrap().generation;
+        c.update_visible(
+            t + 10,
+            Some(Input {
+                at_ms: t + 10,
+                contact: Contact::Up,
+            }),
+            false,
+            false,
+            ctx(),
+            generation,
+        );
+        assert!(
+            c.view().is_none(),
+            "Actual display unavailability still cancels"
+        );
+    }
+    #[test]
     fn disabled_drag_stale_multitouch_and_unpresented_never_select() {
         for mode in 0..5 {
             let mut c = Controller::default();
@@ -360,6 +441,14 @@ mod tests {
         );
         assert!(c.view().is_none());
         assert!(!external.enabled(Instrument::Attitude));
+        assert!(!external.enabled(Instrument::Turn));
+        assert!(Context {
+            external_attitude: true,
+            ..external
+        }
+        .enabled(Instrument::Turn));
+        assert!(ctx().enabled(Instrument::Turn));
+        assert!(!Context { imu: true, ..ctx() }.enabled(Instrument::Turn));
         assert!(external.enabled(Instrument::Altimeter));
         assert!(!Context { imu: true, ..ctx() }.enabled(Instrument::Altimeter));
         assert!(!ctx().center(280, 240)); // pressure window owns overlap

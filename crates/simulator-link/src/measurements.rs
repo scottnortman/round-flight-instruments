@@ -71,8 +71,7 @@ impl Quantity {
         match self {
             // External simulator attitude includes transport and LCD scanout.
             // Local/IMU policies live in instrument-core and are unchanged.
-            PitchDeg | RollDeg => 150,
-            TurnRateDps | SlipBall => 100,
+            PitchDeg | RollDeg | TurnRateDps | SlipBall => 150,
             MagneticHeadingDeg | TrueHeadingDeg | IndicatedAirspeedKt | TrueAirspeedKt
             | VerticalSpeedFpm => 500,
             _ => 1000,

@@ -47,6 +47,12 @@ Hold the dial center for **3 seconds**, release, and select **Altimeter** or
 The other four instruments' data is subscribed in the background; their display
 faces remain disabled until implemented.
 
+With firmware from `feature/turn-coordinator`, **Turn** is also selectable using
+the same data stream. This addition still needs live MSFS rate/ball comparison.
+The existing preview installer predates this gauge; its startup and transport
+already carry the required readings. Its bundled guide/status text lists the
+earlier two-face baseline. Airspeed, Heading and VSI remain unfinished.
+
 MSFS values are authoritative. Merely changing gauge, connecting, or loading an
 aircraft sends **no aircraft control**. Hidden gauges are read-only. On Altimeter,
 hold the pressure window for **0.25 seconds**, adjust, and tap **Apply** to request

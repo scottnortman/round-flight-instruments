@@ -290,7 +290,7 @@ impl<'a> CachedRenderer<'a> {
         if !self.prepare(snapshot, pattern) {
             return false;
         }
-        if snapshot.selected == Instrument::Attitude && !pattern {
+        if !pattern {
             self.prepare_navigation(snapshot);
         }
         if let Some(history) = history {
@@ -358,9 +358,8 @@ impl<'a> CachedRenderer<'a> {
                             }),
                         progress,
                     );
-                    self.navigation(pixels, history, snapshot);
                 } else {
-                    draw_overlay(
+                    draw_gauge_overlay(
                         &mut crate::damage::Tracked {
                             last_pixel_tile: u16::MAX,
                             target: fb,
@@ -369,6 +368,7 @@ impl<'a> CachedRenderer<'a> {
                         snapshot,
                     );
                 }
+                self.navigation(pixels, history, snapshot);
             }
             return true;
         }
@@ -469,6 +469,10 @@ fn draw_background<T: Target>(target: &mut T, s: Snapshot) {
     if s.selected == Instrument::Attitude {
         return;
     }
+    if s.selected == Instrument::Turn {
+        crate::turn::background(target);
+        return;
+    }
     if s.selected != Instrument::Altimeter {
         c.text(240., 180., 25., "SIMULATION", WARN);
         let mut name = Text::new();
@@ -522,6 +526,10 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
     draw_navigation(target, s);
 }
 fn draw_gauge_overlay<T: Target>(target: &mut T, s: Snapshot) {
+    if s.selected == Instrument::Turn {
+        crate::turn::draw(target, s.turn_model(), s.source_label);
+        return;
+    }
     if s.selected == Instrument::Attitude {
         if s.imu_bench && s.attitude_model().angles.is_none() {
             crate::attitude::waiting(target);
@@ -780,6 +788,26 @@ pub fn test_pattern<T: Target>(target: &mut T) {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn turn_prepares_navigation_cache_before_the_hold_completes() {
+        use instrument_core::{App, Command, Instrument};
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.tick(0);
+        app.apply(Command::Select(Instrument::Turn)).unwrap();
+        let s = Snapshot::from_app(&app);
+        let mut background = std::vec![0;480*480];
+        let mut menu = std::vec![0;480*480];
+        let mut pixels = std::vec![0;480*480];
+        let mut history = crate::damage::FrameHistory::new();
+        let mut renderer = CachedRenderer::new(&mut background, 480, 480)
+            .unwrap()
+            .with_navigation_pixels(&mut menu);
+        for _ in 0..8 {
+            assert!(renderer.draw_incremental(&mut pixels, &mut history, s, false));
+        }
+        assert_eq!(renderer.navigation_prepared,8,"Turn must prepare cached menu artwork before a long press; full lettering redraw exhausts its numeric lifetime");
+    }
+    #[test]
     fn retained_faces_switch_and_center_feedback_match_full_frames() {
         use instrument_core::{App, Command};
         let mut app = App::new();
@@ -841,6 +869,7 @@ mod tests {
             for selected in [
                 Instrument::Altimeter,
                 Instrument::Attitude,
+                Instrument::Turn,
                 Instrument::Heading,
             ] {
                 app.apply(Command::Select(selected)).unwrap();
@@ -919,6 +948,16 @@ mod tests {
             let mut output = std::vec![0xffff; size * size];
             let mut reference = output.clone();
             let mut snapshot = Snapshot {
+                turn_rate: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
+                ball: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
                 pitch: Reading {
                     value: Some(0.),
                     quality: Quality::Valid,
@@ -1009,6 +1048,16 @@ mod tests {
             let mut reference = std::vec![0; len];
             for n in 0..60 {
                 let snapshot = Snapshot {
+                    turn_rate: Reading {
+                        value: Some(0.),
+                        quality: Quality::Valid,
+                        age_ms: Some(0),
+                    },
+                    ball: Reading {
+                        value: Some(0.),
+                        quality: Quality::Valid,
+                        age_ms: Some(0),
+                    },
                     pitch: Reading {
                         value: Some(0.),
                         quality: Quality::Valid,
@@ -1268,6 +1317,16 @@ mod tests {
         for size in [240, 480, 720] {
             let mut pixels = std::vec![0u16;size*size];
             let valid = Snapshot {
+                turn_rate: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
+                ball: Reading {
+                    value: Some(0.),
+                    quality: Quality::Valid,
+                    age_ms: Some(0),
+                },
                 pitch: Reading {
                     value: Some(0.),
                     quality: Quality::Valid,

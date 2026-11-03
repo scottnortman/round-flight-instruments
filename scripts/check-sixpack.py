@@ -11,6 +11,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--port',default='COM5');p.add_argument('--seconds',type=int,default=30)
     p.add_argument('--report',type=Path,required=True)
+    p.add_argument('--gauges',nargs='+',choices=['altimeter','attitude','turn'],default=['altimeter','attitude','altimeter'])
     a=p.parse_args()
     if not 1 <= a.seconds <= 300: p.error('--seconds must be 1..300')
     import ctypes
@@ -24,13 +25,13 @@ def main():
         def feed():
             nonlocal seq,at,max_ack_ms
             seq+=1;t=time.perf_counter()
-            values=[4520+1000*math.sin(t/10),4500,29.92,20*math.sin(t/2),40*math.sin(t/4),120,270,500,3,.1]
+            values=[4520+1000*math.sin(t/10),4500,29.92,20*math.sin(t/2),40*math.sin(t/4),120,270,500,3*math.sin(t/2),.8*math.sin(t/3)]
             body=f'T2 {sid} {seq} {at} running' + ''.join(f' {i}:0:1:{v:.5f}' for i,v in enumerate(values,1))
             began=time.perf_counter()
             ack=link.command(f'{body} *{zlib.crc32(body.encode()):08X}','OK telemetry')
             max_ack_ms=max(max_ack_ms,(time.perf_counter()-began)*1000)
             at=int(fields(ack)['now_ms'])
-        for gauge in ['altimeter','attitude','altimeter']:
+        for gauge in a.gauges:
             link.command(f'instrument {gauge}','OK ')
             warm=time.perf_counter()+1
             while time.perf_counter()<warm: feed()

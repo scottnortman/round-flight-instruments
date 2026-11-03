@@ -351,10 +351,23 @@ impl Service {
             .borrow_mut()
             .read(app.now_ms(), touch.map(|t| t.input(app.now_ms())));
         let menu_was_busy = navigation.busy();
-        let selection = navigation.update(
+        // Numeric expiry must invalidate displayed gauge data, but it must not
+        // destroy an open navigation menu. Use independent pipeline supervision
+        // here; update_visible suppresses all gestures while actually dark.
+        let owner_at = s.owner.load(Ordering::Acquire);
+        let presented_at = s.presented.load(Ordering::Acquire);
+        let scanout_at = s.scanout.load(Ordering::Acquire);
+        let navigation_healthy = s.ready.load(Ordering::Acquire)
+            && s.enabled.load(Ordering::Acquire)
+            && !s.pattern.load(Ordering::Acquire)
+            && s.stall.load(Ordering::Acquire) == 0
+            && !s.failed.load(Ordering::Acquire)
+            && presentation_healthy(now() as u64, owner_at as u64, presented_at as u64, u64::MAX, scanout_at as u64);
+        let selection = navigation.update_visible(
             app.now_ms(),
             input,
-            healthy && interaction.view().is_none() && !interaction.window_pressed(),
+            navigation_healthy && interaction.view().is_none() && !interaction.window_pressed(),
+            s.light.load(Ordering::Acquire),
             instrument_ui::navigation::Context::from_app(app),
             s.shown_menu.load(Ordering::Acquire),
         );
@@ -482,7 +495,7 @@ impl Service {
             DisplayCommand::TransferStall => s.stall.store(2, Ordering::Release),
             DisplayCommand::Recover => s.stall.store(0, Ordering::Release),
             DisplayCommand::Status => {
-                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
+                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
             }
         }
         reply(format_args!(
@@ -499,8 +512,10 @@ struct Backend {
     buffers: [*mut core::ffi::c_void; 3],
     backdrop: &'static mut [u16],
     attitude_backdrop: &'static mut [u16],
+    turn_backdrop: &'static mut [u16],
     foreground_pixels: &'static mut [u16],
     navigation_pixels: &'static mut [u16],
+    turn_navigation_pixels: &'static mut [u16],
     wake: Queue<u32>,
 }
 // Initialization transfers this handle exactly once to the sole drawing task.
@@ -580,6 +595,9 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
     }
     let attitude_backdrop =
         unsafe { core::slice::from_raw_parts_mut(attitude_backdrop.cast::<u16>(), 480 * 480) };
+    let turn_backdrop = unsafe { sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT) };
+    if turn_backdrop.is_null() { return Err(io::Error::other("LCD turn backdrop allocation")); }
+    let turn_backdrop = unsafe { core::slice::from_raw_parts_mut(turn_backdrop.cast::<u16>(), 480 * 480) };
     let navigation_pixels = unsafe {
         sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
     };
@@ -588,6 +606,17 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
     }
     let navigation_pixels =
         unsafe { core::slice::from_raw_parts_mut(navigation_pixels.cast::<u16>(), 480 * 480) };
+    // CPU-only artwork, never submitted to DMA. Turn needs bounded menu cost
+    // under the same 100 ms local lifetime as Attitude.
+    let turn_navigation_pixels = unsafe {
+        sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
+    };
+    if turn_navigation_pixels.is_null() {
+        return Err(io::Error::other("LCD turn navigation cache allocation"));
+    }
+    let turn_navigation_pixels = unsafe {
+        core::slice::from_raw_parts_mut(turn_navigation_pixels.cast::<u16>(), 480 * 480)
+    };
     let foreground_pixels =
         unsafe { sys::heap_caps_calloc(49152, 2, sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
     if foreground_pixels.is_null() {
@@ -623,8 +652,10 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
         buffers,
         backdrop,
         attitude_backdrop,
+        turn_backdrop,
         foreground_pixels,
         navigation_pixels,
+        turn_navigation_pixels,
         wake,
     })
 }
@@ -634,13 +665,18 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         buffers,
         backdrop,
         attitude_backdrop,
+        turn_backdrop,
         foreground_pixels,
         navigation_pixels,
+        turn_navigation_pixels,
         wake,
     } = backend;
     let mut foreground_runs = vec![instrument_ui::attitude::CopyRun::default(); instrument_ui::attitude::FOREGROUND_RUN_CAPACITY];
     let mut renderer = render::CachedRenderer::new(backdrop, 480, 480)
         .ok_or_else(|| io::Error::other("LCD backdrop size"))?;
+    let mut turn_renderer = render::CachedRenderer::new(turn_backdrop,480,480)
+        .ok_or_else(|| io::Error::other("LCD turn backdrop size"))?
+        .with_navigation_pixels(turn_navigation_pixels);
     let mut attitude_renderer = render::CachedRenderer::with_foreground_cache(
         attitude_backdrop,
         480,
@@ -669,6 +705,8 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     if !renderer.prepare_background(warm) {
         return Err(io::Error::other("altimeter preparation"));
     }
+    warm.selected = Instrument::Turn;
+    if !turn_renderer.prepare_background(warm) { return Err(io::Error::other("turn preparation")); }
     warm.selected = Instrument::Attitude;
     if !attitude_renderer.prepare_background(warm) {
         return Err(io::Error::other("attitude preparation"));
@@ -681,7 +719,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     let mut idle_budget = Instant::now();
     let mut last_draw_ms = 30u32;
     let mut last_submit_ms = 0u32;
-    let mut last_was_attitude = false;
+    let mut previous_view = None;
     loop {
         // Completed transfers can overlap all CPU work. Independently budget
         // idle time even when no completion wait blocks; keep both idle-task
@@ -715,7 +753,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         // Late capture: avoid spending the spare buffer's source lifetime
         // waiting behind an earlier transfer. Predict only scheduling time;
         // completion counters still exclusively determine DMA ownership.
-        if last_was_attitude && pipeline.is_pending() {
+        if matches!(previous_view, Some(Instrument::Attitude | Instrument::Turn)) && pipeline.is_pending() {
             let frame_ms = (548u64 * 508 * 1000).div_ceil(applied_pclk as u64) as u32;
             loop {
                 // A new view must start immediately: the old attitude frame
@@ -727,9 +765,9 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
                     .lock()
                     .map_err(|_| io::Error::other("display snapshot poisoned"))?
                     .as_ref()
-                    .map_or(Instrument::Attitude, |(v, _)| v.selected);
+                    .map_or(previous_view.unwrap_or(Instrument::Attitude), |(v, _)| v.selected);
                 let delay = instrument_ui::pipeline::capture_delay_ms(
-                    last_was_attitude,
+                    previous_view,
                     next,
                     frame_ms,
                     last_draw_ms,
@@ -795,6 +833,8 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
             progress();
             let active_renderer = if snapshot.selected == Instrument::Attitude && !pattern {
                 &mut attitude_renderer
+            } else if snapshot.selected == Instrument::Turn && !pattern {
+                &mut turn_renderer
             } else {
                 &mut renderer
             };
@@ -812,7 +852,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
             }
         }
         last_draw_ms = started.elapsed().as_millis() as u32;
-        last_was_attitude = snapshot.selected == Instrument::Attitude && !pattern;
+        previous_view = (!pattern).then_some(snapshot.selected);
         s.render_max.fetch_max(last_draw_ms, Ordering::Relaxed);
         while s.stall.load(Ordering::Acquire) == 2 {
             thread::sleep(Duration::from_millis(20));
@@ -946,6 +986,7 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
         match snapshot.selected {
             Instrument::Altimeter => 0,
             Instrument::Attitude => 1,
+            Instrument::Turn => 3,
             _ => 2,
         },
         Ordering::Release,

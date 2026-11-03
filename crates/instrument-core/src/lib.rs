@@ -5,6 +5,7 @@ mod baro_control;
 pub mod external;
 pub mod imu_attitude;
 pub mod takeoff;
+pub mod turn_demo;
 pub use simulator_link;
 
 /// Bench verification limits, not validated aircraft operating limits.
@@ -165,6 +166,9 @@ pub enum Command {
     SourceStatus,
     Telemetry(simulator_link::Frame),
     Telemetry2(simulator_link::multi::Frame),
+    TurnDemo(u32),
+    TurnDemoStop,
+    TurnDemoStatus,
     AttitudeDemo(u32),
     AttitudeDemoStop,
     AttitudeDemoStatus,
@@ -228,6 +232,7 @@ pub struct App {
     control: baro_control::BaroControl,
     takeoff: takeoff::Takeoff,
     attitude_demo: attitude_demo::Demo,
+    turn_demo: turn_demo::Demo,
     selected: Instrument,
     running: bool,
     baro_inhg: f32,
@@ -267,6 +272,9 @@ impl App {
             }
             self.imu_attitude.accept(input, self.now_ms());
         }
+    }
+    pub fn turn_demo(&self) -> &turn_demo::Demo {
+        &self.turn_demo
     }
     pub fn attitude_demo(&self) -> attitude_demo::Demo {
         self.attitude_demo
@@ -386,6 +394,7 @@ impl App {
             },
             takeoff: takeoff::Takeoff::new(),
             attitude_demo: attitude_demo::Demo::new(),
+            turn_demo: turn_demo::Demo::new(),
             selected: Instrument::Altimeter,
             running: true,
             baro_inhg: 29.92,
@@ -417,7 +426,12 @@ impl App {
         if self.timing_fault || !self.running || self.external.is_some() || self.imu_bench {
             self.takeoff.stop(self.timing_fault);
             self.attitude_demo.stop(self.timing_fault);
+            self.turn_demo.stop(self.timing_fault);
             return;
+        }
+        if let Some([rate, ball]) = self.turn_demo.advance(now) {
+            self.held[Field::TurnDps as usize] = Some(rate);
+            self.held[Field::Ball as usize] = Some(ball);
         }
         if let Some([pitch, roll]) = self.attitude_demo.advance(now) {
             self.held[Field::PitchDeg as usize] = Some(pitch);
@@ -500,7 +514,9 @@ impl App {
         if (self.external.is_some() || self.imu_bench)
             && matches!(
                 command,
-                Command::AttitudeDemo(_)
+                Command::TurnDemo(_)
+                    | Command::TurnDemoStop
+                    | Command::AttitudeDemo(_)
                     | Command::AttitudeDemoStop
                     | Command::Takeoff(_)
                     | Command::TakeoffStop
@@ -526,6 +542,7 @@ impl App {
                 self.running = true;
                 self.takeoff.stop(false);
                 self.attitude_demo.stop(false);
+                self.turn_demo.stop(false);
             }
             Command::SourceImu => {
                 if self.timing_fault {
@@ -539,6 +556,7 @@ impl App {
                 self.held = [None; 8];
                 self.takeoff.stop(false);
                 self.attitude_demo.stop(false);
+                self.turn_demo.stop(false);
                 self.running = false;
                 self.selected = Instrument::Attitude;
             }
@@ -561,6 +579,7 @@ impl App {
                 self.held = [None; 8];
                 self.takeoff.stop(false);
                 self.attitude_demo.stop(false);
+                self.turn_demo.stop(false);
             }
             Command::Telemetry2(frame) => {
                 if self.timing_fault {
@@ -588,7 +607,31 @@ impl App {
                     self.baro_inhg = v;
                 }
             }
+            Command::TurnDemo(seconds) => {
+                if !(5..=600).contains(&seconds) {
+                    return Err(ApplyError::OutOfRange);
+                }
+                if self.timing_fault
+                    || self.faults[Field::TurnDps as usize]
+                    || self.faults[Field::Ball as usize]
+                {
+                    return Err(ApplyError::NotReady);
+                }
+                self.takeoff.stop(false);
+                self.attitude_demo.stop(false);
+                self.turn_demo.start(self.now_ms(), seconds);
+                self.selected = Instrument::Turn;
+                self.running = true;
+                for f in [Field::TurnDps, Field::Ball] {
+                    self.held[f as usize] = Some(0.);
+                    self.samples[f as usize] = None;
+                }
+                self.publish_phase_ms = None;
+            }
+            Command::TurnDemoStop => self.turn_demo.stop(false),
+            Command::TurnDemoStatus => (),
             Command::AttitudeDemo(seconds) => {
+                self.turn_demo.stop(false);
                 if !(5..=600).contains(&seconds) {
                     return Err(ApplyError::OutOfRange);
                 }
@@ -618,6 +661,7 @@ impl App {
                     return Err(ApplyError::NotReady);
                 }
                 self.attitude_demo.stop(false);
+                self.turn_demo.stop(false);
                 self.takeoff.start(self.now_ms(), seconds);
                 self.selected = Instrument::Altimeter;
                 self.baro_inhg = 29.92;
@@ -656,6 +700,9 @@ impl App {
                 if matches!(f, Field::PitchDeg | Field::RollDeg) {
                     self.attitude_demo.stop(false);
                 }
+                if matches!(f, Field::TurnDps | Field::Ball) {
+                    self.turn_demo.stop(false);
+                }
                 self.held[f as usize] = Some(v);
             }
             Command::Clear(f) => {
@@ -665,18 +712,23 @@ impl App {
                 if matches!(f, Field::PitchDeg | Field::RollDeg) {
                     self.attitude_demo.stop(false);
                 }
+                if matches!(f, Field::TurnDps | Field::Ball) {
+                    self.turn_demo.stop(false);
+                }
                 self.held[f as usize] = None;
                 self.samples[f as usize] = None;
             }
             Command::Pause => {
                 self.takeoff.stop(false);
                 self.attitude_demo.stop(false);
+                self.turn_demo.stop(false);
                 self.running = false;
             }
             Command::Resume => self.running = true,
             Command::LevelPreset => {
                 self.takeoff.stop(false);
                 self.attitude_demo.stop(false);
+                self.turn_demo.stop(false);
                 self.held = [
                     Some(4520.0),
                     Some(0.0),
@@ -689,6 +741,9 @@ impl App {
                 ];
             }
             Command::Fault(f, active) => {
+                if active && matches!(f, Field::TurnDps | Field::Ball) {
+                    self.turn_demo.stop(true);
+                }
                 if self.imu_bench && matches!(f, Field::PitchDeg | Field::RollDeg) {
                     self.imu_attitude.accept(
                         imu_attitude::Input::unavailable(Quality::Failed),
@@ -730,6 +785,56 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn turn_demo_is_bounded_and_never_overrides_external_or_manual_controls() {
+        use super::*;
+        let mut app = App::new();
+        app.tick(0);
+        for seconds in [0, 4, 601, u32::MAX] {
+            assert_eq!(
+                app.apply(Command::TurnDemo(seconds)),
+                Err(ApplyError::OutOfRange)
+            );
+        }
+        app.apply(Command::TurnDemo(5)).unwrap();
+        assert_eq!(app.selected(), Instrument::Turn);
+        let mut saw_left = false;
+        let mut saw_right = false;
+        let mut saw_ball = false;
+        for now in (10..=5000).step_by(10) {
+            app.tick(now);
+            let rate = app.reading(Field::TurnDps, now).value.unwrap();
+            let ball = app.reading(Field::Ball, now).value.unwrap();
+            assert!((-3.0..=3.0).contains(&rate) && (-0.75..=0.75).contains(&ball));
+            saw_left |= rate < -2.9;
+            saw_right |= rate > 2.9;
+            saw_ball |= ball.abs() > 0.7;
+        }
+        assert!(saw_left && saw_right && saw_ball);
+        assert_eq!(app.turn_demo().state, takeoff::State::Complete);
+        assert_eq!(app.reading(Field::TurnDps, 5000).value, Some(0.));
+        app.apply(Command::TurnDemo(5)).unwrap();
+        app.apply(Command::Set(Field::PitchDeg, 5.)).unwrap();
+        assert!(app.turn_demo().running());
+        app.apply(Command::Set(Field::Ball, 0.2)).unwrap();
+        assert!(!app.turn_demo().running());
+        app.apply(Command::TurnDemo(5)).unwrap();
+        app.apply(Command::Pause).unwrap();
+        assert!(!app.turn_demo().running());
+        app.apply(Command::TurnDemo(5)).unwrap();
+        app.apply(Command::Fault(Field::Ball, true)).unwrap();
+        assert_eq!(app.turn_demo().state, takeoff::State::Faulted);
+        assert_eq!(app.apply(Command::TurnDemo(5)), Err(ApplyError::NotReady));
+        app.apply(Command::SourceExternal2(
+            simulator_link::Provider::Synthetic,
+            1,
+        ))
+        .unwrap();
+        assert_eq!(
+            app.apply(Command::TurnDemo(5)),
+            Err(ApplyError::Unsupported)
+        );
+    }
     #[test]
     fn imu_fault_freezes_retained_pair_until_new_post_fault_input() {
         let mut app = App::new();

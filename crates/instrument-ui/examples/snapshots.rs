@@ -20,6 +20,16 @@ fn main() -> std::io::Result<()> {
             render::draw(
                 &mut Framebuffer::new(&mut pixels, size, size).unwrap(),
                 Snapshot {
+                    turn_rate: Reading {
+                        value: Some(0.),
+                        quality: Quality::Valid,
+                        age_ms: Some(0),
+                    },
+                    ball: Reading {
+                        value: Some(0.),
+                        quality: Quality::Valid,
+                        age_ms: Some(0),
+                    },
                     pitch: Reading {
                         value: Some(0.),
                         quality: Quality::Valid,

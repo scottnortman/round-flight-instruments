@@ -10,6 +10,7 @@ pub mod navigation;
 pub mod pipeline;
 pub mod raster;
 pub mod render;
+pub mod turn;
 
 use instrument_core::{App, Field, Instrument, Quality, Reading};
 
@@ -34,6 +35,8 @@ pub struct Snapshot {
     pub altitude: Reading,
     pub pitch: Reading,
     pub roll: Reading,
+    pub turn_rate: Reading,
+    pub ball: Reading,
     pub baro_inhg: f32,
 }
 impl Snapshot {
@@ -63,6 +66,17 @@ impl Snapshot {
             attitude::STALE_MS
         }
     }
+    pub fn turn_model(self) -> turn::Turn {
+        turn::model(self.turn_rate, self.ball, self.turn_stale_ms())
+    }
+    fn turn_stale_ms(self) -> u64 {
+        if self.external {
+            instrument_core::simulator_link::measurements::Quantity::TurnRateDps.stale_after_ms()
+                as u64
+        } else {
+            turn::LOCAL_STALE_MS
+        }
+    }
     pub fn imu_holding(self) -> bool {
         self.imu_bench
             && self.attitude_model().angles.is_some()
@@ -72,6 +86,7 @@ impl Snapshot {
         match self.selected {
             Instrument::Altimeter => Some(self.model().quality),
             Instrument::Attitude => Some(self.attitude_model().quality),
+            Instrument::Turn => Some(self.turn_model().quality()),
             _ => None,
         }
     }
@@ -80,6 +95,12 @@ impl Snapshot {
             Instrument::Altimeter => self.altitude.age_ms,
             Instrument::Attitude if self.imu_holding() => self.imu_last_good.map(|h| h.age_ms),
             Instrument::Attitude => Some(self.pitch.age_ms?.max(self.roll.age_ms?)),
+            Instrument::Turn => self
+                .turn_rate
+                .age_ms
+                .into_iter()
+                .chain(self.ball.age_ms)
+                .max(),
             _ => None,
         }
     }
@@ -102,6 +123,8 @@ impl Snapshot {
             altitude: app.altimeter_reading(app.now_ms()),
             pitch: app.reading(Field::PitchDeg, app.now_ms()),
             roll: app.reading(Field::RollDeg, app.now_ms()),
+            turn_rate: app.reading(Field::TurnDps, app.now_ms()),
+            ball: app.reading(Field::Ball, app.now_ms()),
             baro_inhg: app
                 .external_baro(app.now_ms())
                 .map_or_else(|| app.baro_inhg(), |r| r.value.unwrap_or(f32::NAN)),
@@ -116,6 +139,16 @@ impl Snapshot {
             reading.age_ms = reading.age_ms.map(|age| age.saturating_add(elapsed_ms));
             if reading.quality == Quality::Valid
                 && reading.age_ms.is_none_or(|age| age >= attitude_stale_ms)
+            {
+                reading.value = None;
+                reading.quality = Quality::Stale;
+            }
+        }
+        let turn_stale_ms = self.turn_stale_ms();
+        for reading in [&mut self.turn_rate, &mut self.ball] {
+            reading.age_ms = reading.age_ms.map(|a| a.saturating_add(elapsed_ms));
+            if reading.quality == Quality::Valid
+                && reading.age_ms.is_none_or(|a| a >= turn_stale_ms)
             {
                 reading.value = None;
                 reading.quality = Quality::Stale;
@@ -155,6 +188,20 @@ impl Snapshot {
                     .saturating_sub(self.displayed_age_ms().unwrap_or(self.attitude_stale_ms()))
             });
         }
+        if self.selected == Instrument::Turn {
+            let m = self.turn_model();
+            return [
+                (m.aircraft_deg.is_some(), self.turn_rate.age_ms),
+                (m.ball.is_some(), self.ball.age_ms),
+            ]
+            .into_iter()
+            .filter(|(valid, _)| *valid)
+            .map(|(_, age)| {
+                self.turn_stale_ms()
+                    .saturating_sub(age.unwrap_or(self.turn_stale_ms()))
+            })
+            .min();
+        }
         if self.selected != Instrument::Altimeter {
             return None;
         }
@@ -186,6 +233,31 @@ pub fn presentation_healthy(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn turn_display_lifetimes_preserve_independent_axes_and_source_policy() {
+        use super::*;
+        use instrument_core::Command;
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap();
+        app.tick(0);
+        app.apply(Command::Select(Instrument::Turn)).unwrap();
+        let mut s = Snapshot::from_app(&app);
+        s.turn_rate.age_ms = Some(70);
+        s.ball.age_ms = Some(90);
+        assert_eq!(s.numeric_lifetime_ms(), Some(10));
+        s.external = true;
+        s.external_attitude = true;
+        assert_eq!(s.numeric_lifetime_ms(), Some(60));
+        let a = s.aged(59);
+        assert_eq!(a.ball.age_ms, Some(149));
+        assert_eq!(a.numeric_lifetime_ms(), Some(1));
+        let a = s.aged(60);
+        assert!(a.turn_model().aircraft_deg.is_some() && a.turn_model().ball.is_none());
+        assert_eq!(a.numeric_lifetime_ms(), Some(20));
+        assert_eq!(a.ball.age_ms, Some(150));
+        assert_eq!(s.aged(80).numeric_lifetime_ms(), None);
+        assert!(s.aged(80).turn_model().aircraft_deg.is_none());
+    }
     use super::*;
     #[test]
     fn imu_hold_preserves_quality_and_age_and_does_not_change_other_sources() {
@@ -305,6 +377,16 @@ mod tests {
         assert!(!presentation_healthy(100, 90, 90, 100, 90));
         assert!(!presentation_healthy(10, 11, 9, 100, 9));
         let s = Snapshot {
+            turn_rate: Reading {
+                value: Some(0.),
+                quality: Quality::Valid,
+                age_ms: Some(0),
+            },
+            ball: Reading {
+                value: Some(0.),
+                quality: Quality::Valid,
+                age_ms: Some(0),
+            },
             pitch: Reading {
                 value: Some(0.),
                 quality: Quality::Valid,

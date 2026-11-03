@@ -1,7 +1,7 @@
 # Installed Windows connector (development)
 
-Branch: `feature/windows-instrument-driver`, based on `v0.2.0-rc.4`.
-Implemented as an unreleased source checkpoint. Local installer trials passed;
+Source checkpoint: **v0.2.0-rc.5**; developed on `feature/windows-instrument-driver`
+and extended by `feature/turn-coordinator`. Local installer trials passed;
 live MSFS acceptance remains pending. See [setup](WINDOWS-DRIVER-SETUP.md)
 and [verification](../verification/WINDOWS-DRIVER.md).
 
@@ -19,6 +19,9 @@ automatic simulator and USB recovery; no Python or terminal for ordinary use.
 Data support for all six standard instruments; live Altimeter/Attitude first,
 remaining faces disabled. Native Rust runtime, isolated SimConnect worker,
 existing CH343 USB serial driver. DCS remains a future provider.
+The Turn Coordinator development branch also enables Turn using the existing
+T2 data; live MSFS cockpit validation remains pending. Airspeed, Heading and VSI
+remain disabled.
 
 Background readings never write aircraft state. Simulator readings are authoritative
 on startup, aircraft changes and gauge changes. Only an explicit action on the active

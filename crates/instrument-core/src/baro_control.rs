@@ -246,29 +246,30 @@ mod tests {
     }
     #[test]
     fn hidden_altimeter_cannot_write_and_switching_back_cannot_replay_an_edit() {
-        let mut a = ready();
-        a.apply(Command::ControlEnable(10)).unwrap();
-        a.apply(Command::Baro(29.92)).unwrap();
-        let old = a.control_request().unwrap();
-        a.apply(Command::Select(crate::Instrument::Attitude))
-            .unwrap();
-        assert!(!a.baro_edit_allowed());
-        assert!(a.control_request().is_none());
-        assert!(a.apply(Command::Baro(30.01)).is_err());
-        // Hidden telemetry still follows the simulator without a local edit.
-        feed(&mut a, 40, 2, 30.20, Lifecycle::Running);
-        assert_eq!(a.baro_inhg(), 30.20);
-        a.apply(Command::Select(crate::Instrument::Altimeter))
-            .unwrap();
-        assert!(a.control_request().is_none());
-        assert!(a
-            .apply(Command::ControlReply(Reply {
-                session: old.session,
-                id: old.id,
-                status: Status::Confirmed,
-            }))
-            .is_err());
-        a.apply(Command::Baro(29.92)).unwrap();
-        assert!(a.control_request().unwrap().id > old.id);
+        for hidden in [crate::Instrument::Attitude, crate::Instrument::Turn] {
+            let mut a = ready();
+            a.apply(Command::ControlEnable(10)).unwrap();
+            a.apply(Command::Baro(29.92)).unwrap();
+            let old = a.control_request().unwrap();
+            a.apply(Command::Select(hidden)).unwrap();
+            assert!(!a.baro_edit_allowed());
+            assert!(a.control_request().is_none());
+            assert!(a.apply(Command::Baro(30.01)).is_err());
+            // Hidden telemetry still follows the simulator without a local edit.
+            feed(&mut a, 40, 2, 30.20, Lifecycle::Running);
+            assert_eq!(a.baro_inhg(), 30.20);
+            a.apply(Command::Select(crate::Instrument::Altimeter))
+                .unwrap();
+            assert!(a.control_request().is_none());
+            assert!(a
+                .apply(Command::ControlReply(Reply {
+                    session: old.session,
+                    id: old.id,
+                    status: Status::Confirmed,
+                }))
+                .is_err());
+            a.apply(Command::Baro(29.92)).unwrap();
+            assert!(a.control_request().unwrap().id > old.id);
+        }
     }
 }

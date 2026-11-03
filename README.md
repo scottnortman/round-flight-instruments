@@ -1,25 +1,27 @@
 # Round Flight Instruments
 
-**Current development:** `feature/windows-instrument-driver` adds an installed
-Windows tray connector, automatic startup/recovery, all-six instrument telemetry,
-and active-gauge-only controls. See the [setup guide](docs/WINDOWS-DRIVER-SETUP.md)
-and [architecture/status](docs/WINDOWS-DRIVER.md). External attitude now uses an
-approved 150 ms freshness budget, with both gauges passing over 32 FPS without
-expiry in the short board regression. The user accepted a five-minute native
-stream with clean motion and touch switching. Live MSFS acceptance remains
-pending; this branch is not yet released.
+Latest source checkpoint: **v0.2.0-rc.5**. Altimeter, Attitude and Turn Coordinator
+are implemented with touch gauge selection, blue pressed feedback and chirps.
+Bench motion and the corrected Turn menu run above **32 FPS**. See the
+[Turn Coordinator guide](docs/TURN-COORDINATOR.md) and
+[menu verification](verification/TURN-MENU-FIX.md).
 
-Latest tagged checkpoint: **v0.2.0-rc.4**. Touch gauge selection, Attitude rendering
-and IMU bench motion are implemented. Menu switching and idle display passed
-visual checks; both gauges render above 30 FPS in bench motion tests. The baseline
-also includes native SDK crash isolation, two-plane MSFS recovery and pressure
-writeback verified on November 2. This source checkpoint has no new binary release.
+The native Windows tray connector starts at sign-in, reconnects automatically,
+and transports all-six instrument data. Background gauges are read-only; only
+explicit active-gauge actions can write aircraft controls. See
+[host installation](docs/WINDOWS-DRIVER-SETUP.md) and
+[architecture/status](docs/WINDOWS-DRIVER.md).
+
+Live MSFS acceptance of the expanded profile is pending; earlier altimeter-only
+recovery and pressure writeback passed on November 2. The local preview installer
+is unsigned. This tag publishes a source checkpoint, with **no new binary release**.
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
 three-pointer altimeter, touch barometer adjustment, a text CLI and a smooth
 0–10,000 ft demonstration, a standalone attitude renderer and touch gauge selection.
-The remaining four six-pack gauges are planned. MSFS 2020 input and optional two-way barometer
+Turn Coordinator is implemented in this checkpoint; the remaining three
+six-pack gauges are planned. MSFS 2020 input and optional two-way barometer
 control are bench-tested on the Just Flight Piper Warrior. See the
 [MSFS setup guide](docs/MSFS-TWO-WAY-TEST.md).
 

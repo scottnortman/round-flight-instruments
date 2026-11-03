@@ -17,13 +17,16 @@ is a shared layout constant in the portable navigation policy, ready for tuning.
 ## Availability and source ownership
 
 - Local simulation: altimeter and attitude are selectable.
+- Turn Coordinator development branch: Turn is also selectable with local or
+  external T2 input. It remains unavailable with T1 or IMU input. See
+  [Turn Coordinator](TURN-COORDINATOR.md).
 - Current external T1 stream (including MSFS): altimeter only; attitude says
   NO SIM DATA because pitch/roll are not transported yet.
 - Development T2 stream (`--sixpack`, used by the Windows tray app): altimeter
   and attitude are selectable without restarting or changing the source.
   External attitude timing acceptance is pending; see [driver status](WINDOWS-DRIVER.md).
 - IMU bench source: attitude only; altimeter says NO IMU DATA.
-- Airspeed, heading, turn coordinator and vertical speed are visible but disabled
+- Airspeed, heading and vertical speed are visible but disabled
   with NOT BUILT labels until their renderers/data paths are implemented.
 
 Selection calls the existing `Command::Select` only. It never changes the source,
@@ -63,11 +66,17 @@ owner timing gaps, source/session/view changes or unavailable display cancel
 gestures. A menu must have a matching confirmed presentation generation before
 buttons can arm; an old framebuffer cannot authorize a new popup's controls.
 
+A brief numeric-data expiry can darken the gauge while owner/render/scanout
+health is intact. An already-open menu survives that interval, but its pressed
+state is cleared and it accepts no input until a fresh visible release. Actual
+display failure, source/view changes and stale touch still cancel the menu.
+
 The policy is allocation-free and hardware-independent. No touch injection CLI is
 provided. Normal numeric freshness/watchdog rules continue while a menu is open.
 The shared renderer tracks overlay damage per framebuffer, including restoration
-against the attitude's moving horizon. A separate 450 KiB CPU-only PSRAM bitmap
-caches the attitude menu lettering and button state; it is never submitted to DMA.
+against the attitude's moving horizon. Attitude and Turn each use a separate
+450 KiB CPU-only PSRAM bitmap for menu lettering and button state; these are
+never submitted to DMA.
 Initial preparation happens before the first visible frame; later cold preparation
 is spread over eight frames before the hold completes. Press
 transitions redraw only the old/new button, rather than the entire menu.

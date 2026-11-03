@@ -59,14 +59,20 @@ impl PresentationFence {
 
 pub const COMPLETION_TIMEOUT_MS: u32 = 100;
 
-/// Late capture is useful only while continuing the same attitude view.
+/// Preserve fresh samples while continuing a short-lifetime gauge. A view
+/// change must start immediately, without consuming the previous frame's lease.
 pub fn capture_delay_ms(
-    previous_attitude: bool,
+    previous: Option<instrument_core::Instrument>,
     next: instrument_core::Instrument,
     frame_ms: u32,
     last_draw_ms: u32,
 ) -> u32 {
-    if previous_attitude && next == instrument_core::Instrument::Attitude {
+    if previous == Some(next)
+        && matches!(
+            next,
+            instrument_core::Instrument::Attitude | instrument_core::Instrument::Turn
+        )
+    {
         frame_ms
             .saturating_mul(2)
             .saturating_sub(last_draw_ms.saturating_add(3))
@@ -179,10 +185,31 @@ mod tests {
     #[test]
     fn changing_gauges_does_not_spend_the_old_attitude_deadline_waiting() {
         use instrument_core::Instrument;
-        assert_eq!(capture_delay_ms(true, Instrument::Attitude, 16, 22), 7);
-        assert_eq!(capture_delay_ms(true, Instrument::Altimeter, 16, 22), 0);
-        assert_eq!(capture_delay_ms(false, Instrument::Attitude, 16, 22), 0);
-        assert_eq!(capture_delay_ms(true, Instrument::Attitude, 16, 40), 0);
+        assert_eq!(
+            capture_delay_ms(Some(Instrument::Attitude), Instrument::Attitude, 16, 22),
+            7
+        );
+        assert_eq!(
+            capture_delay_ms(Some(Instrument::Attitude), Instrument::Altimeter, 16, 22),
+            0
+        );
+        assert_eq!(capture_delay_ms(None, Instrument::Attitude, 16, 22), 0);
+        assert_eq!(
+            capture_delay_ms(Some(Instrument::Attitude), Instrument::Attitude, 16, 40),
+            0
+        );
+        assert_eq!(
+            capture_delay_ms(Some(Instrument::Turn), Instrument::Turn, 16, 5),
+            24
+        );
+        assert_eq!(
+            capture_delay_ms(Some(Instrument::Turn), Instrument::Attitude, 16, 5),
+            0
+        );
+        assert_eq!(
+            capture_delay_ms(Some(Instrument::Attitude), Instrument::Turn, 16, 5),
+            0
+        );
     }
 
     #[test]
