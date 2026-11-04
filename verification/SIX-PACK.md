@@ -1,5 +1,10 @@
 # Six-pack checkpoint verification
 
+Follow-up: `v0.2.0-rc.9` adds the user-approved
+three-miss policy. See [new verification](DISPLAY-HOLD.md). The records and
+open-limit section below describe the rc.8 baseline, without rewriting its
+failed stress-test results.
+
 November 4, 2026. Branch `feature/complete-six-pack`, based on `v0.2.0-rc.7`.
 Airspeed work is carried forward; Heading and VSI complete the six faces.
 Accepted source checkpoint: **v0.2.0-rc.8**, merged into `main`. The user

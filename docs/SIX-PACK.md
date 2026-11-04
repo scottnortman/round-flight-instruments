@@ -1,5 +1,8 @@
 # Six-pack source checkpoint
 
+Current `main` also includes the `v0.2.0-rc.9` [bounded display hold](DISPLAY-HOLD.md).
+The rc.8 checkpoint below records the initial all-six acceptance.
+
 Checkpoint: **v0.2.0-rc.8**, merged into `main` from `feature/complete-six-pack`.
 Based on `v0.2.0-rc.7`, this carries forward
 the latest Airspeed layout work and adds Magnetic Heading and Vertical Speed.

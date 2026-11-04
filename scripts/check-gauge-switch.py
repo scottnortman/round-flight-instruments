@@ -1,7 +1,8 @@
-"""Bench regression: switch local simulated gauges without expiry or blanking.
+"""Bench regression: switch local gauges without blanking or exceeding hold budget.
 
 Changes the source to simulation and leaves the altimeter at 4520 ft / 29.92.
-Does not synthesize touches or relax any firmware freshness checks.
+Raw deadline misses remain recorded; bounded-hold firmware must stay within its
+configured budget. Older firmware retains the original zero-expiry assertion.
 """
 import argparse
 import json
@@ -34,9 +35,12 @@ def main():
         time.sleep(1)
         before = fields(ok('display status'))
         result['before'] = before
+        bounded = int(before.get('allowed_misses', '0')) > 0
         if args.check_rgb:
             require('rgb_short_eofs' in before, 'RGB probe is not installed')
         started = time.monotonic()
+        if bounded:
+            result['before_hold'] = fields(ok('display hold status'))
         for index in range(args.count):
             gauge = args.gauges[index % len(args.gauges)]
             ok('instrument ' + gauge)
@@ -50,22 +54,36 @@ def main():
                 require(display['failed'] == 'false', 'Display worker failed')
                 require(display['blanked_at_ms'] == before['blanked_at_ms'],
                         'Unexpected blanking while switching gauges')
-                require(display['expired_ticks'] == before['expired_ticks'],
-                        'Numeric presentation expired during switch')
+                if bounded:
+                    require(display['deadline_blanks'] == before['deadline_blanks'],
+                            'Consecutive miss budget exceeded during switch')
+                    require(int(display['consecutive_misses']) <= int(display['allowed_misses']),
+                            'Held indication exceeded configured consecutive budget')
+                else:
+                    require(display['expired_ticks'] == before['expired_ticks'],
+                            'Numeric presentation expired during switch')
                 if display['renderer'] == gauge and display['shown_quality'] == 'valid':
                     break
                 require(time.monotonic() < deadline, 'Gauge did not become visible')
                 time.sleep(.03)
             time.sleep(.3)
         after = fields(ok('display status'))
+        elapsed = time.monotonic() - started
         result['after'] = after
         if args.check_rgb:
             require(after.get('rgb_short_eofs') == before['rgb_short_eofs'],
                     'RGB refill deadline missed at final switch')
         require(after['blanked_at_ms'] == before['blanked_at_ms'], 'Blanking at final switch')
-        require(after['expired_ticks'] == before['expired_ticks'], 'Expiry at final switch')
+        if bounded:
+            require(after['deadline_blanks'] == before['deadline_blanks'], 'Hold exhausted at final switch')
+        else:
+            require(after['expired_ticks'] == before['expired_ticks'], 'Expiry at final switch')
+        result['raw_deadline_ticks'] = int(after['expired_ticks']) - int(before['expired_ticks'])
+        if bounded:
+            result['after_hold'] = fields(ok('display hold status'))
+            result['held_slots'] = int(result['after_hold']['held_slots_total']) - int(result['before_hold']['held_slots_total'])
         result['presented_fps'] = round((int(after['frames']) - int(before['frames'])) /
-                                        (time.monotonic() - started), 2)
+                                        elapsed, 2)
         require(result['presented_fps'] >= 30, 'Switching presentation rate below 30 Hz')
         require('timing_fault=false' in ok('status'), 'Owner timing fault')
         result['passed'] = True

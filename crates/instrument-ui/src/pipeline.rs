@@ -14,6 +14,8 @@ pub struct PresentationFence {
     state: AtomicU32, // 0 empty, 1 producer writing, 2 armed
     counter: AtomicU32,
     deadline: AtomicU32,
+    fresh_until: AtomicU32,
+    numeric_freshness: AtomicU32,
 }
 impl Default for PresentationFence {
     fn default() -> Self {
@@ -26,12 +28,17 @@ impl PresentationFence {
             state: AtomicU32::new(0),
             counter: AtomicU32::new(0),
             deadline: AtomicU32::new(0),
+            fresh_until: AtomicU32::new(0),
+            numeric_freshness: AtomicU32::new(0),
         }
     }
     pub fn pending(&self) -> bool {
         self.state.load(Ordering::Acquire) != 0
     }
     pub fn arm(&self, counter: u32, original_deadline: u32) -> bool {
+        self.arm_frame(counter,original_deadline,None)
+    }
+    pub fn arm_frame(&self, counter:u32, original_deadline:u32, fresh_until:Option<u32>) -> bool {
         if self
             .state
             .compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed)
@@ -41,19 +48,28 @@ impl PresentationFence {
         }
         self.counter.store(counter, Ordering::Relaxed);
         self.deadline.store(original_deadline, Ordering::Relaxed);
+        self.fresh_until.store(fresh_until.unwrap_or(0),Ordering::Relaxed);
+        self.numeric_freshness.store(u32::from(fresh_until.is_some()),Ordering::Relaxed);
         self.state.store(2, Ordering::Release);
         true
     }
     /// One consumer only. No allocation, waits, clock reads or deadline renewal.
     pub fn complete(&self, counter: u32) -> Option<u32> {
+        self.complete_frame(counter).map(|(deadline,_)|deadline)
+    }
+    /// Freshness is the original measurement expiry, separate from any existing
+    /// presentation grace. The ISR checks it against the actual LCD event time.
+    pub fn complete_frame(&self, counter:u32) -> Option<(u32,Option<u32>)> {
         if self.state.load(Ordering::Acquire) != 2
             || counter.wrapping_sub(self.counter.load(Ordering::Relaxed)) < 2
         {
             return None;
         }
         let deadline = self.deadline.load(Ordering::Relaxed);
+        let fresh_until=(self.numeric_freshness.load(Ordering::Relaxed)!=0)
+            .then(||self.fresh_until.load(Ordering::Relaxed));
         self.state.store(0, Ordering::Release);
-        Some(deadline)
+        Some((deadline,fresh_until))
     }
 }
 
@@ -187,6 +203,17 @@ impl<T> FramePipeline<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn physical_fence_preserves_measurement_freshness_separately_from_grace() {
+        let f=PresentationFence::new();
+        assert!(f.arm_frame(10,500,Some(200)));
+        assert_eq!(f.complete_frame(11),None);
+        assert_eq!(f.complete_frame(12),Some((500,Some(200))));
+        assert!(f.arm_frame(12,500,None)); // repeated pixels cannot reset a run
+        assert_eq!(f.complete_frame(14),Some((500,None)));
+        assert!(f.arm_frame(14,u32::MAX,None)); // menu/warning
+        assert_eq!(f.complete_frame(16),Some((u32::MAX,None)));
+    }
 
     #[test]
     fn changing_gauges_does_not_spend_the_old_attitude_deadline_waiting() {

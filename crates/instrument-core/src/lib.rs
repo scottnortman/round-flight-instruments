@@ -206,6 +206,8 @@ pub enum Command {
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DisplayCommand {
+    HoldMisses(u32),
+    HoldStatus,
     MemoryStatus,
     TouchSound(bool),
     TouchSoundStatus,

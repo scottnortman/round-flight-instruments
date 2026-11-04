@@ -1,7 +1,7 @@
 # Flash and RAM budget
 
 Waveshare ESP32-S3-Touch-LCD-2.8C, SKU 29086: **16 MiB flash / 8 MiB PSRAM**.
-Current six-face source checkpoint: **v0.2.0-rc.8**, measured November 4,
+Current six-face source checkpoint: **v0.2.0-rc.9**, measured November 4,
 2026. The 4 MiB application layout is already merged into `main`; earlier
 three-face migration results remain in [verification](../verification/MEMORY-LAYOUT.md).
 
@@ -21,7 +21,7 @@ It has one **4 MiB factory application**, preserving the existing data offsets:
 
 This is a USB-flashed single-app layout; it provides no OTA slots. The old 1 MiB
 slot was 99.16% full (1,039,792 B). Physical flash was never nearly full.
-The six-face application uses **1,084,992 bytes (25.87%)**, leaving 3,109,312
+The six-face application uses **1,087,856 bytes (25.94%)**, leaving 3,106,448
 bytes in its 4 MiB slot. The historical [continuity candidate](../verification/CONTINUITY.md) uses
 1,051,744 bytes (25.08% of the 4 MiB slot), retains 5,131,000 bytes free PSRAM,
 and adds no full-size bitmap. The normal build's measured display stack reserve
@@ -64,9 +64,9 @@ future artwork in PSRAM and reuse fonts, transfer buffers and render tasks.
 
 All six backdrops are now allocated. The measured free PSRAM is **3,730,156 B**
 (largest block 3,670,016 B), stable across motion and switching. Free internal
-heap is **91,611 B** (minimum 59,580 B; largest block 31,744 B). The one display
-task now has a 24 KiB stack, with **5,680 B minimum unused** during the six-face
-motion run (5,328 B in rapid switching). No extra renderer task, scanout set or internal glyph cache was
+heap is **91,563 B** (minimum 59,452 B; largest block 31,744 B). The one display
+task now has a 24 KiB stack, with **5,328 B minimum unused** across the six-face
+motion and switching checks. No extra renderer task, scanout set or internal glyph cache was
 added per face. DMA/internal capability heaps overlap and must not be summed.
 All-six transport was already present in the released connector.
 

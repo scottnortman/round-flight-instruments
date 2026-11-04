@@ -347,3 +347,10 @@ copies. `warning_frames` counts physical invalid-data views in established
 running external streams, excluding initial waiting, menus and disconnects.
 Completed FPS includes repeated presentations and is not a claim about the rate
 of new simulator observations. See [continuity verification](../verification/CONTINUITY.md).
+
+## Bounded late-presentation hold
+
+Source checkpoint `v0.2.0-rc.9` separates source validity from a
+three-missed-frame presentation budget, resetting only on confirmed fresh LCD
+data. Original ages and independent liveness gates are preserved. See
+[policy and diagnostics](DISPLAY-HOLD.md).

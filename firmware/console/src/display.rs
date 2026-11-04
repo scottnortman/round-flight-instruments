@@ -62,13 +62,18 @@ unsafe extern "C" fn complete(
     // This ISR is the sole counter writer. Publish health before the counter,
     // so the worker cannot retire/re-arm while the prior update is incomplete.
     let count = COMPLETE.load(Ordering::Relaxed).wrapping_add(1);
-    if let Some(deadline) = callback.shared.fence.complete(count) {
+    if let Some((deadline,fresh_until)) = callback.shared.fence.complete_frame(count) {
         let at = now();
         if deadline != u32::MAX {
             callback.shared.visible_margin_min.fetch_min(deadline.saturating_sub(at), Ordering::Relaxed);
         }
         callback.shared.deadline.store(deadline, Ordering::Release);
         callback.shared.presented.store(at, Ordering::Release);
+        // Publish after the real LCD confirmation, never on drawing/submission
+        // or a copy of old pixels. Expired-at-scanout samples cannot reset holds.
+        if fresh_until.is_some_and(|until| at < until) {
+            callback.shared.fresh_presentations.fetch_add(1,Ordering::Release);
+        }
     }
     COMPLETE.store(count, Ordering::Release);
     // Queue is allocated before registration and retained until reset, even if
@@ -153,6 +158,15 @@ struct Shared {
     owner: AtomicU32,
     presented: AtomicU32,
     deadline: AtomicU32,
+    fresh_presentations: AtomicU32,
+    hold_allowed: AtomicU32,
+    hold_active: AtomicBool,
+    hold_misses: AtomicU32,
+    hold_misses_max: AtomicU32,
+    hold_slots: AtomicU32,
+    hold_episodes: AtomicU32,
+    hold_blanks: AtomicU32,
+    last_blank_misses: AtomicU32,
     scanout: AtomicU32,
     frames: AtomicU32,
     render_max: AtomicU32,
@@ -231,6 +245,15 @@ impl Service {
             owner: AtomicU32::new(0),
             presented: AtomicU32::new(0),
             deadline: AtomicU32::new(0),
+            fresh_presentations: AtomicU32::new(0),
+            hold_allowed: AtomicU32::new(instrument_ui::deadline_hold::DEFAULT_MISSES),
+            hold_active: AtomicBool::new(false),
+            hold_misses: AtomicU32::new(0),
+            hold_misses_max: AtomicU32::new(0),
+            hold_slots: AtomicU32::new(0),
+            hold_episodes: AtomicU32::new(0),
+            hold_blanks: AtomicU32::new(0),
+            last_blank_misses: AtomicU32::new(0),
             scanout: AtomicU32::new(0),
             frames: AtomicU32::new(0),
             render_max: AtomicU32::new(0),
@@ -273,6 +296,7 @@ impl Service {
                     guard.failed.store(true, Ordering::Release);
                 }
                 let mut prior = VSYNC.load(Ordering::Acquire);
+                let mut deadline_hold=instrument_ui::deadline_hold::Supervisor::default();
                 loop {
                     let t = now();
                     let count = VSYNC.load(Ordering::Acquire);
@@ -283,11 +307,22 @@ impl Service {
                     // Read asynchronous timestamps before the evaluation clock.
                     // An ISR/other core can publish between any two loads; using
                     // an earlier clock would misclassify that update as future.
+                    let fresh_generation=guard.fresh_presentations.load(Ordering::Acquire);
                     let owner_at = guard.owner.load(Ordering::Acquire);
                     let presented_at = guard.presented.load(Ordering::Acquire);
                     let deadline = guard.deadline.load(Ordering::Acquire);
                     let scanout_at = guard.scanout.load(Ordering::Acquire);
                     let t = now();
+                    let limit=guard.hold_allowed.load(Ordering::Acquire);
+                    let hz=guard.applied_pclk.load(Ordering::Acquire);
+                    let period=if hz==0 {33} else {(548u64*508*1000).div_ceil(hz as u64)*2};
+                    let hold=deadline_hold.observe(t as u64,(deadline!=u32::MAX).then_some(deadline as u64),
+                        fresh_generation,limit,period);
+                    guard.hold_misses.store(hold.misses,Ordering::Release);
+                    guard.hold_misses_max.fetch_max(hold.misses,Ordering::Relaxed);
+                    if hold.started {guard.hold_episodes.fetch_add(1,Ordering::Relaxed);}
+                    let previous_misses=hold.misses.saturating_sub(hold.new_misses);
+                    guard.hold_slots.fetch_add(hold.misses.min(limit).saturating_sub(previous_misses.min(limit)),Ordering::Relaxed);
                     // Measure missed numeric deadlines even with the backlight
                     // commanded off, so timing can be qualified without flicker.
                     if guard.ready.load(Ordering::Acquire) && t >= deadline {
@@ -307,16 +342,20 @@ impl Service {
                             }
                         }
                     }
-                    let healthy = guard.ready.load(Ordering::Acquire)
+                    // Numeric expiry is governed separately by the bounded
+                    // miss run; owner/render/scanout limits are never extended.
+                    let pipeline_healthy = guard.ready.load(Ordering::Acquire)
                         && !guard.failed.load(Ordering::Acquire)
                         && guard.enabled.load(Ordering::Acquire)
                         && presentation_healthy(
                             t as u64,
                             owner_at as u64,
                             presented_at as u64,
-                            deadline as u64,
+                            u64::MAX,
                             scanout_at as u64,
                         );
+                    let healthy=pipeline_healthy && hold.allow;
+                    guard.hold_active.store(healthy && hold.holding,Ordering::Release);
                     // This task alone owns the backlight. The renderer cannot override it.
                     let was = guard.light.load(Ordering::Acquire);
                     let result = if healthy {
@@ -333,6 +372,8 @@ impl Service {
                         .store(healthy && result.is_ok(), Ordering::Release);
                     if was && !healthy {
                         guard.blanked_at.store(t, Ordering::Release);
+                        guard.last_blank_misses.store(if pipeline_healthy && !hold.allow {hold.misses}else{0},Ordering::Release);
+                        if pipeline_healthy && !hold.allow {guard.hold_blanks.fetch_add(1,Ordering::Relaxed);}
                     }
                     if unsafe { sys::esp_task_wdt_reset() } != 0 {
                         guard.failed.store(true, Ordering::Release);
@@ -450,6 +491,19 @@ impl Service {
     pub fn handle(&self, command: DisplayCommand) -> Response {
         let s = &self.shared;
         match command {
+            DisplayCommand::HoldMisses(n) if n<=instrument_ui::deadline_hold::MAX_MISSES => {
+                s.hold_allowed.store(n,Ordering::Release);
+                return reply(format_args!("OK display_hold allowed_misses={n}"));
+            }
+            DisplayCommand::HoldMisses(_) => return reply(format_args!("ERR range")),
+            DisplayCommand::HoldStatus => {
+                let hz=s.applied_pclk.load(Ordering::Acquire);
+                let period=if hz==0 {33} else {(548u64*508*1000).div_ceil(hz as u64)*2};
+                return reply(format_args!("OK display_hold allowed_misses={} consecutive_misses={} active={} frame_period_ms={} held_slots_total={} episodes={} max_misses={} deadline_blanks={} last_blank_misses={} fresh_presentations={} reset=fresh_lcd_frame",
+                    s.hold_allowed.load(Ordering::Acquire),s.hold_misses.load(Ordering::Acquire),s.hold_active.load(Ordering::Acquire),period,
+                    s.hold_slots.load(Ordering::Acquire),s.hold_episodes.load(Ordering::Acquire),s.hold_misses_max.load(Ordering::Acquire),
+                    s.hold_blanks.load(Ordering::Acquire),s.last_blank_misses.load(Ordering::Acquire),s.fresh_presentations.load(Ordering::Acquire)));
+            }
             DisplayCommand::MemoryStatus => {
                 let internal = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
                 let external = sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT;
@@ -481,7 +535,7 @@ impl Service {
                     Err(_) => return reply(format_args!("ERR display_sample_busy")),
                 };
                 let at = now();
-                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={} shown_ias_kt={:?} ias_over_range={} shown_heading_deg={:?} shown_vsi_fpm={:?}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][v.quality as usize],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,v.holding,v.ias,v.ias.is_some_and(|ias|ias>instrument_ui::airspeed::MAX_KT),v.heading,v.vsi));
+                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={} shown_ias_kt={:?} ias_over_range={} shown_heading_deg={:?} shown_vsi_fpm={:?}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][if s.hold_misses.load(Ordering::Acquire)>0 && v.quality==0 {8}else{v.quality as usize}],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,(v.holding || s.hold_active.load(Ordering::Acquire)),v.ias,v.ias.is_some_and(|ias|ias>instrument_ui::airspeed::MAX_KT),v.heading,v.vsi));
             }
             DisplayCommand::TouchSound(_) | DisplayCommand::TouchSoundStatus => {
                 return reply(format_args!("ERR touch_sound_unavailable"))
@@ -561,7 +615,7 @@ impl Service {
             DisplayCommand::TransferStall => s.stall.store(2, Ordering::Release),
             DisplayCommand::Recover => s.stall.store(0, Ordering::Release),
             DisplayCommand::Status => {
-                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn","airspeed","heading","vsi"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
+                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?} deadline_holding={} consecutive_misses={} allowed_misses={} deadline_blanks={} last_blank_misses={}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn","airspeed","heading","vsi"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][if s.hold_misses.load(Ordering::Acquire)>0 && s.shown_quality.load(Ordering::Acquire)==0 {8}else{s.shown_quality.load(Ordering::Acquire) as usize}],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None},s.hold_active.load(Ordering::Acquire),s.hold_misses.load(Ordering::Acquire),s.hold_allowed.load(Ordering::Acquire),s.hold_blanks.load(Ordering::Acquire),s.last_blank_misses.load(Ordering::Acquire)));
             }
         }
         reply(format_args!(
@@ -1008,7 +1062,9 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         check(unsafe { sys::esp_lcd_panel_draw_bitmap(panel, 0, 0, 480, 480, buffers[back]) })?;
         let after_submit = COMPLETE.load(Ordering::Acquire);
         last_submit_ms = now();
-        if !s.fence.arm(after_submit, deadline) {
+        let fresh_until=instrument_ui::deadline_hold::fresh_lifetime(snapshot,frame.repeated,pattern)
+            .map(|ttl|frame.stamp.saturating_add(ttl as u32));
+        if !s.fence.arm_frame(after_submit, deadline, fresh_until) {
             return Err(io::Error::other("LCD presentation fence busy"));
         }
         pipeline

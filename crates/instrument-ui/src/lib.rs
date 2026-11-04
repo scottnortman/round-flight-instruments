@@ -5,6 +5,7 @@ pub mod altimeter;
 pub mod airspeed;
 pub mod attitude;
 pub mod continuity;
+pub mod deadline_hold;
 pub mod damage;
 pub mod feedback;
 pub mod interaction;
@@ -267,9 +268,9 @@ impl Snapshot {
         if self.selected != Instrument::Altimeter {
             return None;
         }
-        let altitude = (self.altitude.quality == Quality::Valid)
+        let altitude = self.model().indicated_ft.is_some()
             .then(|| 1000u64.saturating_sub(self.altitude.age_ms.unwrap_or(1000)));
-        let baro = (self.external && self.baro_inhg.is_finite())
+        let baro = (self.external && self.baro_inhg.is_finite() && (28.1..=31.).contains(&self.baro_inhg))
             .then(|| 1000u64.saturating_sub(self.baro_age_ms.unwrap_or(1000)));
         match (altitude, baro) {
             (Some(a), Some(b)) => Some(a.min(b)),

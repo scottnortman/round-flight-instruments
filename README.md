@@ -1,16 +1,21 @@
 # Round Flight Instruments
 
-Source checkpoint **v0.2.0-rc.8** implements all six faces: Airspeed,
+Source checkpoint **v0.2.0-rc.9** adds a **three-miss display hold**:
+brief late frames retain the last reading; the fourth consecutive miss blanks.
+See [policy and CLI](docs/DISPLAY-HOLD.md) and [verification](verification/DISPLAY-HOLD.md).
+
+The **v0.2.0-rc.8** six-pack foundation implements all six faces: Airspeed,
 Attitude, Altimeter, Magnetic Heading, Turn Coordinator and Vertical Speed.
 The user reported all tests working on November 4, 2026. See the
 [six-pack guide](docs/SIX-PACK.md), [verification](verification/SIX-PACK.md)
 and [flash/RAM budget](docs/MEMORY-BUDGET.md).
 
 Latest downloadable prerelease: **v0.2.0-rc.7**, with three display faces.
-The rc.8 tag is an accepted source checkpoint; new prebuilt release assets have
+The rc.9 tag is a source checkpoint; new prebuilt release assets have
 not been published. Its firmware works with the existing rc.7 Windows installer.
-An inherited rapid local CLI-switching deadline issue remains documented in the
-[verification record](verification/SIX-PACK.md#open-inherited-limit-aggressive-local-cli-switching).
+The rc.8 rapid local CLI-switching deadline limit is recorded in the
+[baseline verification](verification/SIX-PACK.md#open-inherited-limit-aggressive-local-cli-switching);
+rc.9 includes the bounded-hold fix above.
 
 The native Windows tray connector starts at sign-in, reconnects automatically,
 and transports all-six instrument data. Background gauges are read-only; only
