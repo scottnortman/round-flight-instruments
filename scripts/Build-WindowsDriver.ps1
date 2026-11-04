@@ -23,7 +23,7 @@ try {
         $rfiRuntime = Join-Path $SdkRoot 'SimConnect SDK\lib\SimConnect.dll'
         Copy-Item -LiteralPath $rfiRuntime -Destination $rfiStage
         Copy-Item -LiteralPath (Join-Path $SdkRoot 'Licenses\MSFS SDK EULA.pdf') -Destination (Join-Path $rfiStage 'MICROSOFT-SDK-LICENSE.pdf')
-        'Unmodified Microsoft SDK runtime for this private bench package. Microsoft terms apply; Apache-2.0 does not relicense it. Source: installed MSFS 2020 SDK. Public binary redistribution requires a separate licensing review.' | Set-Content -LiteralPath (Join-Path $rfiStage 'MICROSOFT-RUNTIME.txt') -Encoding ASCII
+        'Unmodified Microsoft SimConnect runtime from the installed MSFS 2020 SDK. Microsoft terms apply; Apache-2.0 does not relicense it. Project maintainer confirmed permission to include this DLL on 2026-11-03. Preserve the accompanying Microsoft license and this notice.' | Set-Content -LiteralPath (Join-Path $rfiStage 'MICROSOFT-RUNTIME.txt') -Encoding ASCII
     }
     foreach ($rfiName in @('LICENSE','NOTICE','THIRD-PARTY-NOTICES.md')) {
         Copy-Item -LiteralPath (Join-Path $rfiRoot $rfiName) -Destination $rfiStage

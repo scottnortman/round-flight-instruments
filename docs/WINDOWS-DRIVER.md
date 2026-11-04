@@ -1,26 +1,25 @@
-# Installed Windows connector (development)
+# Installed Windows connector
 
-Source checkpoint: **v0.2.0-rc.5**; developed on `feature/windows-instrument-driver`
-and extended by `feature/turn-coordinator`. Local installer trials passed;
-live MSFS acceptance remains pending. See [setup](WINDOWS-DRIVER-SETUP.md)
+Prerelease: **v0.2.0-rc.7**. The user reported live MSFS 2020 success on
+November 3, 2026. See [setup](WINDOWS-DRIVER-SETUP.md)
 and [verification](../verification/WINDOWS-DRIVER.md).
 
-Current fix candidate: `bugfix/live-gauge-timing`, based on the memory-layout
+Current branch: `bugfix/live-gauge-timing`, based on the memory-layout
 update. Live MSFS 2020 tests exposed flicker and unusable menus despite 32 FPS.
-The candidate corrects T2 clock-reference aging, avoids full-face caption rebuilds,
+The fix corrects T2 clock-reference aging, avoids full-face caption rebuilds,
 and makes navigation an opaque non-numeric view. The user approved testing
 **200 ms for external Attitude and Turn only**; earlier 150 ms bench results are
 historical. Local and IMU rules are unchanged, as are true sample ages and the
-owner/render/scanout guards. Live simulator-PC acceptance must be repeated.
+owner/render/scanout guards. The subsequent live test was reported successful.
 See [verification](../verification/LIVE-GAUGE-TIMING.md).
 
 Accepted scope: per-user Windows tray application, starts at sign-in by default;
 automatic simulator and USB recovery; no Python or terminal for ordinary use.
-Data support for all six standard instruments; live Altimeter/Attitude first,
-remaining faces disabled. Native Rust runtime, isolated SimConnect worker,
+Data support for all six standard instruments; Altimeter, Attitude and Turn
+faces implemented, remaining faces disabled. Native Rust runtime, isolated SimConnect worker,
 existing CH343 USB serial driver. DCS remains a future provider.
 The Turn Coordinator development branch also enables Turn using the existing
-T2 data; live MSFS cockpit validation remains pending. Airspeed, Heading and VSI
+T2 data; the user reported a successful live MSFS 2020 test on November 3, 2026. Airspeed, Heading and VSI
 remain disabled.
 
 Background readings never write aircraft state. Simulator readings are authoritative
@@ -84,11 +83,11 @@ external indicated altitude. A read-only tray setting disables all writeback.
 
 Build with `scripts/Build-WindowsDriver.ps1`, the MSFS 2020 SDK and Inno Setup 6.
 The unsigned installer contains native executables, source/dependency notices and
-hashes. It does not flash firmware. The private preview 6 supplied for this test
+hashes. It does not flash firmware. The rc.7 prerelease
 also includes the unmodified Microsoft client runtime and its license/notice;
 it selects that runtime automatically. Source builds omit the DLL unless
-`-IncludeSdkRuntime` is requested. Public redistribution needs a separate
-Microsoft licensing review.
+`-IncludeSdkRuntime` is requested. The maintainer confirmed permission to include
+the DLL on November 3, 2026; the accompanying Microsoft terms remain applicable.
 
 Validate hidden gauges produce zero simulator writes, explicit active action produces
 one write with correlated readback, old requests cannot replay after transitions,

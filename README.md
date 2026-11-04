@@ -1,15 +1,15 @@
 # Round Flight Instruments
 
-Latest source checkpoint: **v0.2.0-rc.6**. Altimeter, Attitude and Turn Coordinator
+Latest prerelease: **v0.2.0-rc.7**. Altimeter, Attitude and Turn Coordinator
 are implemented with touch gauge selection, blue pressed feedback and chirps.
 Development builds now use a 4 MiB application slot and one shared menu cache.
 The live-link fix candidate adds accurate clock aging, independent gauge menus
-and a runtime-inclusive private Windows preview; [verification/status](verification/LIVE-GAUGE-TIMING.md).
+and a runtime-inclusive Windows installer; [verification/status](verification/LIVE-GAUGE-TIMING.md).
 The [bounded continuity candidate](verification/CONTINUITY.md) keeps brief
 Attitude/Turn delays invisible while preserving true sample ages in the CLI.
 Its latest menu fix retains static pixels per framebuffer and uses 24-line
 scanout buffers to preserve touch responsiveness during live data.
-Live simulator-PC acceptance remains pending.
+The user reported a successful live MSFS 2020 test on November 3, 2026.
 See the measured [flash/RAM budget and six-gauge plan](docs/MEMORY-BUDGET.md).
 Bench motion and the corrected Turn menu run above **32 FPS**. See the
 [Turn Coordinator guide](docs/TURN-COORDINATOR.md) and
@@ -21,9 +21,9 @@ explicit active-gauge actions can write aircraft controls. See
 [host installation](docs/WINDOWS-DRIVER-SETUP.md) and
 [architecture/status](docs/WINDOWS-DRIVER.md).
 
-Live MSFS acceptance of the expanded profile is pending; earlier altimeter-only
-recovery and pressure writeback passed on November 2. The local preview installer
-is unsigned. This tag publishes a source checkpoint, with **no new binary release**.
+MSFS 2020 works in the user-tested configuration; MSFS 2024 and other aircraft
+remain unqualified. The prerelease installer is unsigned and includes the
+unmodified Microsoft SimConnect runtime with its separate license and notices.
 
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
@@ -43,35 +43,21 @@ IMU is available for diagnostics and explicit accelerometer-only attitude bench 
 
 ## Get it running on your Waveshare
 
-You need the exact board above, a data-capable USB cable, and a Windows PC with
-Python 3.11 or later. **The prebuilt firmware does not require Rust.**
-The published v0.1.1 ZIP below runs the standalone demonstration; it does not
-include MSFS integration. For MSFS, use the firmware-inclusive integration test
-package and [its installation guide](docs/MSFS-TWO-WAY-TEST.md). This checkpoint
-does not publish a new binary release.
+Download the firmware ZIP, Windows installer and checksums from the
+**[v0.2.0-rc.7 prerelease](https://github.com/scottnortman/round-flight-instruments/releases/tag/v0.2.0-rc.7)**,
+then follow the **[step-by-step installation guide](docs/PRERELEASE-0.2.md)**.
 
-1. Download and extract **[round-instruments-v0.1.1-waveshare-29086.zip](https://github.com/scottnortman/round-flight-instruments/releases/download/v0.1.1/round-instruments-v0.1.1-waveshare-29086.zip)** from the [v0.1.1 release](https://github.com/scottnortman/round-flight-instruments/releases/tag/v0.1.1).
-2. Connect the board's **UART USB** port. Identify its CH343 COM port in Device
-   Manager. The other USB connector does not provide this firmware's CLI.
-3. Follow the **[board installation guide](docs/INSTALL-WAVESHARE.md)** (also
-   included as `INSTALL.md` in the ZIP): install the Python tools, verify the
-   download, back up your original firmware, and flash the supplied image.
-   Replace the example `COM5` with your own port; close other serial terminals.
-4. Open PuTTY or another serial terminal at **921600 baud, 8 data bits, no parity,
-   1 stop bit, no flow control**. Disable terminal local echo: the board echoes
-   characters. Initial boot logs use 115200 and may look garbled briefly.
-5. Enter these commands, waiting for each `OK` response:
+Use the board's **UART USB** connector. Python is needed only for backup/flashing;
+prebuilt firmware and the native tray app require no Rust toolchain. The Windows
+installer goes on the PC running MSFS 2020. It upgrades in place; no uninstall is
+needed. If you already use the tested rc.6 firmware and private preview 6 app,
+you need no update. This prerelease reuses that exact firmware image.
 
-```text
-sim preset level
-instrument altimeter
-baro 29.92
-sim takeoff 60
-```
-
-The gauge holds zero for one second, climbs to 10,000 ft over 60 seconds, then
-holds there. On a fresh boot, missing altitude and a red X are expected until
-you supply simulated data. Settings and simulated values reset on reboot.
+For standalone use, open the CLI at **921600 / 8N1 / no flow control**, local echo
+off, and enter `sim preset level`, then `sim takeoff 60`. Hold the center for
+3 seconds to select a face, or run `sim attitude 60` / `sim turn 60`. Hold the
+pressure window for 0.25 seconds to edit it. Boot output uses 115200; an initial
+red X means no data has been supplied yet. Close the terminal before using MSFS.
 
 ## Attitude gauge development
 

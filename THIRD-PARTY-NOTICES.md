@@ -52,9 +52,11 @@ license. Dependencies are fetched separately and retain their upstream terms.
 
 ## Optional Microsoft SimConnect runtime
 
-Private runtime-inclusive test installers contain an unmodified `SimConnect.dll`
+Runtime-inclusive installers contain an unmodified `SimConnect.dll`
 from the locally installed Microsoft MSFS 2020 SDK. The accompanying Microsoft
 license and runtime notice are included in those packages. This project's
 Apache-2.0 license does not relicense Microsoft's runtime. Source builds omit
-that DLL unless `Build-WindowsDriver.ps1 -IncludeSdkRuntime` is explicitly used;
-public binary redistribution requires a separate licensing review.
+that DLL unless `Build-WindowsDriver.ps1 -IncludeSdkRuntime` is explicitly used.
+For the rc.7 public prerelease, the project maintainer confirmed permission to
+include the DLL on November 3, 2026. Preserve the Microsoft license and notice;
+the project license does not replace those terms.

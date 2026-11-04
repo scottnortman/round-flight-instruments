@@ -229,3 +229,22 @@ Final display stack minimum free: **3,040 bytes**. Heap usage stayed unchanged
 through touch testing. The board is left on local, level Attitude with IMU
 acquisition off, QNH 29.92 and COM5 released. This source checkpoint remains on
 `bugfix/live-gauge-timing`; live MSFS-PC acceptance is still required.
+
+
+## Live MSFS acceptance and prerelease - 2026-11-03
+
+After testing the pushed rc.6 checkpoint with the preview 6 connector on the
+MSFS PC, the user reported: "Just tested on MSFS, all working." This records
+user acceptance of that tested MSFS 2020 configuration. No new logs, aircraft
+list or per-scenario matrix accompanied the report, so broader aircraft/version
+claims are not inferred. Earlier pending-live-test statements above describe
+historical stages of the investigation.
+
+Prerelease **v0.2.0-rc.7** retains the exact tested firmware ELF and application
+hashes documented above. The public Windows package updates its version label
+and bundles the unmodified Microsoft runtime with its license and notice.
+The maintainer confirmed permission to include the DLL on November 3, 2026.
+The existing working private preview 6 remains compatible and does not require
+reinstallation. Release packaging checks additionally passed four tray tests,
+three isolated native worker/recovery tests and five layout/package tests.
+No merge to main was requested with this prerelease.

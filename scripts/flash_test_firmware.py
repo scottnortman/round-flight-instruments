@@ -38,7 +38,7 @@ def main():
     subprocess.run([sys.executable, '-m', 'esptool', '--chip', 'esp32s3', '--port', args.port,
                     '--baud', '460800', 'write_flash'] +
                    [v for offset, image in segments for v in (hex(offset), str(image))], check=True)
-    print('Firmware written. Wait for restart, then run start_msfs.py. CLI remains 921600/8N1.', flush=True)
+    print('Firmware written. Wait for restart, then start Round Instruments or your compatible connector. CLI remains 921600/8N1.', flush=True)
 
 
 if __name__ == '__main__':
