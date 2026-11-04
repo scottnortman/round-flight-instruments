@@ -52,7 +52,7 @@ not a new warning or quality state.
 The UI crate is no_std and forbids unsafe code. Its pixel target supports both
 individual pixels and batched horizontal spans. Framebuffer spans clip once and
 fill contiguous storage. The board uses three 480x480 RGB565 framebuffers in
-PSRAM (1,382,400 bytes), two internal 16-line bounce buffers (30,720 bytes), and
+PSRAM (1,382,400 bytes), two internal 24-line bounce buffers (46,080 bytes), and
 three separate 460800-byte CPU-only face backdrops and one shared menu bitmap:
 3,225,600 bytes of image PSRAM in total. All three faces are prepared before the
 first visible frame and retained across gauge switches. An entering attitude
@@ -62,6 +62,14 @@ visible frame. Gauge/session changes reuse its panel and lettering; selection
 is a small outline on the output frame. Capability changes prepare button artwork
 over successive frames, and press changes repaint
 only affected buttons. These caches never participate in DMA ownership.
+Each framebuffer also retains its complete opaque menu. While that buffer's
+menu view is unchanged, later source updates cause no menu pixel writes.
+Pressed-state changes refresh the panel; closing the menu forces face restoration.
+This avoids repeated full-screen PSRAM writes that delayed touch polling during
+live transport. Navigation stays open across temporary input or pipeline gaps,
+but discards the gesture and requires a fresh release before accepting a button.
+Context changes, Cancel, selection and the 30-second timeout still close it.
+Pressure editing retains its separate fail-closed input and writeback rules.
 The shared cache includes the selected gauge and source/session in its key;
 partially prepared artwork is never published. Opening a cold menu completes
 preparation before copying it. See the measured [memory budget](MEMORY-BUDGET.md).
@@ -286,3 +294,54 @@ RGB pins: HSYNC38, VSYNC39, DE40, PCLK41, data low-to-high
 See the pinned [ESP-IDF 5.5.5 RGB driver reference](https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/lcd/rgb_lcd.html)
 and local components/esp_lcd/rgb/esp_lcd_panel_rgb.c for buffering and callback
 semantics. Actual board revision remains unknown.
+
+## Live-source navigation and timing fixes (candidate)
+
+The opaque gauge menu replaces the whole face; no live flight indication remains
+behind it. Only that non-numeric view has no numeric lease. Source samples keep
+aging normally, and owner/render/scanout supervision remains active. A center
+hold can survive numeric-data blackouts; actual menu buttons still require a
+visible, acknowledged generation and a fresh release. Pressure writes retain
+their existing independent gates. `display status` identifies this as `menu`.
+
+Short source-caption changes update the existing opaque caption/cache area
+instead of rebuilding Attitude's whole backdrop. Reference pixels are unchanged.
+`display stats` includes capture/submit/retirement age maxima and minimum
+presentation margin; stopped timing totals are frozen. Retirement may be polled
+after physical presentation; margin is measured in the completion ISR. The
+all-ones margin means no numeric frame was observed since reset. `memory status`
+reports the running image's ELF SHA256 for precise firmware identification.
+The user-approved external Attitude/Turn trial budget is 200 ms; local 100 ms
+and IMU policies are unchanged. See [live-link verification](../verification/LIVE-GAUGE-TIMING.md).
+
+## Brief external-data interruptions
+
+At the user's request, external Attitude and Turn now separate **200 ms data
+validity** from bounded visual continuity. A known pose may remain visible for
+up to **300 ms extra** (500 ms maximum sample age). Repeated frames keep the
+original sample timestamp, sequence, session and hard deadline. Source readings
+and control gates are never refreshed by presentation.
+
+When a running source briefly becomes stale, the worker copies the last confirmed
+front into its disjoint drawing buffer. The RGB front is read-only; DMA ownership
+and two-completion retirement remain unchanged. Damage history is reset so the
+next fresh draw restores the whole face. No extra full-frame allocation, filter,
+extrapolation, priority boost or clock change is introduced.
+
+Repeating stops with at least 100 ms reserved for drawing/presenting an
+invalid-data view before the hard visibility deadline. The reserve includes
+scanout timing and increases with a slower pixel clock.
+Explicit failures, missing quantities,
+non-running lifecycle, session/gauge changes and menus cannot reuse that pose.
+Owner, renderer and scanout fault supervision remains independent and enabled.
+Altimeter and local/IMU policies retain their existing limits.
+
+There is no on-screen hold annotation. `display sample`/`display status` report
+`held` when presentation uses the grace policy. `display stats` records
+`repeated_frames`, `grace_frames` and `warning_frames` as well as real ages and
+completed presentations. `grace_frames` includes a frame captured while fresh
+that reaches presentation beyond 200 ms; `repeated_frames` counts exact pixel
+copies. `warning_frames` counts physical invalid-data views in established
+running external streams, excluding initial waiting, menus and disconnects.
+Completed FPS includes repeated presentations and is not a claim about the rate
+of new simulator observations. See [continuity verification](../verification/CONTINUITY.md).

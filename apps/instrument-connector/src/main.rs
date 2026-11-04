@@ -29,6 +29,7 @@ const HELP: &str = r#"Round Instruments native connector (development milestone)
   instrument-connector run --desktop PATH_TO_DESKTOP_CLI --switch-demo
 Run options: --log-dir PATH (default logs), --duration SECONDS,
              --diagnostics, --frame-timing (hardware only), --sixpack (T2 firmware)
+Bench only: --synthetic-age-ms 0..1000 (requires --synthetic)
 Default: automatically synchronize altitude and QNH from MSFS to the gauge.
 Aircraft switches reconnect automatically; no restart or flag change is needed.
 --writeback optionally enables gauge-to-MSFS edits and persists across switches.
@@ -62,7 +63,7 @@ fn options(args: &[String]) -> io::Result<BTreeMap<String, String>> {
             "--msfs" | "--writeback" | "--diagnostics" | "--frame-timing" | "--switch-demo"
             | "--sixpack" | "--app-status" => String::new(),
             "--port" | "--config" | "--dll" | "--desktop" | "--synthetic" | "--replay"
-            | "--log-dir" | "--duration" | "--stop-file" => it
+            | "--log-dir" | "--duration" | "--stop-file" | "--synthetic-age-ms" => it
                 .next()
                 .filter(|v| !v.starts_with("--"))
                 .ok_or_else(|| io::Error::other(format!("value needed for {key}")))?
@@ -115,6 +116,9 @@ fn run() -> io::Result<()> {
         return Err(io::Error::other(HELP));
     }
     let msfs = opts.contains_key("--msfs");
+    if opts.contains_key("--synthetic-age-ms") && !opts.contains_key("--synthetic") {
+        return Err(io::Error::other("--synthetic-age-ms requires --synthetic"));
+    }
     let writeback = opts.contains_key("--writeback");
     let hardware = opts.contains_key("--config");
     if ["--msfs", "--synthetic", "--replay", "--switch-demo"]
@@ -207,7 +211,8 @@ fn create_provider(
             Err(io::Error::other("build on Windows with --features msfs"))
         }
     } else if let Some(s) = opts.get("--synthetic") {
-        Ok(Box::new(Synthetic::new(seconds(s)? * 1000)?))
+        let age = opts.get("--synthetic-age-ms").map_or(Ok(0), |v| v.parse::<u32>().map_err(io::Error::other))?;
+        Ok(Box::new(Synthetic::new(seconds(s)? * 1000)?.with_sample_age(age)?))
     } else if opts.contains_key("--switch-demo") {
         switch_demo::next(demo_index)
     } else {

@@ -122,6 +122,7 @@ const READ_ONLY: Capabilities<'static> = Capabilities {
 };
 pub struct Synthetic {
     duration_ms: u64,
+    sample_age_ms: u32,
     last: Option<u64>,
     finished: bool,
     endpoint_sent: bool,
@@ -133,10 +134,18 @@ impl Synthetic {
         }
         Ok(Self {
             duration_ms,
+            sample_age_ms: 0,
             last: None,
             finished: false,
             endpoint_sent: false,
         })
+    }
+    /// Explicit bench-only delayed source. Values are generated at the actual
+    /// older sample time, rather than assigning fresh timestamps to old values.
+    pub fn with_sample_age(mut self, age_ms: u32) -> io::Result<Self> {
+        if age_ms > 1000 { return Err(io::Error::other("synthetic age must be 0..1000 ms")); }
+        self.sample_age_ms = age_ms;
+        Ok(self)
     }
 }
 impl SimulatorProvider for Synthetic {
@@ -163,18 +172,19 @@ impl SimulatorProvider for Synthetic {
             });
         }
         self.endpoint_sent = now >= self.duration_ms;
-        let position = now.min(self.duration_ms) as f32 / self.duration_ms as f32;
+        let sample_at = now.min(self.duration_ms).saturating_sub(self.sample_age_ms as u64);
+        let position = sample_at as f32 / self.duration_ms as f32;
         // Deliberately distinct pressure/indicated values detect accidental
         // reapplication of the firmware's local barometric correction.
         let mut observation = Observation::altimeter(
-            now,
+            sample_at,
             Lifecycle::Running,
             Datum::Value(10000. * position),
             Datum::Value(10000. * position - 200.),
             Datum::Value(30.12),
         )
         .expect("bounded synthetic values");
-        let t = now as f64 / 1000.;
+        let t = sample_at as f64 / 1000.;
         for (quantity, value) in [
             (Quantity::PitchDeg, 20. * (t * 0.5).sin()),
             (Quantity::RollDeg, 40. * (t * 0.25).sin()),
@@ -335,6 +345,15 @@ pub fn to_frame(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn delayed_synthetic_uses_older_sample_time_and_matching_values() {
+        let mut delayed = Synthetic::new(10000).unwrap().with_sample_age(35).unwrap();
+        let mut fresh = Synthetic::new(10000).unwrap();
+        let a = delayed.poll(100).unwrap(); let b = fresh.poll(65).unwrap();
+        assert_eq!(a.at_ms,65);
+        assert_eq!(a.measurements,b.measurements);
+        assert!(Synthetic::new(10000).unwrap().with_sample_age(1001).is_err());
+    }
     use super::*;
     #[test]
     fn instrument_projection_preserves_age_channels_and_missing_fields() {

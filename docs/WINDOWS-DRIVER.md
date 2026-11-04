@@ -5,14 +5,14 @@ and extended by `feature/turn-coordinator`. Local installer trials passed;
 live MSFS acceptance remains pending. See [setup](WINDOWS-DRIVER-SETUP.md)
 and [verification](../verification/WINDOWS-DRIVER.md).
 
-The original 100 ms external attitude deadline caused blanking: presentation ages
-often reached 77–98 ms, with about 31 ms until the next frame. The user approved
-**150 ms for external attitude only**. Acquisition validation, aged snapshots and
-numeric display expiry use that same budget. Real ages remain intact, and stale
-data is rejected at 150 ms. Local/IMU policies and display-health guards are unchanged.
-The short T2 board regression now passes at 32.30–32.33 FPS with no expiry/blanking;
-the user also accepted a five-minute native stream and touch switching as clean.
-Live MSFS acceptance remains pending.
+Current fix candidate: `bugfix/live-gauge-timing`, based on the memory-layout
+update. Live MSFS 2020 tests exposed flicker and unusable menus despite 32 FPS.
+The candidate corrects T2 clock-reference aging, avoids full-face caption rebuilds,
+and makes navigation an opaque non-numeric view. The user approved testing
+**200 ms for external Attitude and Turn only**; earlier 150 ms bench results are
+historical. Local and IMU rules are unchanged, as are true sample ages and the
+owner/render/scanout guards. Live simulator-PC acceptance must be repeated.
+See [verification](../verification/LIVE-GAUGE-TIMING.md).
 
 Accepted scope: per-user Windows tray application, starts at sign-in by default;
 automatic simulator and USB recovery; no Python or terminal for ordinary use.
@@ -36,7 +36,7 @@ Retain typed quantities, explicit units/channels and individual ages. Subscribe 
 to required readings, distribute bounded latest snapshots; no growing telemetry FIFO.
 The active face alone renders. Hidden readings stay available without hidden rendering.
 Unsupported or failed aircraft variables stay unavailable, never synthetic fallback.
-External pitch/roll use a 150 ms freshness budget; local attitude retains 100 ms.
+External pitch/roll/turn/ball use a 200 ms freshness budget; local attitude retains 100 ms.
 The preferred 30 FPS rendering requirement is unchanged.
 
 Implemented components:
@@ -84,8 +84,11 @@ external indicated altitude. A read-only tray setting disables all writeback.
 
 Build with `scripts/Build-WindowsDriver.ps1`, the MSFS 2020 SDK and Inno Setup 6.
 The unsigned installer contains native executables, source/dependency notices and
-hashes. It does not flash firmware or bundle SimConnect.dll; select the runtime
-from the working test package or SDK during setup.
+hashes. It does not flash firmware. The private preview 6 supplied for this test
+also includes the unmodified Microsoft client runtime and its license/notice;
+it selects that runtime automatically. Source builds omit the DLL unless
+`-IncludeSdkRuntime` is requested. Public redistribution needs a separate
+Microsoft licensing review.
 
 Validate hidden gauges produce zero simulator writes, explicit active action produces
 one write with correlated readback, old requests cannot replay after transitions,

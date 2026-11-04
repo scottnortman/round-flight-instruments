@@ -37,7 +37,11 @@ API SimConnect_Open(HANDLE* handle, LPCSTR, HWND, DWORD, HANDLE, DWORD) {
     malformed = std::getenv("RFI_FIXTURE_MALFORMED") != nullptr;
     if (!malformed && generation == 2) crash(); // Also exercise failed reopen.
     *handle = reinterpret_cast<HANDLE>(1);
-    enqueue(SIMCONNECT_RECV_OPEN{}, SIMCONNECT_RECV_ID_OPEN);
+    SIMCONNECT_RECV_OPEN opened{};
+    std::strcpy(opened.szApplicationName,"MSFS worker fixture");
+    opened.dwApplicationVersionMajor=1; opened.dwApplicationVersionMinor=38;
+    opened.dwApplicationBuildMajor=2; opened.dwSimConnectVersionMajor=10;
+    enqueue(opened, SIMCONNECT_RECV_ID_OPEN);
     return S_OK;
 }
 API SimConnect_Close(HANDLE) { return S_OK; }

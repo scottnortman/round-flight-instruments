@@ -44,6 +44,7 @@ fn main() -> std::io::Result<()> {
                     imu_last_good: None,
                     external: false,
                     external_attitude: false,
+                    source_running: false,
                     source_session: 0,
                     source_sequence: 0,
                     source_received_ms: 0,

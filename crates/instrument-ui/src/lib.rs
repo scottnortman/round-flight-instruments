@@ -3,6 +3,7 @@
 
 pub mod altimeter;
 pub mod attitude;
+pub mod continuity;
 pub mod damage;
 pub mod feedback;
 pub mod interaction;
@@ -21,6 +22,7 @@ pub struct Snapshot {
     pub imu_last_good: Option<instrument_core::imu_attitude::Retained>,
     pub external: bool,
     pub external_attitude: bool,
+    pub source_running: bool,
     pub source_session: u64,
     pub source_sequence: u64,
     /// Receipt time in the console owner clock, not the platform display clock.
@@ -83,6 +85,7 @@ impl Snapshot {
             && self.attitude_model().quality != Quality::Valid
     }
     pub fn displayed_quality(self) -> Option<Quality> {
+        if self.menu.is_some() { return None; }
         match self.selected {
             Instrument::Altimeter => Some(self.model().quality),
             Instrument::Attitude => Some(self.attitude_model().quality),
@@ -110,6 +113,7 @@ impl Snapshot {
             imu_last_good: app.imu_last_good(),
             external: app.external().is_some(),
             external_attitude: app.external().is_some_and(|e| e.multi_profile),
+            source_running: app.external().is_some_and(|e| e.state() == instrument_core::simulator_link::Lifecycle::Running),
             source_session: app.external().map_or(0, |e| e.session),
             source_sequence: app.external().map_or(0, |e| e.sequence()),
             source_received_ms: app.external().and_then(|e| e.received_ms()).unwrap_or(0),
@@ -177,6 +181,9 @@ impl Snapshot {
     /// Remaining lifetime of displayed numeric data. Invalid-data/placeholder
     /// frames have no numeric expiry, but still require owner/render health.
     pub fn numeric_lifetime_ms(self) -> Option<u64> {
+        // Navigation replaces the whole face with an opaque, non-numeric view.
+        // Flight samples keep aging in the background; none are shown here.
+        if self.menu.is_some() { return None; }
         if self.selected == Instrument::Attitude {
             // Explicit bench hold policy: numerical age stays observable, but
             // does not blank a held frame. Owner/render/scanout guards still apply.
@@ -247,16 +254,16 @@ mod tests {
         assert_eq!(s.numeric_lifetime_ms(), Some(10));
         s.external = true;
         s.external_attitude = true;
-        assert_eq!(s.numeric_lifetime_ms(), Some(60));
-        let a = s.aged(59);
-        assert_eq!(a.ball.age_ms, Some(149));
+        assert_eq!(s.numeric_lifetime_ms(), Some(110));
+        let a = s.aged(109);
+        assert_eq!(a.ball.age_ms, Some(199));
         assert_eq!(a.numeric_lifetime_ms(), Some(1));
-        let a = s.aged(60);
+        let a = s.aged(110);
         assert!(a.turn_model().aircraft_deg.is_some() && a.turn_model().ball.is_none());
         assert_eq!(a.numeric_lifetime_ms(), Some(20));
-        assert_eq!(a.ball.age_ms, Some(150));
-        assert_eq!(s.aged(80).numeric_lifetime_ms(), None);
-        assert!(s.aged(80).turn_model().aircraft_deg.is_none());
+        assert_eq!(a.ball.age_ms, Some(200));
+        assert_eq!(s.aged(130).numeric_lifetime_ms(), None);
+        assert!(s.aged(130).turn_model().aircraft_deg.is_none());
     }
     use super::*;
     #[test]
@@ -317,7 +324,7 @@ mod tests {
         assert_eq!(external.roll.value, None);
     }
     #[test]
-    fn external_attitude_expires_at_150ms_without_changing_local_policy_or_ages() {
+    fn external_attitude_expires_at_200ms_without_changing_local_policy_or_ages() {
         use instrument_core::Command;
         let mut app = App::new();
         app.apply(Command::LevelPreset).unwrap();
@@ -329,13 +336,13 @@ mod tests {
         assert_eq!(snapshot.numeric_lifetime_ms(), Some(10));
         snapshot.external = true;
         snapshot.external_attitude = true;
-        assert_eq!(snapshot.numeric_lifetime_ms(), Some(60));
-        let live = snapshot.aged(59);
-        assert_eq!(live.displayed_age_ms(), Some(149));
+        assert_eq!(snapshot.numeric_lifetime_ms(), Some(110));
+        let live = snapshot.aged(109);
+        assert_eq!(live.displayed_age_ms(), Some(199));
         assert_eq!(live.numeric_lifetime_ms(), Some(1));
         assert_eq!(live.attitude_model().quality, Quality::Valid);
-        let stale = snapshot.aged(60);
-        assert_eq!(stale.displayed_age_ms(), Some(150));
+        let stale = snapshot.aged(110);
+        assert_eq!(stale.displayed_age_ms(), Some(200));
         assert_eq!(stale.attitude_model().quality, Quality::Stale);
         assert!(stale.attitude_model().angles.is_none());
         assert_eq!(stale.numeric_lifetime_ms(), None);
@@ -401,6 +408,7 @@ mod tests {
             imu_last_good: None,
             external: false,
             external_attitude: false,
+            source_running: false,
             source_session: 0,
             source_sequence: 0,
             source_received_ms: 0,

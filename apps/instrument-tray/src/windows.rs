@@ -377,7 +377,7 @@ pub fn run() {
         notify(hwnd, NIM_ADD);
         SetTimer(hwnd, 1, 500, None);
         if first {
-            message(hwnd, "Round Instruments is running in the notification area near the clock.\r\n\r\nClick its icon (possibly under hidden icons), choose your SimConnect runtime and select Use COM... for your Waveshare UART device.\r\n\r\nThe setup guide is in Start > Round Instruments. Startup and connection settings are in the tray menu.");
+            message(hwnd, "Round Instruments is running in the notification area near the clock.\r\n\r\nClick its icon (possibly under hidden icons) and select Use COM... for your Waveshare UART device. Bundled SimConnect runtimes are selected automatically; Status shows the actual connected simulator build.\r\n\r\nThe setup guide is in Start > Round Instruments. Startup and connection settings are in the tray menu.");
         }
         let mut msg: MSG = std::mem::zeroed();
         while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {

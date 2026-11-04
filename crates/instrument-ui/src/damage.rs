@@ -17,6 +17,7 @@ pub struct FrameHistory {
     // One u64 per 8-pixel row supports the maximum 1024x1024 framebuffer.
     rows: [u64; 128],
     pub(crate) attitude: Option<crate::attitude::Angles>,
+    pub(crate) menu: Option<crate::navigation::View>,
 }
 impl Default for FrameHistory {
     fn default() -> Self {
@@ -29,6 +30,7 @@ impl FrameHistory {
             key: None,
             rows: [0; 128],
             attitude: None,
+            menu: None,
         }
     }
     pub(crate) fn dirty_row(&self, y: i32) -> u64 {
@@ -45,6 +47,7 @@ impl FrameHistory {
     pub(crate) fn clear(&mut self) {
         self.rows.fill(0);
         self.attitude = None;
+        self.menu = None;
     }
     pub(crate) fn restore(
         &mut self,

@@ -7,8 +7,8 @@
 [Setup]
 AppId=RoundFlightInstruments
 AppName=Round Instruments
-AppVersion=0.2.0.5
-AppVerName=Round Instruments 0.2.0 development preview 5
+AppVersion=0.2.0.6
+AppVerName=Round Instruments 0.2.0 development preview 6
 AppPublisher=Round Flight Instruments contributors
 DefaultDirName={localappdata}\Programs\Round Instruments
 DefaultGroupName=Round Instruments
@@ -17,7 +17,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#OutputDir}
-OutputBaseFilename=round-instruments-0.2.0-preview5-setup
+OutputBaseFilename=round-instruments-0.2.0-preview6-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

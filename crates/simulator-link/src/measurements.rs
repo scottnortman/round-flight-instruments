@@ -69,9 +69,10 @@ impl Quantity {
     pub const fn stale_after_ms(self) -> u32 {
         use Quantity::*;
         match self {
-            // External simulator attitude includes transport and LCD scanout.
+            // User-approved 200 ms external attitude/turn budget includes transport
+            // and LCD scanout. Actual acquisition ages remain unchanged.
             // Local/IMU policies live in instrument-core and are unchanged.
-            PitchDeg | RollDeg | TurnRateDps | SlipBall => 150,
+            PitchDeg | RollDeg | TurnRateDps | SlipBall => 200,
             MagneticHeadingDeg | TrueHeadingDeg | IndicatedAirspeedKt | TrueAirspeedKt
             | VerticalSpeedFpm => 500,
             _ => 1000,

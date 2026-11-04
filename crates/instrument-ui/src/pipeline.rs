@@ -121,6 +121,12 @@ impl<T> FramePipeline<T> {
     pub fn drawing(&self) -> usize {
         self.drawing
     }
+
+    /// Last confirmed front: immutable until a later retirement makes it spare.
+    /// A caller may read it while drawing the disjoint spare; never mutate it.
+    pub fn front(&self) -> usize {
+        self.front
+    }
     pub fn is_pending(&self) -> bool {
         self.pending.is_some()
     }

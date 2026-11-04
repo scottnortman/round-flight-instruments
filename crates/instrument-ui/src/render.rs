@@ -13,6 +13,7 @@ const ALTITUDE_PANEL: u16 = rgb(190, 190, 190);
 const DIAL_NUMBER_RADIUS: f32 = 169.;
 const KOLLSMAN_TOP: f32 = 211.;
 const KOLLSMAN_PRESSED: u16 = rgb(0, 90, 156);
+const NAVIGATION_BACKGROUND: u16 = rgb(9, 14, 19);
 /// One caller-owned CPU-only menu bitmap shared across any number of faces.
 /// Its context key includes the selected gauge, provider session and source mode.
 /// No allocation, sampled data or DMA ownership is retained here.
@@ -265,6 +266,32 @@ impl<'a> CachedRenderer<'a> {
             },
         );
         if self.key != Some(key) {
+            if self.width == 480 && self.height == 480 && !pattern
+                && snapshot.selected == Instrument::Attitude
+                && self.foreground_count.is_some()
+                && self.key.is_some_and(|(view, pattern, old)|
+                    view == Instrument::Attitude && !pattern && old.len() <= 12)
+                && snapshot.source_label.len() <= 12
+            {
+                // A source change only changes this opaque caption. Rescanning
+                // the entire face here used over 100 ms of a live sample's lease.
+                crate::attitude::refresh_caption(self.background, snapshot.source_label);
+                if self.compact_foreground {
+                    let mut offset = 0;
+                    let pixels = self.foreground_pixels.as_deref_mut().unwrap();
+                    let runs = self.foreground_runs.as_deref().unwrap();
+                    for run in &runs[..self.foreground_count.unwrap()] {
+                        let start = run.start as usize;
+                        let len = run.len as usize;
+                        if (362..435).contains(&(start / 480)) {
+                            pixels[offset..offset + len].copy_from_slice(&self.background[start..start + len]);
+                        }
+                        offset += len;
+                    }
+                }
+                self.key = Some(key);
+                return true;
+            }
             let Some(mut fb) =
                 crate::raster::Framebuffer::new(self.background, self.width, self.height)
             else {
@@ -329,6 +356,36 @@ impl<'a> CachedRenderer<'a> {
     ) -> bool {
         if pixels.len() != self.background.len() {
             return false;
+        }
+        if !pattern && snapshot.menu.is_some() {
+            // No flight indication is left visible behind navigation. This
+            // keeps menu presentation independent of numeric sample expiry.
+            if let Some(history) = history {
+                // Each DMA buffer retains its own complete opaque menu. A
+                // static menu needs no PSRAM writes while source data changes.
+                // Repainting every frame competes with scanout and touch I/O.
+                if history.menu == snapshot.menu {
+                    progress();
+                    return true;
+                }
+                if history.menu.is_none() {
+                    pixels.fill(NAVIGATION_BACKGROUND);
+                }
+                history.clear();
+                history.key = None; // Closing must initialize the whole face.
+                if let Some(cache) = menu {
+                    Self::navigation(Some(cache), (self.width, self.height), pixels, history, snapshot);
+                } else {
+                    Self::navigation(self.navigation_cache.as_mut(), (self.width, self.height), pixels, history, snapshot);
+                }
+                history.menu = snapshot.menu;
+            } else {
+                pixels.fill(NAVIGATION_BACKGROUND);
+                let mut fb = crate::raster::Framebuffer::new(pixels, self.width, self.height).unwrap();
+                draw_navigation(&mut fb, snapshot);
+            }
+            progress();
+            return true;
         }
         if !self.prepare(snapshot, pattern) {
             return false;
@@ -501,6 +558,12 @@ fn hand<T: Target>(
     }
 }
 pub fn draw<T: Target>(target: &mut T, s: Snapshot) {
+    if s.menu.is_some() {
+        let (w, h) = target.size();
+        for y in 0..h as i32 { target.span(y, 0, w as i32, NAVIGATION_BACKGROUND); }
+        draw_navigation(target, s);
+        return;
+    }
     draw_background(target, s);
     draw_overlay(target, s);
 }
@@ -849,6 +912,51 @@ pub fn test_pattern<T: Target>(target: &mut T) {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn navigation_view_has_no_live_numeric_pixels_or_numeric_lease() {
+        use instrument_core::{App, Command};
+        let mut app = App::new(); app.apply(Command::LevelPreset).unwrap(); app.tick(0);
+        app.apply(Command::Select(Instrument::Attitude)).unwrap();
+        let mut first = Snapshot::from_app(&app);
+        first.menu = Some(crate::navigation::View { context:crate::navigation::Context::from_app(&app),generation:1,pressed:None });
+        let mut second = first.aged(500);
+        second.pitch.value = Some(-25.); second.roll.value = Some(65.);
+        let mut a = std::vec![0;480*480];let mut b=a.clone();
+        draw_frame(&mut a,480,480,first,false);draw_frame(&mut b,480,480,second,false);
+        assert!(a == b,"navigation must not retain or expose stale flight indications");
+        assert_eq!(first.numeric_lifetime_ms(),None);
+        assert_eq!(second.pitch.age_ms,first.pitch.age_ms.map(|v|v+500));
+    }
+    #[test]
+    fn static_menu_retains_each_buffer_through_source_updates_then_restores_the_face() {
+        use instrument_core::{App, Command, Instrument};
+        use crate::navigation::{Button, Context, View};
+        let mut app = App::new();
+        app.apply(Command::LevelPreset).unwrap(); app.tick(0);
+        for gauge in [Instrument::Altimeter, Instrument::Attitude, Instrument::Turn] {
+            app.apply(Command::Select(gauge)).unwrap();
+            let mut background = std::vec![0;480*480];
+            let mut menu_pixels = background.clone();
+            let mut renderer = CachedRenderer::new(&mut background,480,480).unwrap();
+            let mut menu = NavigationCache::new(&mut menu_pixels).unwrap();
+            let mut buffers = core::array::from_fn::<_,3,_>(|_| std::vec![0;480*480]);
+            let mut histories = core::array::from_fn::<_,3,_>(|_| crate::damage::FrameHistory::new());
+            let mut expected = std::vec![0;480*480];
+            for n in 0..36 {
+                let mut s = Snapshot::from_app(&app);
+                s.pitch.value = Some(n as f32 - 18.);
+                s.roll.value = Some(n as f32 * 3. - 50.);
+                s.menu = (3..30).contains(&n).then_some(View {
+                    context: Context::from_app(&app), generation: 1,
+                    pressed: (12..21).contains(&n).then_some(Button::Cancel),
+                });
+                let b = n % 3;
+                assert!(renderer.draw_incremental_with_menu(&mut buffers[b],&mut histories[b],s,&mut menu,&mut || {}));
+                assert!(draw_frame(&mut expected,480,480,s,false));
+                assert_eq!(buffers[b],expected,"{gauge:?} frame {n}, buffer {b}");
+            }
+        }
+    }
+    #[test]
     fn shared_menu_falls_back_on_other_display_sizes() {
         use instrument_core::{App, Command};
         let mut app = App::new();
@@ -1098,6 +1206,7 @@ mod tests {
                 imu_last_good: None,
                 external: false,
                 external_attitude: false,
+                source_running: false,
                 source_session: 0,
                 source_sequence: 0,
                 source_received_ms: 0,
@@ -1198,6 +1307,7 @@ mod tests {
                     imu_last_good: None,
                     external: false,
                     external_attitude: false,
+                    source_running: false,
                     source_session: 0,
                     source_sequence: 0,
                     source_received_ms: 0,
@@ -1467,6 +1577,7 @@ mod tests {
                 imu_last_good: None,
                 external: false,
                 external_attitude: false,
+                source_running: false,
                 source_session: 0,
                 source_sequence: 0,
                 source_received_ms: 0,

@@ -12,7 +12,7 @@ use esp_idf_svc::{
 use instrument_core::{App, Command, DisplayCommand, Instrument};
 use instrument_ui::interaction::Controller;
 use instrument_ui::{
-    pipeline::{FramePipeline, PresentationFence},
+    continuity, pipeline::{FramePipeline, PresentationFence},
     presentation_healthy, render, Snapshot,
 };
 use std::{
@@ -63,8 +63,12 @@ unsafe extern "C" fn complete(
     // so the worker cannot retire/re-arm while the prior update is incomplete.
     let count = COMPLETE.load(Ordering::Relaxed).wrapping_add(1);
     if let Some(deadline) = callback.shared.fence.complete(count) {
+        let at = now();
+        if deadline != u32::MAX {
+            callback.shared.visible_margin_min.fetch_min(deadline.saturating_sub(at), Ordering::Relaxed);
+        }
         callback.shared.deadline.store(deadline, Ordering::Release);
-        callback.shared.presented.store(now(), Ordering::Release);
+        callback.shared.presented.store(at, Ordering::Release);
     }
     COMPLETE.store(count, Ordering::Release);
     // Queue is allocated before registration and retained until reset, even if
@@ -150,6 +154,13 @@ struct Shared {
     frames: AtomicU32,
     render_max: AtomicU32,
     transfer_max: AtomicU32,
+    capture_age_max: AtomicU32,
+    submit_age_max: AtomicU32,
+    retire_age_max: AtomicU32,
+    visible_margin_min: AtomicU32,
+    repeated_frames: AtomicU32,
+    grace_frames: AtomicU32,
+    warning_frames: AtomicU32,
     stack_min: AtomicU32,
     enabled: AtomicBool,
     light: AtomicBool,
@@ -176,10 +187,32 @@ pub struct Service {
     touch_snapshot_misses: AtomicU32,
     touch_state: RefCell<Option<crate::touch::State>>,
 }
+#[derive(Clone, Copy)]
+struct TimingTotals {
+    render_ms: u32, transfer_ms: u32, capture_age_ms: u32,
+    submit_age_ms: u32, retire_age_ms: u32, visible_margin_ms: u32,
+    repeated_frames: u32, grace_frames: u32,
+    warning_frames: u32,
+}
+impl Shared {
+    fn timing_totals(&self) -> TimingTotals {
+        TimingTotals {
+            render_ms: self.render_max.load(Ordering::Relaxed),
+            transfer_ms: self.transfer_max.load(Ordering::Relaxed),
+            capture_age_ms: self.capture_age_max.load(Ordering::Relaxed),
+            submit_age_ms: self.submit_age_max.load(Ordering::Relaxed),
+            retire_age_ms: self.retire_age_max.load(Ordering::Relaxed),
+            visible_margin_ms: self.visible_margin_min.load(Ordering::Relaxed),
+            repeated_frames: self.repeated_frames.load(Ordering::Relaxed),
+            grace_frames: self.grace_frames.load(Ordering::Relaxed),
+            warning_frames: self.warning_frames.load(Ordering::Relaxed),
+        }
+    }
+}
 struct Stats {
     started: u32,
     first_frame: u32,
-    stopped: Option<(u32, u32, u32, u32)>,
+    stopped: Option<(u32, u32, TimingTotals)>,
 }
 impl Service {
     pub fn start(mut backlight: PinDriver<'static, Output>, panel_ready: bool) -> io::Result<Self> {
@@ -199,6 +232,13 @@ impl Service {
             frames: AtomicU32::new(0),
             render_max: AtomicU32::new(0),
             transfer_max: AtomicU32::new(0),
+            capture_age_max: AtomicU32::new(0),
+            submit_age_max: AtomicU32::new(0),
+            retire_age_max: AtomicU32::new(0),
+            visible_margin_min: AtomicU32::new(u32::MAX),
+            repeated_frames: AtomicU32::new(0),
+            grace_frames: AtomicU32::new(0),
+            warning_frames: AtomicU32::new(0),
             stack_min: AtomicU32::new(u32::MAX),
             enabled: AtomicBool::new(true),
             light: AtomicBool::new(false),
@@ -413,9 +453,17 @@ impl Service {
                 let dma = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_DMA;
                 let partition = unsafe { sys::esp_ota_get_running_partition().as_ref() };
                 let (app_offset, app_size) = partition.map_or((0, 0), |p| (p.address, p.size));
+                let mut hash = [b'0';64];
+                if let Some(description) = unsafe { sys::esp_app_get_description().as_ref() } {
+                    for (i, byte) in description.app_elf_sha256.iter().enumerate() {
+                        hash[i*2] = b"0123456789abcdef"[(byte >> 4) as usize];
+                        hash[i*2+1] = b"0123456789abcdef"[(byte & 15) as usize];
+                    }
+                }
+                let firmware_hash = core::str::from_utf8(&hash).unwrap();
                 // Query-only diagnostics. No allocation or display/source change.
                 return unsafe { reply(format_args!(
-                    "OK memory app_offset_bytes={app_offset} app_size_bytes={app_size} internal_total_bytes={} internal_free_bytes={} internal_min_free_bytes={} internal_largest_bytes={} psram_total_bytes={} psram_free_bytes={} psram_min_free_bytes={} psram_largest_bytes={} dma_free_bytes={} dma_largest_bytes={} display_stack_min_free_bytes={} internal_caps=internal+8bit",
+                    "OK memory firmware_elf_sha256={firmware_hash} app_offset_bytes={app_offset} app_size_bytes={app_size} internal_total_bytes={} internal_free_bytes={} internal_min_free_bytes={} internal_largest_bytes={} psram_total_bytes={} psram_free_bytes={} psram_min_free_bytes={} psram_largest_bytes={} dma_free_bytes={} dma_largest_bytes={} display_stack_min_free_bytes={} internal_caps=internal+8bit",
                     sys::heap_caps_get_total_size(internal),sys::heap_caps_get_free_size(internal),
                     sys::heap_caps_get_minimum_free_size(internal),sys::heap_caps_get_largest_free_block(internal),
                     sys::heap_caps_get_total_size(external),sys::heap_caps_get_free_size(external),
@@ -430,7 +478,7 @@ impl Service {
                     Err(_) => return reply(format_args!("ERR display_sample_busy")),
                 };
                 let at = now();
-                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern"][v.quality as usize],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,v.holding));
+                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][v.quality as usize],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,v.holding));
             }
             DisplayCommand::TouchSound(_) | DisplayCommand::TouchSoundStatus => {
                 return reply(format_args!("ERR touch_sound_unavailable"))
@@ -457,10 +505,11 @@ impl Service {
                 let state = *self.touch_state.borrow();
                 let sample = state.and_then(|s| s.sample);
                 let menu = self.navigation.borrow();
-                return reply(format_args!("OK touch ready={} hold_ms={} overlay={} draft_cents={:?} contact={:?} age_ms={:?} polls={} reports={} errors={} last_error={:?} menu={} menu_hold_ms={} center_pressed={} menu_generation={} shown_menu={} snapshot_misses={}",
+                let (block,blocks,block_at,opens)=menu.diagnostics();
+                return reply(format_args!("OK touch ready={} hold_ms={} overlay={} draft_cents={:?} contact={:?} age_ms={:?} polls={} reports={} errors={} last_error={:?} menu={} menu_hold_ms={} center_pressed={} menu_generation={} shown_menu={} snapshot_misses={} menu_block={} menu_blocks={} menu_block_at_ms={} menu_opens={}",
                     state.is_some_and(|s|s.ready),ui.hold_ms(),ui.view().is_some(),ui.view().map(|v|v.cents),sample.map(|s|s.0),sample.map(|s|s.1.elapsed().as_millis()),
                     state.map_or(0,|s|s.polls),state.map_or(0,|s|s.reports),state.map_or(0,|s|s.errors),state.and_then(|s|s.error),
-                    menu.view().is_some(),menu.hold_ms(),menu.center_pressed(),menu.view().map_or(0,|v|v.generation),s.shown_menu.load(Ordering::Acquire), self.touch_snapshot_misses.load(Ordering::Relaxed)));
+                    menu.view().is_some(),menu.hold_ms(),menu.center_pressed(),menu.view().map_or(0,|v|v.generation),s.shown_menu.load(Ordering::Acquire), self.touch_snapshot_misses.load(Ordering::Relaxed),block,blocks,block_at,opens));
             }
             DisplayCommand::Stats | DisplayCommand::StatsReset | DisplayCommand::StatsStop => {
                 let Ok(mut stats) = self.stats.try_lock() else {
@@ -475,22 +524,19 @@ impl Service {
                         stopped: None,
                     };
                     s.render_max.store(0, Ordering::Relaxed);
+                    s.capture_age_max.store(0, Ordering::Relaxed);
+                    s.submit_age_max.store(0, Ordering::Relaxed);
+                    s.retire_age_max.store(0, Ordering::Relaxed);
+                    s.visible_margin_min.store(u32::MAX, Ordering::Relaxed);
+                    s.repeated_frames.store(0, Ordering::Relaxed);
+                    s.grace_frames.store(0, Ordering::Relaxed);
+                    s.warning_frames.store(0, Ordering::Relaxed);
                     s.transfer_max.store(0, Ordering::Relaxed);
                 }
                 if command == DisplayCommand::StatsStop && stats.stopped.is_none() {
-                    stats.stopped = Some((
-                        t,
-                        frames,
-                        s.render_max.load(Ordering::Relaxed),
-                        s.transfer_max.load(Ordering::Relaxed),
-                    ));
+                    stats.stopped = Some((t, frames, s.timing_totals()));
                 }
-                let (end, frames, render_ms, transfer_ms) = stats.stopped.unwrap_or((
-                    t,
-                    frames,
-                    s.render_max.load(Ordering::Relaxed),
-                    s.transfer_max.load(Ordering::Relaxed),
-                ));
+                let (end, frames, timings) = stats.stopped.unwrap_or((t, frames, s.timing_totals()));
                 let elapsed = end.wrapping_sub(stats.started);
                 let count = frames.wrapping_sub(stats.first_frame);
                 let fps = if elapsed == 0 {
@@ -498,7 +544,7 @@ impl Service {
                 } else {
                     count as f32 * 1000. / elapsed as f32
                 };
-                return reply(format_args!("OK display_stats state={} frames={} elapsed_ms={} rendered_fps={:.2} render_max_ms={} transfer_max_ms={} backlight={} failed={} measurement=completed_presentations", if stats.stopped.is_some(){"stopped"}else{"running"}, count, elapsed, fps, render_ms, transfer_ms, s.light.load(Ordering::Acquire), s.failed.load(Ordering::Acquire)));
+                return reply(format_args!("OK display_stats state={} frames={} elapsed_ms={} rendered_fps={:.2} render_max_ms={} transfer_max_ms={} backlight={} failed={} capture_age_max_ms={} submit_age_max_ms={} retire_age_max_ms={} visible_margin_min_ms={} repeated_frames={} grace_frames={} warning_frames={} measurement=completed_presentations", if stats.stopped.is_some(){"stopped"}else{"running"}, count, elapsed, fps, timings.render_ms, timings.transfer_ms, s.light.load(Ordering::Acquire), s.failed.load(Ordering::Acquire), timings.capture_age_ms, timings.submit_age_ms, timings.retire_age_ms, timings.visible_margin_ms, timings.repeated_frames, timings.grace_frames, timings.warning_frames));
             }
             DisplayCommand::PixelClock(hz) if matches!(hz, 12_000_000 | 18_000_000) => {
                 s.requested_pclk.store(hz, Ordering::Release);
@@ -512,7 +558,7 @@ impl Service {
             DisplayCommand::TransferStall => s.stall.store(2, Ordering::Release),
             DisplayCommand::Recover => s.stall.store(0, Ordering::Release),
             DisplayCommand::Status => {
-                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
+                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
             }
         }
         reply(format_args!(
@@ -561,9 +607,9 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
     cfg.data_width = 16;
     cfg.bits_per_pixel = 16;
     cfg.num_fbs = 3;
-    // 10-line refills missed DMA deadlines under shared-PSRAM load. Sixteen
-    // lines retain the 18 MHz/30+ FPS budget with zero recovery in stress tests.
-    cfg.bounce_buffer_size_px = 480 * 16;
+    // Live all-six transport plus touch/menu traffic can miss 16-line refills.
+    // Twenty-four lines give the RGB ISR more scheduling/PSRAM margin.
+    cfg.bounce_buffer_size_px = 480 * 24;
     cfg.sram_trans_align = 4;
     cfg.__bindgen_anon_1.dma_burst_size = 64;
     cfg.hsync_gpio_num = 38;
@@ -726,6 +772,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     let mut last_draw_ms = 30u32;
     let mut last_submit_ms = 0u32;
     let mut previous_view = None;
+    let mut front_frame: Option<RenderedFrame> = None;
     loop {
         // Completed transfers can overlap all CPU work. Independently budget
         // idle time even when no completion wait blocks; keep both idle-task
@@ -792,6 +839,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
                     .map_err(|_| io::Error::other("LCD completion timeout"))?
                 {
                     record_presentation(s, frame, elapsed);
+                    front_frame = Some(frame);
                     break;
                 }
             }
@@ -808,18 +856,38 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         };
         let started = Instant::now();
         let stamp = now();
-        let snapshot = snapshot.aged(at.elapsed().as_millis() as u64);
+        let latest = snapshot.aged(at.elapsed().as_millis() as u64);
         let pattern = s.pattern.load(Ordering::Acquire);
-        let lifetime = if pattern {
-            None
-        } else {
-            snapshot.numeric_lifetime_ms()
+        // Repeats retain their ORIGINAL snapshot/stamp; neither ages, session
+        // identity nor the hard visibility deadline are renewed by copying.
+        // Include pending-transfer and invalid-view confirmation, composition
+        // and scheduler margin. Adapt upward for slower scanout clocks.
+        let replacement_ms = ((548u64 * 508 * 1000).div_ceil(applied_pclk as u64) * 2 + 64).max(100);
+        let repeated = (!pattern).then_some(front_frame).flatten().filter(|front|
+            !front.pattern && continuity::repeat_allowed_with_budget(latest, front.snapshot, now().wrapping_sub(front.stamp) as u64, replacement_ms));
+        let frame = repeated.map(|front| RenderedFrame { repeated: true, ..front })
+            .unwrap_or(RenderedFrame { snapshot: latest, pattern, stamp, repeated: false });
+        let snapshot = frame.snapshot;
+        let deadline = if pattern { u32::MAX } else {
+            continuity::lifetime_ms(snapshot).map(|ttl| frame.stamp.saturating_add(ttl as u32)).unwrap_or(u32::MAX)
         };
+        if snapshot.displayed_quality() == Some(instrument_core::Quality::Valid) {
+            s.capture_age_max.fetch_max(snapshot.displayed_age_ms().unwrap_or(0).saturating_add(now().wrapping_sub(frame.stamp) as u64).min(u32::MAX as u64) as u32, Ordering::Relaxed);
+        }
         // The pipeline exposes only the spare CPU buffer. Rendering overlaps
         // the previous submission, while its front/pending buffers stay immutable.
         let back = pipeline.drawing();
         // The mutable slice is scoped to drawing and gone before submitting to DMA.
-        {
+        if frame.repeated {
+            // SAFETY: front and drawing are disjoint by FramePipeline. RGB DMA
+            // only reads front; CPU never mutates it. Retirement cannot reuse
+            // that source allocation until this scoped copy has completed.
+            let completed = unsafe { core::slice::from_raw_parts(buffers[pipeline.front()].cast::<u16>(), 480 * 480) };
+            let drawing = unsafe { core::slice::from_raw_parts_mut(buffers[back].cast::<u16>(), 480 * 480) };
+            if !continuity::copy_completed_frame(drawing, completed, &mut histories[back]) {
+                return Err(io::Error::other("repeat frame size"));
+            }
+        } else {
             let pixels =
                 unsafe { core::slice::from_raw_parts_mut(buffers[back].cast::<u16>(), 480 * 480) };
             let mut completion_error = None;
@@ -830,7 +898,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
                         now(),
                         !s.fence.pending(),
                     ) {
-                        Ok(Some((frame, elapsed))) => record_presentation(s, frame, elapsed),
+                        Ok(Some((frame, elapsed))) => { record_presentation(s, frame, elapsed); front_frame=Some(frame); },
                         Ok(None) => {}
                         Err(error) => completion_error = Some(error),
                     }
@@ -871,6 +939,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
                 .map_err(|_| io::Error::other("LCD completion timeout"))?
             {
                 record_presentation(s, frame, elapsed);
+                front_frame = Some(frame);
             } else {
                 let wait_started = Instant::now();
                 wake.recv_front(TickType::new_millis(10).ticks());
@@ -893,15 +962,15 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         }
         // Aging includes drawing AND waiting for the earlier frame. Discard an
         // expired prepared frame; never refresh its source timestamp to keep it.
-        if lifetime.is_some_and(|ttl| now().wrapping_sub(stamp) as u64 >= ttl) {
+        if now() >= deadline {
             continue;
+        }
+        if snapshot.displayed_quality() == Some(instrument_core::Quality::Valid) {
+            s.submit_age_max.fetch_max(snapshot.displayed_age_ms().unwrap_or(0).saturating_add(now().wrapping_sub(frame.stamp) as u64).min(u32::MAX as u64) as u32, Ordering::Relaxed);
         }
         check(unsafe { sys::esp_lcd_panel_draw_bitmap(panel, 0, 0, 480, 480, buffers[back]) })?;
         let after_submit = COMPLETE.load(Ordering::Acquire);
         last_submit_ms = now();
-        let deadline = lifetime
-            .map(|ttl| stamp.saturating_add(ttl as u32))
-            .unwrap_or(u32::MAX);
         if !s.fence.arm(after_submit, deadline) {
             return Err(io::Error::other("LCD presentation fence busy"));
         }
@@ -909,11 +978,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
             .submitted(
                 after_submit,
                 now(),
-                RenderedFrame {
-                    snapshot,
-                    pattern,
-                    stamp,
-                },
+                frame,
             )
             .map_err(|_| io::Error::other("LCD pipeline busy"))?;
     }
@@ -924,6 +989,7 @@ struct RenderedFrame {
     snapshot: Snapshot,
     pattern: bool,
     stamp: u32,
+    repeated: bool,
 }
 
 fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
@@ -931,11 +997,24 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
         snapshot,
         pattern,
         stamp,
+        repeated,
     } = frame;
     s.transfer_max.fetch_max(elapsed, Ordering::Relaxed);
+    if snapshot.displayed_quality() == Some(instrument_core::Quality::Valid) {
+        s.retire_age_max.fetch_max(snapshot.displayed_age_ms().unwrap_or(0).saturating_add(now().wrapping_sub(stamp) as u64).min(u32::MAX as u64) as u32, Ordering::Relaxed);
+    }
     let model = snapshot.model();
+    let elapsed_source = now().wrapping_sub(stamp) as u64;
+    let grace = continuity::lifetime_ms(snapshot) != snapshot.numeric_lifetime_ms()
+        && (repeated || snapshot.numeric_lifetime_ms().is_some_and(|ttl| elapsed_source >= ttl));
+    if repeated { s.repeated_frames.fetch_add(1, Ordering::Relaxed); }
+    if grace { s.grace_frames.fetch_add(1, Ordering::Relaxed); }
     let quality = if pattern {
         6
+    } else if snapshot.menu.is_some() {
+        7
+    } else if grace {
+        8
     } else if let Some(quality) = snapshot.displayed_quality() {
         match quality {
             instrument_core::Quality::Valid => 0,
@@ -948,6 +1027,12 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
         5
     };
     let presented_ms = s.presented.load(Ordering::Acquire);
+    // Count physical invalid flight views in established running T2 streams.
+    // Initial sequence-one waiting, menu, local simulation and disconnect views
+    // are excluded. Held pixels remain independently observable as quality 8.
+    if snapshot.source_running && snapshot.source_sequence > 1 && matches!(quality, 1..=4) {
+        s.warning_frames.fetch_add(1, Ordering::Relaxed);
+    }
     if let Ok(mut v) = s.sample.lock() {
         *v = Presented {
             session: snapshot.source_session,
@@ -962,12 +1047,12 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
             } else {
                 None
             },
-            pitch: if !pattern && snapshot.selected == Instrument::Attitude {
+            pitch: if !pattern && snapshot.menu.is_none() && snapshot.selected == Instrument::Attitude {
                 snapshot.attitude_model().angles.map(|a| a.pitch_deg)
             } else {
                 None
             },
-            roll: if !pattern && snapshot.selected == Instrument::Attitude {
+            roll: if !pattern && snapshot.menu.is_none() && snapshot.selected == Instrument::Attitude {
                 snapshot.attitude_model().angles.map(|a| a.roll_deg)
             } else {
                 None
@@ -978,9 +1063,9 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
                 Some(snapshot.selected)
             },
             quality,
-            holding: !pattern
+            holding: grace || (!pattern
                 && snapshot.selected == Instrument::Attitude
-                && snapshot.imu_holding(),
+                && snapshot.imu_holding()),
         };
     }
     s.shown_altitude.store(

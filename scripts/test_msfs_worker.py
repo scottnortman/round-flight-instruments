@@ -67,6 +67,10 @@ class WorkerRecovery(unittest.TestCase):
         self.assertEqual(report['sessions'], 2)
         self.assertEqual(report['reconnect_attempts'], 2)
         self.assertIn('C0000005', result.stderr)
+        identities = [json.loads(line.removeprefix('SIMULATOR ')) for line in result.stderr.splitlines() if line.startswith('SIMULATOR ')]
+        self.assertGreaterEqual(len(identities), 2)
+        self.assertTrue(all(i['name'] == 'MSFS worker fixture' and i['application_version'] == [1,38,2,0] for i in identities))
+
         frames = [r['frame'].split() for r in records if 'frame' in r]
         groups = {}
         for frame in frames:

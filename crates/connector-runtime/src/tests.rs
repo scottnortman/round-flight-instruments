@@ -676,3 +676,29 @@ fn gauge_switch_between_poll_and_claim_prevents_aircraft_write() {
     r.feed(66, Lifecycle::Running, 30.01);
     assert!(r.provider.borrow().writes.is_empty());
 }
+
+#[test]
+fn multi_clock_reference_advances_between_ack_and_new_measurement_without_renewing_old_data() {
+    let mut r = rig_profile(false, instrument_core::Instrument::Attitude, true);
+    r.feed(0, Lifecycle::Running, 29.92);
+    r.clock.0.set(40);
+    let mut reading = observation(40, Lifecycle::Running, 29.92);
+    reading.measurements.push(simulator_link::measurements::Measurement {
+        key: Key::primary(Quantity::PitchDeg), age_ms: 35,
+        value: simulator_link::measurements::Value::Valid(12.),
+    }).unwrap();
+    r.provider.borrow_mut().observations.push_back(reading);
+    let tick = r.session.poll().unwrap();
+    let packet = simulator_link::multi::Frame::decode(&tick.telemetry.unwrap().0).unwrap();
+    // The frame is acquired after the previous ACK. Only clock-alignment
+    // uncertainty should be added, not the whole 40 ms since that ACK.
+    let age = r.device.borrow().app.reading(instrument_core::Field::PitchDeg, 5040).age_ms.unwrap();
+    assert!(age <= 38, "35 ms sample was incorrectly aged to {age} ms");
+    assert!(packet.receiver_ms > 5000 && packet.receiver_ms <= 5040);
+    // Holding an old observation must still add its full actual elapsed age.
+    r.clock.0.set(70);
+    r.provider.borrow_mut().observations.push_back(observation(40, Lifecycle::Running, 29.92));
+    let tick = r.session.poll().unwrap();
+    let packet = simulator_link::multi::Frame::decode(&tick.telemetry.unwrap().0).unwrap();
+    assert!(packet.measurements.iter().all(|m| m.age_ms >= 31));
+}

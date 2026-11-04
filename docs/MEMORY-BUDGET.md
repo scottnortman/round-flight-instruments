@@ -22,6 +22,10 @@ This is a USB-flashed single-app layout; it provides no OTA slots. The old 1 MiB
 slot was 99.16% full (1,039,792 B). Physical flash was never nearly full.
 Current app size and measured RAM results are recorded in
 [the verification report](../verification/MEMORY-LAYOUT.md).
+The later [continuity candidate](../verification/CONTINUITY.md) uses
+1,051,744 bytes (25.08% of the 4 MiB slot), retains 5,131,000 bytes free PSRAM,
+and adds no full-size bitmap. The normal build's measured display stack reserve
+is about 3 KiB; exact run results are in that report.
 
 Use `scripts/Build-Console.ps1`: it resolves the CSV path for the SDK's generated
 CMake project, verifies the generated table and its MD5 against the CSV, and
@@ -52,8 +56,10 @@ Capability changes prepare new button artwork incrementally; unprepared artwork
 is never displayed. Pressed artwork is keyed and restored across sessions/views.
 
 The Attitude foreground cache remains **96 KiB of internal RAM**. DMA bounce
-buffers use another 30 KiB internally. Do not add another 96 KiB internal cache
-per gauge: the measured largest free internal block is only 38 KiB. Put large
+buffers use another 45 KiB internally. Increasing them from 16 to 24 lines costs
+15 KiB and removed the RGB refill recoveries measured during live/touch traffic.
+Do not add another 96 KiB internal cache
+per gauge: the measured largest free internal block is only 31 KiB. Put large
 future artwork in PSRAM and reuse fonts, transfer buffers and render tasks.
 
 Three more retained backdrops require **1,382,400 B (1.318 MiB)**. With approximately

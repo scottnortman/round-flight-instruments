@@ -354,6 +354,15 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
         })();
         self.guard(result)
     }
+    pub fn touch_status(&mut self) -> io::Result<String> {
+        self.check_active()?;
+        let result=(|| {
+            let response=self.device.request("touch status")?;
+            prefix(&response,"OK touch ")?;
+            Ok(response)
+        })();
+        self.guard(result)
+    }
     pub fn poll(&mut self) -> io::Result<Tick> {
         self.check_active()?;
         let result = self.poll_inner();
@@ -369,6 +378,17 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             .ok_or_else(|| invalid("sequence exhausted"))?;
         let now = self.now()?;
         let packet = if self.multi {
+            // ACK credits use the device clock, while observation ages use the
+            // host clock. Advance that clock reference by elapsed host time;
+            // pinning it to the old ACK charges time since the ACK a second time.
+            // Keep 1 ms of alignment margin in addition to the field-age margin.
+            // Credits are refreshed above after 100 ms; a future/out-of-range
+            // reference still fails closed at the receiver, never refreshes data.
+            let elapsed_since_ack = now.checked_sub(self.last_ack)
+                .ok_or_else(|| invalid("host clock moved backwards"))?;
+            let receiver_reference = self.receiver_ms
+                .checked_add(elapsed_since_ack.saturating_sub(1))
+                .ok_or_else(|| invalid("receiver clock exhausted"))?;
             let age = now
                 .checked_sub(observation.at_ms)
                 .ok_or_else(|| invalid("future observation"))?;
@@ -384,7 +404,7 @@ impl<D: DeviceLink, C: Clock> Session<D, C> {
             simulator_link::multi::Frame {
                 session: self.session,
                 sequence,
-                receiver_ms: self.receiver_ms,
+                receiver_ms: receiver_reference,
                 state: observation.state,
                 measurements,
             }

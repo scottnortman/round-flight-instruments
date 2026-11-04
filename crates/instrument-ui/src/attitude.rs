@@ -675,6 +675,12 @@ fn captions<T: Target>(disk: &mut Disk<'_, T>, source_label: &str) {
     c.rect(132., 402., 216., 32., FACE);
     c.text_on(240., 421., 21., source_label, (rgb(255, 185, 87), FACE));
 }
+/// Update only the opaque caption area. At 480 px, source strings of at most
+/// twelve glyph cells remain wholly inside that existing opaque backing.
+pub(crate) fn refresh_caption(pixels: &mut [u16], source: &str) {
+    let mut fb = crate::raster::Framebuffer::new(pixels, 480, 480).unwrap();
+    captions(&mut Disk::new(&mut fb), source);
+}
 
 #[cfg(test)]
 mod tests {

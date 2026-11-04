@@ -49,3 +49,12 @@ Copyright 2021-2024 Contributors to esp-idf-template. The upstream template's
 [MIT license notice](tools/toolchain-check/LICENSE-MIT) is retained with the
 derived scaffold; original project additions are covered by the root Apache-2.0
 license. Dependencies are fetched separately and retain their upstream terms.
+
+## Optional Microsoft SimConnect runtime
+
+Private runtime-inclusive test installers contain an unmodified `SimConnect.dll`
+from the locally installed Microsoft MSFS 2020 SDK. The accompanying Microsoft
+license and runtime notice are included in those packages. This project's
+Apache-2.0 license does not relicense Microsoft's runtime. Source builds omit
+that DLL unless `Build-WindowsDriver.ps1 -IncludeSdkRuntime` is explicitly used;
+public binary redistribution requires a separate licensing review.

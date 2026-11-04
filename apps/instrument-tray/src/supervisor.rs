@@ -15,14 +15,18 @@ use std::{
 pub struct Settings {
     pub version: u32,
     pub dll: Option<PathBuf>,
+    #[serde(default = "bundled_default")]
+    pub use_bundled_runtime: bool,
     pub writeback: bool,
     pub connect: bool,
 }
+fn bundled_default() -> bool { true }
 impl Default for Settings {
     fn default() -> Self {
         Self {
             version: 1,
             dll: None,
+            use_bundled_runtime: true,
             writeback: true,
             connect: true,
         }
@@ -31,6 +35,7 @@ impl Default for Settings {
 #[derive(Default)]
 struct Message {
     text: String,
+    simulator: Option<String>,
     at: Option<Instant>,
 }
 /// Retain the seven latest completed process sessions before starting an eighth.
@@ -66,6 +71,18 @@ fn prune_logs(root: &Path) -> io::Result<()> {
         fs::remove_dir_all(resolved)?;
     }
     Ok(())
+}
+fn simulator_identity(line: &str) -> Option<String> {
+    let v: serde_json::Value = serde_json::from_str(line.strip_prefix("SIMULATOR ")?.trim()).ok()?;
+    let name = v["name"].as_str()?;
+    if name.len() > 1024 || name.chars().any(char::is_control) { return None; }
+    let version = |key: &str| -> Option<String> {
+        let fields = v[key].as_array()?;
+        if fields.len() != 4 { return None; }
+        fields.iter().map(|n| n.as_u64().filter(|n| *n <= u32::MAX as u64).map(|n|n.to_string()))
+            .collect::<Option<Vec<_>>>().map(|v|v.join("."))
+    };
+    Some(format!("{} {} (SimConnect {})",name,version("application_version")?,version("simconnect_version")?))
 }
 pub struct Supervisor {
     pub root: PathBuf,
@@ -105,7 +122,9 @@ impl Supervisor {
         if settings.version != 1 {
             return Err(io::Error::other("unsupported settings version"));
         }
-        if settings.dll.is_none() {
+        if settings.use_bundled_runtime && bin.join("SimConnect.dll").is_file() {
+            settings.dll = Some(bin.join("SimConnect.dll"));
+        } else if settings.dll.as_ref().is_none_or(|p| !p.is_file()) {
             settings.dll = [
                 bin.join("SimConnect.dll"),
                 PathBuf::from(r"C:\MSFS SDK\SimConnect SDK\lib\SimConnect.dll"),
@@ -131,15 +150,13 @@ impl Supervisor {
     }
     fn note(&self, text: impl Into<String>) {
         if let Ok(mut m) = self.message.lock() {
-            *m = Message {
-                text: text.into(),
-                at: Some(Instant::now()),
-            };
+            m.text = text.into();
+            m.at = Some(Instant::now());
         }
     }
     pub fn status(&self) -> String {
         let m = self.message.lock().unwrap();
-        format!("Round Instruments\r\n\r\n{}\r\nUpdated {} seconds ago\r\n\r\nControls: {}\r\nDevice: {}\r\n\r\nBackground gauges are read-only. Only explicit active-gauge actions can change MSFS.\r\nAirspeed, heading and VSI faces remain unavailable.\r\n\r\nLogs: {}",m.text,m.at.map_or(0,|at|at.elapsed().as_secs()),if self.settings.writeback {"Active gauge actions enabled"}else{"Read-only"},if self.root.join("device.json").is_file(){"Enrolled by USB identity"}else{"Select a device from the tray menu"},self.root.join("logs").display())
+        format!("Round Instruments 0.2.0 development preview 6\r\n\r\n{}\r\nUpdated {} seconds ago\r\n\r\nLast connected simulator: {}\r\n\r\nControls: {}\r\nDevice: {}\r\n\r\nBackground gauges are read-only. Only explicit active-gauge actions can change MSFS.\r\nAirspeed, heading and VSI faces remain unavailable.\r\n\r\nLogs: {}",m.text,m.at.map_or(0,|at|at.elapsed().as_secs()),m.simulator.as_deref().unwrap_or("Not reported yet; start MSFS and connect"),if self.settings.writeback {"Active gauge actions enabled"}else{"Read-only"},if self.root.join("device.json").is_file(){"Enrolled by USB identity"}else{"Select a device from the tray menu"},self.root.join("logs").display())
     }
     pub fn devices() -> io::Result<Vec<(String, String)>> {
         Ok(serialport::available_ports()
@@ -290,6 +307,10 @@ impl Supervisor {
                     Ok(_) if line.len() > 8192 => break,
                     _ => {}
                 }
+                if let Some(info) = simulator_identity(&line) {
+                    if let Ok(mut m) = message.lock() { m.simulator = Some(info); }
+                    continue;
+                }
                 let text = if let Some(json) = line.strip_prefix("STATUS ") {
                     match serde_json::from_str::<serde_json::Value>(json) {
                         Ok(v) => format!(
@@ -306,10 +327,8 @@ impl Supervisor {
                     line.trim().to_owned()
                 };
                 if let Ok(mut m) = message.lock() {
-                    *m = Message {
-                        text: text.clone(),
-                        at: Some(Instant::now()),
-                    };
+                    m.text = text.clone();
+                    m.at = Some(Instant::now());
                 }
                 // One bounded latest-message file; detailed wire logs rotate in the connector.
                 let _ = fs::write(root.join("last-message.txt"), text);
@@ -325,6 +344,7 @@ impl Supervisor {
             return Err(io::Error::other("Select SimConnect.dll"));
         }
         self.settings.dll = Some(path.canonicalize()?);
+        self.settings.use_bundled_runtime = false;
         self.save()?;
         self.restart();
         Ok(())
@@ -375,6 +395,13 @@ impl Drop for Supervisor {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn reports_server_versions_without_guessing_from_sdk_and_rejects_malformed_identity() {
+        assert_eq!(simulator_identity(r#"SIMULATOR {"name":"MSFS fixture","application_version":[1,38,2,0],"simconnect_version":[10,0,0,0]}"#).unwrap(), "MSFS fixture 1.38.2.0 (SimConnect 10.0.0.0)");
+        assert!(simulator_identity(r#"SIMULATOR {"name":"bad","application_version":[1],"simconnect_version":[10,0,0,0]}"#).is_none());
+        let old: Settings=serde_json::from_str(r#"{"version":1,"dll":null,"connect":true,"writeback":true}"#).unwrap();
+        assert!(old.use_bundled_runtime);
+    }
     use super::*;
     #[test]
     fn settings_default_to_auto_sync_with_explicit_active_controls() {

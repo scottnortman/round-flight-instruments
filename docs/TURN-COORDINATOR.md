@@ -73,7 +73,7 @@ to the face; the phone raw-gyro roll/yaw projection must not be applied again.
 MSFS cockpit agreement, rate/ball signs and aircraft-specific support still need
 live validation on the simulator PC. The face sends no aircraft controls.
 
-Local simulation retains a 100 ms freshness limit. The user approved 150 ms for
+Local simulation retains a 100 ms freshness limit. The user approved 200 ms for
 external turn and ball data, including acquisition, transport and presentation.
 Each field keeps its actual age and expires independently. There is no automatic
 IMU hold or synthetic fallback for external loss. Owner/scanout/render watchdogs
@@ -101,3 +101,11 @@ across three rotating buffers, motion, faults and touch overlays.
 
 References: [FAA PHAK Chapter 8](https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/phak/10_phak_ch8.pdf)
 and [MSFS instrument template](https://docs.flightsimulator.com/html/Content_Configuration/Models/ModelBehaviors/TemplateExplorer/Asobo/Common/Subtemplates/Instrument_Subtemplates.html).
+
+The November 3 live-link fix candidate supersedes the earlier 150 ms external
+budget with the user-approved 200 ms trial. Actual sample ages are retained;
+local/IMU policies remain unchanged. See [live-link verification](../verification/LIVE-GAUGE-TIMING.md).
+The latest firmware can repeat completed pixels through brief external delays,
+with a 500 ms maximum visual age and no on-screen hold label. Raw validity stays
+at 200 ms; CLI ages and hold counters remain available. See
+[bounded continuity](../verification/CONTINUITY.md).

@@ -1,8 +1,15 @@
 # Round Flight Instruments
 
-Latest source checkpoint: **v0.2.0-rc.5**. Altimeter, Attitude and Turn Coordinator
+Latest source checkpoint: **v0.2.0-rc.6**. Altimeter, Attitude and Turn Coordinator
 are implemented with touch gauge selection, blue pressed feedback and chirps.
 Development builds now use a 4 MiB application slot and one shared menu cache.
+The live-link fix candidate adds accurate clock aging, independent gauge menus
+and a runtime-inclusive private Windows preview; [verification/status](verification/LIVE-GAUGE-TIMING.md).
+The [bounded continuity candidate](verification/CONTINUITY.md) keeps brief
+Attitude/Turn delays invisible while preserving true sample ages in the CLI.
+Its latest menu fix retains static pixels per framebuffer and uses 24-line
+scanout buffers to preserve touch responsiveness during live data.
+Live simulator-PC acceptance remains pending.
 See the measured [flash/RAM budget and six-gauge plan](docs/MEMORY-BUDGET.md).
 Bench motion and the corrected Turn menu run above **32 FPS**. See the
 [Turn Coordinator guide](docs/TURN-COORDINATOR.md) and
@@ -69,7 +76,7 @@ you supply simulated data. Settings and simulated values reset on reboot.
 ## Attitude gauge development
 
 In this source checkpoint, hold the dial center for **3 seconds**, release,
-then tap Altimeter or Attitude to select a supported face. All six instruments
+then tap Altimeter, Attitude or Turn to select a supported face. All six instruments
 are listed; unfinished or source-incompatible choices are disabled. Active
 buttons turn blue and chirp. Set the volatile hold with `touch menu hold 3000`.
 See [touch gauge menu and current MSFS limits](docs/GAUGE-MENU.md).

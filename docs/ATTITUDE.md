@@ -74,7 +74,7 @@ external attitude never falls back to simulated or fabricated level data.
 consumes immutable validated readings; acquisition and filtering remain outside
 the renderer. Both axes must be valid, finite and in range. Local simulation uses
 a 100 ms freshness budget; external simulator attitude uses the user-approved
-150 ms budget, including acquisition, transport, rendering and presentation age.
+200 ms budget, including acquisition, transport, rendering and presentation age.
 Missing, stale, failed and timing-fault states clear the horizon, ladder and
 aircraft symbol and display a red X plus the reason. The explicit IMU bench
 mode instead holds its last usable filtered pose without a visible hold annotation, preserving the
@@ -141,3 +141,11 @@ The fixed bank scale has small upright `30` and `60` labels on both sides,
 just outside their major ticks and shifted three degrees toward level for
 clearance. Labels are included in the static foreground
 cache, so normal frames do not rerasterize this text.
+
+The November 3 live-link fix candidate supersedes the earlier 150 ms external
+budget with the user-approved 200 ms trial. Actual sample ages are retained;
+local/IMU policies remain unchanged. See [live-link verification](../verification/LIVE-GAUGE-TIMING.md).
+The latest firmware can repeat completed pixels through brief external delays,
+with a 500 ms maximum visual age and no on-screen hold label. Raw validity stays
+at 200 ms; CLI ages and hold counters remain available. See
+[bounded continuity](../verification/CONTINUITY.md).

@@ -103,6 +103,9 @@ pub struct Controller {
     activity: u64,
     generation: u32,
     press_started: bool,
+    last_block: &'static str,
+    blocked_updates: u32,
+    last_block_at: u64,
 }
 impl Default for Controller {
     fn default() -> Self {
@@ -117,6 +120,9 @@ impl Default for Controller {
             activity: 0,
             generation: 0,
             press_started: false,
+            last_block: "none",
+            blocked_updates: 0,
+            last_block_at: 0,
         }
     }
 }
@@ -143,6 +149,20 @@ impl Controller {
     }
     pub fn press_started(&self) -> bool {
         self.press_started
+    }
+    pub fn diagnostics(&self) -> (&'static str, u32, u64, u32) {
+        (self.last_block,self.blocked_updates,self.last_block_at,self.generation)
+    }
+    fn suspend(&mut self, now: u64, reason: &'static str) {
+        if self.busy() {
+            self.last_block=reason;
+            self.last_block_at=now;
+            self.blocked_updates=self.blocked_updates.saturating_add(1);
+        }
+        self.armed=false;
+        self.holding=None;
+        self.pressed_id=None;
+        if let Some(view)=&mut self.view { view.pressed=None; }
     }
     pub fn cancel(&mut self) {
         self.armed = false;
@@ -180,22 +200,31 @@ impl Controller {
         self.last_tick = Some(now);
         let changed = self.context.is_some_and(|old| old != context);
         self.context = Some(context);
-        let Some(input) = input.filter(|i| {
-            now.checked_sub(i.at_ms)
-                .is_some_and(|age| age < TOUCH_STALE_MS)
-        }) else {
-            self.cancel();
-            return None;
-        };
-        if !allowed || bad_gap || changed || input.contact == Contact::Multiple {
+        if changed {
+            self.suspend(now,"context");
             self.cancel();
             return None;
         }
         if self.view.is_some() && now.saturating_sub(self.activity) >= EDIT_TIMEOUT_MS {
+            self.suspend(now,"timeout");
             self.cancel();
             return None;
         }
-        if !visible {
+        let Some(input) = input.filter(|i| {
+            now.checked_sub(i.at_ms)
+                .is_some_and(|age| age < TOUCH_STALE_MS)
+        }) else {
+            self.suspend(now,"input");
+            return None;
+        };
+        if !allowed || bad_gap || input.contact == Contact::Multiple {
+            self.suspend(now,if !allowed {"pipeline"} else if bad_gap {"owner_gap"} else {"multiple"});
+            return None;
+        }
+        // Navigation changes only the local display. A numeric-data blackout
+        // must not make the center hold inaccessible. Actual menu buttons still
+        // require visible, acknowledged artwork and a fresh release.
+        if !visible && self.view.is_some() {
             self.armed = false;
             self.holding = None;
             self.pressed_id = None;
@@ -282,6 +311,23 @@ mod tests {
             session: 0,
         }
     }
+    #[test]
+    fn open_menu_survives_input_or_pipeline_gaps_but_discards_the_gesture() {
+        for cause in 0..4 {
+            let mut c=Controller::default(); let t=open(&mut c);
+            feed(&mut c,t+10,Contact::Up); feed(&mut c,t+20,down(300,160));
+            let generation=c.view().unwrap().generation;
+            let at=t+if cause==2 {200}else{30};
+            let input=if cause==0 {None}else{Some(Input{at_ms:at,contact:if cause==3 {Contact::Multiple}else{Contact::Up}})};
+            assert_eq!(c.update_visible(at,input,cause!=1,true,ctx(),generation),None);
+            assert!(c.view().is_some(),"read-only navigation must survive a temporary input/pipeline gap");
+            assert!(c.view().unwrap().pressed.is_none());
+            assert_eq!(feed(&mut c,at+10,down(300,160)),None);
+            assert!(c.view().unwrap().pressed.is_none(),"a fresh release is required");
+            feed(&mut c,at+20,Contact::Up); feed(&mut c,at+30,down(300,160));
+            assert_eq!(feed(&mut c,at+40,Contact::Up),Some(Instrument::Attitude));
+        }
+    }
     fn down(x: u16, y: u16) -> Contact {
         Contact::Down { id: 1, x, y }
     }
@@ -308,6 +354,22 @@ mod tests {
         feed(c, 3010, down(240, 240));
         assert!(c.view().is_some());
         3010
+    }
+    #[test]
+    fn numeric_blackouts_do_not_abort_navigation_hold_but_unseen_buttons_cannot_select() {
+        let mut c = Controller::default();
+        feed(&mut c, 0, Contact::Up);
+        for t in (10..=3010).step_by(10) {
+            c.update_visible(t, Some(Input { at_ms: t, contact: down(240, 240) }),
+                true, t % 50 != 0, ctx(), 0);
+        }
+        assert!(c.view().is_some(), "numeric expiry must not make navigation inaccessible");
+        let generation = c.view().unwrap().generation;
+        let r = Button::Gauge(Instrument::Attitude).rect();
+        assert_eq!(c.update_visible(3020, Some(Input { at_ms:3020, contact:Contact::Up }),true,false,ctx(),generation),None);
+        assert_eq!(c.update_visible(3030, Some(Input { at_ms:3030, contact:down(r.x,r.y) }),true,false,ctx(),generation),None);
+        assert!(c.view().is_some());
+        assert!(c.view().unwrap().pressed.is_none());
     }
     #[test]
     fn hold_release_then_button_selects_once() {
@@ -380,8 +442,8 @@ mod tests {
             generation,
         );
         assert!(
-            c.view().is_none(),
-            "Actual display unavailability still cancels"
+            c.view().is_some() && c.view().unwrap().pressed.is_none(),
+            "Display unavailability disarms local navigation without closing it"
         );
     }
     #[test]

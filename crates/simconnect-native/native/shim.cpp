@@ -1,5 +1,5 @@
 // Narrow ABI bridge compiled against the installed Microsoft header.
-// No SDK sources or binaries are redistributed by this project.
+// SDK sources remain external; optional private runtime packages preserve Microsoft notices.
 #include <windows.h>
 #pragma warning(push)
 #pragma warning(disable: 4245) // SDK 0.24.5 intentionally assigns -1 to DWORD constants.
@@ -104,7 +104,16 @@ static int32_t decode(SIMCONNECT_RECV* p, DWORD bytes, RfiEvent* out, DWORD defi
     if (!p || bytes < sizeof(SIMCONNECT_RECV) || p->dwSize > bytes || p->dwSize < sizeof(SIMCONNECT_RECV)) return E_UNEXPECTED;
     *out = {};
     switch (p->dwID) {
-    case SIMCONNECT_RECV_ID_OPEN: out->kind = 1; break;
+    case SIMCONNECT_RECV_ID_OPEN: {
+        if (p->dwSize < sizeof(SIMCONNECT_RECV_OPEN)) return E_UNEXPECTED;
+        auto e = static_cast<SIMCONNECT_RECV_OPEN*>(p);
+        out->kind = 1;
+        const DWORD versions[] = {e->dwApplicationVersionMajor,e->dwApplicationVersionMinor,
+            e->dwApplicationBuildMajor,e->dwApplicationBuildMinor,e->dwSimConnectVersionMajor,
+            e->dwSimConnectVersionMinor,e->dwSimConnectBuildMajor,e->dwSimConnectBuildMinor};
+        for (unsigned i=0;i<8;++i) out->values[i] = versions[i];
+        break;
+    }
     case SIMCONNECT_RECV_ID_QUIT: out->kind = 3; break;
     case SIMCONNECT_RECV_ID_EXCEPTION: {
         if (p->dwSize < sizeof(SIMCONNECT_RECV_EXCEPTION)) return E_UNEXPECTED;
@@ -145,6 +154,20 @@ extern "C" int32_t rfi_sc_decode_fixture(const unsigned char* input, uint32_t si
     std::memcpy(copy, input, size);
     return decode(reinterpret_cast<SIMCONNECT_RECV*>(copy), size, out, definition);
 }
+// Bounded metadata from the actual running server, not the SDK/DLL filename.
+static void report_server(const SIMCONNECT_RECV_OPEN& e) {
+    char name[256 * 6 + 1] = {}; size_t used = 0;
+    for (unsigned i=0;i<sizeof(e.szApplicationName) && e.szApplicationName[i];++i) {
+        unsigned char ch = static_cast<unsigned char>(e.szApplicationName[i]);
+        if (ch >= 32 && ch < 127 && ch != '"' && ch != '\\') name[used++] = static_cast<char>(ch);
+        else { std::snprintf(name+used,7,"\\u%04X",ch); used += 6; }
+    }
+    name[used] = 0;
+    std::fprintf(stderr,"SIMULATOR {\"name\":\"%s\",\"application_version\":[%lu,%lu,%lu,%lu],\"simconnect_version\":[%lu,%lu,%lu,%lu]}\n",
+        name,e.dwApplicationVersionMajor,e.dwApplicationVersionMinor,e.dwApplicationBuildMajor,e.dwApplicationBuildMinor,
+        e.dwSimConnectVersionMajor,e.dwSimConnectVersionMinor,e.dwSimConnectBuildMajor,e.dwSimConnectBuildMinor);
+    std::fflush(stderr);
+}
 extern "C" int32_t rfi_sc_poll(void* client, RfiEvent* out) {
     auto c = static_cast<Client*>(client);
     SIMCONNECT_RECV* p = nullptr; DWORD bytes = 0;
@@ -166,6 +189,7 @@ extern "C" int32_t rfi_sc_poll(void* client, RfiEvent* out) {
         std::fprintf(stderr, "\n");
         return 2; // Distinct from raw negative SDK HRESULTs.
     }
+    if (result == 1 && out->kind == 1) report_server(*static_cast<SIMCONNECT_RECV_OPEN*>(p));
     return result;
 }
 // Packet fixtures exercise the actual native decoder against this SDK's layout.
@@ -194,5 +218,17 @@ extern "C" uint32_t rfi_sc_decoder_test() {
     if (decode(&event, sizeof(event), &out) != 1 || out.kind != 4 || out.code != 2 || out.detail != 4) return 7;
     event.dwSize = sizeof(event) - 1;
     if (decode(&event, sizeof(event), &out) >= 0) return 8;
+    return 0;
+}
+
+extern "C" uint32_t rfi_sc_open_metadata_test() {
+    SIMCONNECT_RECV_OPEN e = {}; e.dwID=SIMCONNECT_RECV_ID_OPEN; e.dwSize=sizeof(e);
+    e.dwApplicationVersionMajor=1; e.dwApplicationVersionMinor=38;
+    e.dwApplicationBuildMajor=2; e.dwApplicationBuildMinor=0;
+    e.dwSimConnectVersionMajor=10;
+    RfiEvent out = {};
+    if (decode(&e,sizeof(e),&out)!=1 || out.kind!=1 || out.values[1]!=38 || out.values[4]!=10) return 1;
+    for (DWORD n=0;n<sizeof(e);++n) if (decode(&e,n,&out)>=0) return 2;
+    e.dwSize=sizeof(e)-1; if (decode(&e,sizeof(e),&out)>=0) return 3;
     return 0;
 }

@@ -113,6 +113,7 @@ pub use native::{uptime_ms, Connection};
 mod tests {
     unsafe extern "C" {
         fn rfi_sc_decoder_test() -> u32;
+        fn rfi_sc_open_metadata_test() -> u32;
         fn rfi_sc_decode_fixture(
             input: *const u8,
             size: u32,
@@ -186,6 +187,11 @@ mod tests {
             assert_eq!(result, 1);
             assert_eq!(out.code, object); // Provider, not decoder, correlates identity.
         }
+    }
+    #[test]
+    fn open_server_version_requires_the_complete_official_packet() {
+        // SAFETY: fixed native fixtures, no simulator connection or DLL load.
+        assert_eq!(unsafe { rfi_sc_open_metadata_test() }, 0);
     }
     #[test]
     fn official_sdk_layout_and_malformed_packets() {

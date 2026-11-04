@@ -254,7 +254,9 @@ mod tests {
         app.tick(10);
         assert_eq!(app.reading(Field::PitchDeg, 59).quality, Quality::Valid);
         assert_eq!(app.reading(Field::PitchDeg, 59).age_ms, Some(149));
-        assert_eq!(app.reading(Field::PitchDeg, 60).quality, Quality::Stale);
+        assert_eq!(app.reading(Field::PitchDeg, 109).quality, Quality::Valid);
+        assert_eq!(app.reading(Field::PitchDeg, 109).age_ms, Some(199));
+        assert_eq!(app.reading(Field::PitchDeg, 110).quality, Quality::Stale);
         assert_eq!(app.reading(Field::RollDeg, 10).quality, Quality::Valid);
         assert_eq!(app.altimeter_reading(10).quality, Quality::Valid);
         app.apply(Command::Telemetry2(multi::Frame {

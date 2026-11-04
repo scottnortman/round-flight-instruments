@@ -228,6 +228,7 @@ pub fn run(
                 let mut record = json!({"elapsed_ms":start.elapsed().as_millis(),"source":active.source_status()?});
                 if options.hardware {
                     record["display"] = json!(active.display_status(false)?);
+                    record["touch"] = json!(active.touch_status()?);
                     if options.frame_timing {
                         record["sample"] = json!(active.display_status(true)?);
                     }
