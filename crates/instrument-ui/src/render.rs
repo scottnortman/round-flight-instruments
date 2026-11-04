@@ -261,6 +261,8 @@ impl<'a> CachedRenderer<'a> {
             pattern,
             if snapshot.selected == Instrument::Attitude {
                 snapshot.source_label
+            } else if snapshot.airspeed_demo_limits() {
+                "C172S DEMO"
             } else {
                 ""
             },
@@ -395,7 +397,7 @@ impl<'a> CachedRenderer<'a> {
             else { self.prepare_navigation(snapshot); }
         }
         if let Some(history) = history {
-            let frame_key = (self.width, self.height, snapshot.selected, pattern);
+            let frame_key = (self.width, self.height, snapshot.selected, pattern, snapshot.airspeed_demo_limits());
             if history.key == Some(frame_key)
                 && snapshot.selected == Instrument::Attitude
                 && !pattern
@@ -507,18 +509,18 @@ pub fn draw_frame(
     }
     true
 }
-struct Text {
+pub(crate) struct Text {
     bytes: [u8; 48],
     len: usize,
 }
 impl Text {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             bytes: [0; 48],
             len: 0,
         }
     }
-    fn str(&self) -> &str {
+    pub(crate) fn str(&self) -> &str {
         core::str::from_utf8(&self.bytes[..self.len]).unwrap_or("TEXT ERROR")
     }
 }
@@ -584,6 +586,12 @@ fn draw_background<T: Target>(target: &mut T, s: Snapshot) {
         crate::turn::background(target);
         return;
     }
+    if s.selected == Instrument::Airspeed {
+        crate::airspeed::background(target, s.airspeed_demo_limits());
+        return;
+    }
+    if s.selected==Instrument::Heading {crate::heading::background(target);return;}
+    if s.selected==Instrument::Vsi {crate::vsi::background(target);return;}
     if s.selected != Instrument::Altimeter {
         c.text(240., 180., 25., "SIMULATION", WARN);
         let mut name = Text::new();
@@ -637,6 +645,12 @@ fn draw_overlay<T: Target>(target: &mut T, s: Snapshot) {
     draw_navigation(target, s);
 }
 fn draw_gauge_overlay<T: Target>(target: &mut T, s: Snapshot) {
+    if s.selected==Instrument::Heading {crate::heading::draw(target,s.heading_model(),s.source_label);return;}
+    if s.selected==Instrument::Vsi {crate::vsi::draw(target,s.vsi_model(),s.source_label);return;}
+    if s.selected == Instrument::Airspeed {
+        crate::airspeed::draw(target, s.airspeed_model(), s.source_label);
+        return;
+    }
     if s.selected == Instrument::Turn {
         crate::turn::draw(target, s.turn_model(), s.source_label);
         return;
@@ -928,11 +942,11 @@ mod tests {
     }
     #[test]
     fn static_menu_retains_each_buffer_through_source_updates_then_restores_the_face() {
-        use instrument_core::{App, Command, Instrument};
+        use instrument_core::{App, Command};
         use crate::navigation::{Button, Context, View};
         let mut app = App::new();
         app.apply(Command::LevelPreset).unwrap(); app.tick(0);
-        for gauge in [Instrument::Altimeter, Instrument::Attitude, Instrument::Turn] {
+        for gauge in crate::navigation::GAUGES {
             app.apply(Command::Select(gauge)).unwrap();
             let mut background = std::vec![0;480*480];
             let mut menu_pixels = background.clone();
@@ -1105,6 +1119,8 @@ mod tests {
                 Instrument::Attitude,
                 Instrument::Turn,
                 Instrument::Heading,
+                Instrument::Airspeed,
+                Instrument::Vsi,
             ] {
                 app.apply(Command::Select(selected)).unwrap();
                 let mut s = Snapshot::from_app(&app);
@@ -1182,6 +1198,9 @@ mod tests {
             let mut output = std::vec![0xffff; size * size];
             let mut reference = output.clone();
             let mut snapshot = Snapshot {
+                heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+                vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+                ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                 turn_rate: Reading {
                     value: Some(0.),
                     quality: Quality::Valid,
@@ -1283,6 +1302,9 @@ mod tests {
             let mut reference = std::vec![0; len];
             for n in 0..60 {
                 let snapshot = Snapshot {
+                    heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+                    vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+                    ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                     turn_rate: Reading {
                         value: Some(0.),
                         quality: Quality::Valid,
@@ -1553,6 +1575,9 @@ mod tests {
         for size in [240, 480, 720] {
             let mut pixels = std::vec![0u16;size*size];
             let valid = Snapshot {
+                heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+                vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+                ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                 turn_rate: Reading {
                     value: Some(0.),
                     quality: Quality::Valid,
@@ -1621,6 +1646,35 @@ mod tests {
                     "old pointer remained after invalidation"
                 );
                 assert_eq!(pixels[0], 0, "round viewport corner must remain black");
+            }
+        }
+    }
+
+    #[test]
+    fn new_faces_restore_all_scanout_buffers_through_motion_and_invalid_data() {
+        use instrument_core::{App,Command};
+        let mut app=App::new();app.apply(Command::LevelPreset).unwrap();app.tick(0);
+        for size in [240,480] {
+            for gauge in [Instrument::Airspeed,Instrument::Heading,Instrument::Vsi] {
+                let mut s=Snapshot::from_app(&app);s.selected=gauge;
+                let mut bg=std::vec![0;size*size];
+                let mut cached=CachedRenderer::new(&mut bg,size as u32,size as u32).unwrap();
+                let mut frames=core::array::from_fn::<_,3,_>(|_|std::vec![0;size*size]);
+                let mut histories=core::array::from_fn::<_,3,_>(|_|crate::damage::FrameHistory::new());
+                let mut expected=std::vec![0;size*size];
+                for n in 0..20 {
+                    s.external=n%3==0;s.external_attitude=s.external;
+                    s.source_label=if s.external {"TEST INPUT"}else{"SIM INPUT"};
+                    let reading=match gauge{Instrument::Heading=>&mut s.heading,Instrument::Vsi=>&mut s.vsi,_=>&mut s.ias};
+                    reading.value=Some(match gauge{Instrument::Heading=>(350.+n as f32*17.)%360.,Instrument::Vsi=>(n as f32-10.)*350.,_=>n as f32*17.});
+                    reading.quality=match n {4=>Quality::Stale,9=>Quality::Missing,14=>Quality::Failed,17=>Quality::TimingFault,_=>Quality::Valid};
+                    reading.age_ms=Some(0);s.center_pressed=n%5==0;
+                    assert!(draw_frame(&mut expected,size as u32,size as u32,s,false));
+                    for (frame,history) in frames.iter_mut().zip(&mut histories) {
+                        assert!(cached.draw_incremental(frame,history,s,false));
+                        assert!(frame==&expected,"{gauge:?} {size} frame {n} retained damaged pixels");
+                    }
+                }
             }
         }
     }

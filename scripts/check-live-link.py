@@ -22,7 +22,7 @@ def main():
     parser.add_argument('--connector', type=Path, default=Path('target/release/instrument-connector.exe'))
     parser.add_argument('--seconds', type=int, default=20, choices=range(5, 121))
     parser.add_argument('--sample-age-ms', type=int, default=35, choices=range(0, 1001))
-    parser.add_argument('--gauges', nargs='+', choices=['altimeter', 'attitude', 'turn'], default=['altimeter', 'attitude', 'turn'])
+    parser.add_argument('--gauges', nargs='+', choices=['altimeter', 'attitude', 'turn', 'airspeed', 'heading', 'vsi'], default=['altimeter', 'attitude', 'turn'])
     parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
     args.report.parent.mkdir(parents=True, exist_ok=True)

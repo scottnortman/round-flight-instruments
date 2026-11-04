@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod altimeter;
+pub mod airspeed;
 pub mod attitude;
 pub mod continuity;
 pub mod damage;
@@ -12,6 +13,9 @@ pub mod pipeline;
 pub mod raster;
 pub mod render;
 pub mod turn;
+pub mod heading;
+pub mod vsi;
+mod dial;
 
 use instrument_core::{App, Field, Instrument, Quality, Reading};
 
@@ -21,6 +25,7 @@ pub struct Snapshot {
     pub imu_bench: bool,
     pub imu_last_good: Option<instrument_core::imu_attitude::Retained>,
     pub external: bool,
+    /// T2 multi-instrument source capability (legacy field name).
     pub external_attitude: bool,
     pub source_running: bool,
     pub source_session: u64,
@@ -35,6 +40,9 @@ pub struct Snapshot {
     pub center_pressed: bool,
     pub selected: Instrument,
     pub altitude: Reading,
+    pub ias: Reading,
+    pub heading: Reading,
+    pub vsi: Reading,
     pub pitch: Reading,
     pub roll: Reading,
     pub turn_rate: Reading,
@@ -42,6 +50,25 @@ pub struct Snapshot {
     pub baro_inhg: f32,
 }
 impl Snapshot {
+    pub fn heading_model(self)->heading::Heading {heading::model(self.heading,self.heading_stale_ms())}
+    pub fn vsi_model(self)->vsi::Vsi {vsi::model(self.vsi,self.vsi_stale_ms())}
+    fn heading_stale_ms(self)->u64 {
+        if self.external {instrument_core::simulator_link::measurements::Quantity::MagneticHeadingDeg.stale_after_ms() as u64}else{Field::HeadingDeg.stale_after_ms()}
+    }
+    fn vsi_stale_ms(self)->u64 {
+        if self.external {instrument_core::simulator_link::measurements::Quantity::VerticalSpeedFpm.stale_after_ms() as u64}else{Field::VsiFpm.stale_after_ms()}
+    }
+    pub fn airspeed_model(self) -> airspeed::Airspeed {
+        airspeed::model(self.ias, self.airspeed_stale_ms())
+    }
+    pub fn airspeed_demo_limits(self) -> bool {
+        self.selected == Instrument::Airspeed && !self.external && !self.imu_bench
+    }
+    fn airspeed_stale_ms(self) -> u64 {
+        if self.external {
+            instrument_core::simulator_link::measurements::Quantity::IndicatedAirspeedKt.stale_after_ms() as u64
+        } else { Field::IasKt.stale_after_ms() }
+    }
     pub fn model(self) -> altimeter::Altimeter {
         altimeter::model_with_semantics(self.altitude, self.baro_inhg, self.external)
     }
@@ -87,14 +114,19 @@ impl Snapshot {
     pub fn displayed_quality(self) -> Option<Quality> {
         if self.menu.is_some() { return None; }
         match self.selected {
+            Instrument::Heading=>Some(self.heading_model().quality),
+            Instrument::Vsi=>Some(self.vsi_model().quality),
+            Instrument::Airspeed => Some(self.airspeed_model().quality),
             Instrument::Altimeter => Some(self.model().quality),
             Instrument::Attitude => Some(self.attitude_model().quality),
             Instrument::Turn => Some(self.turn_model().quality()),
-            _ => None,
         }
     }
     pub fn displayed_age_ms(self) -> Option<u64> {
         match self.selected {
+            Instrument::Heading=>self.heading.age_ms,
+            Instrument::Vsi=>self.vsi.age_ms,
+            Instrument::Airspeed => self.ias.age_ms,
             Instrument::Altimeter => self.altitude.age_ms,
             Instrument::Attitude if self.imu_holding() => self.imu_last_good.map(|h| h.age_ms),
             Instrument::Attitude => Some(self.pitch.age_ms?.max(self.roll.age_ms?)),
@@ -104,7 +136,6 @@ impl Snapshot {
                 .into_iter()
                 .chain(self.ball.age_ms)
                 .max(),
-            _ => None,
         }
     }
     pub fn from_app(app: &App) -> Self {
@@ -125,6 +156,9 @@ impl Snapshot {
             editor: None,
             selected: app.selected(),
             altitude: app.altimeter_reading(app.now_ms()),
+            ias: app.reading(Field::IasKt, app.now_ms()),
+            heading: app.reading(Field::HeadingDeg,app.now_ms()),
+            vsi: app.reading(Field::VsiFpm,app.now_ms()),
             pitch: app.reading(Field::PitchDeg, app.now_ms()),
             roll: app.reading(Field::RollDeg, app.now_ms()),
             turn_rate: app.reading(Field::TurnDps, app.now_ms()),
@@ -135,6 +169,17 @@ impl Snapshot {
         }
     }
     pub fn aged(mut self, elapsed_ms: u64) -> Self {
+        let heading_ttl=self.heading_stale_ms();let vsi_ttl=self.vsi_stale_ms();
+        for (r,ttl)in [(&mut self.heading,heading_ttl),(&mut self.vsi,vsi_ttl)] {
+            r.age_ms=r.age_ms.map(|a|a.saturating_add(elapsed_ms));
+            if r.quality==Quality::Valid && r.age_ms.is_none_or(|age|age>=ttl) {r.value=None;r.quality=Quality::Stale;}
+        }
+        self.ias.age_ms = self.ias.age_ms.map(|age| age.saturating_add(elapsed_ms));
+        if self.ias.quality == Quality::Valid
+            && self.ias.age_ms.is_none_or(|age| age >= self.airspeed_stale_ms()) {
+            self.ias.value = None;
+            self.ias.quality = Quality::Stale;
+        }
         let attitude_stale_ms = self.attitude_stale_ms();
         if let Some(held) = &mut self.imu_last_good {
             held.age_ms = held.age_ms.saturating_add(elapsed_ms);
@@ -184,6 +229,16 @@ impl Snapshot {
         // Navigation replaces the whole face with an opaque, non-numeric view.
         // Flight samples keep aging in the background; none are shown here.
         if self.menu.is_some() { return None; }
+        if self.selected==Instrument::Heading {
+            return self.heading_model().magnetic_deg.map(|_|self.heading_stale_ms().saturating_sub(self.heading.age_ms.unwrap_or(self.heading_stale_ms())));
+        }
+        if self.selected==Instrument::Vsi {
+            return self.vsi_model().fpm.map(|_|self.vsi_stale_ms().saturating_sub(self.vsi.age_ms.unwrap_or(self.vsi_stale_ms())));
+        }
+        if self.selected == Instrument::Airspeed {
+            return self.airspeed_model().ias_kt.map(|_| self.airspeed_stale_ms()
+                .saturating_sub(self.ias.age_ms.unwrap_or(self.airspeed_stale_ms())));
+        }
         if self.selected == Instrument::Attitude {
             // Explicit bench hold policy: numerical age stays observable, but
             // does not blank a held frame. Owner/render/scanout guards still apply.
@@ -223,6 +278,27 @@ impl Snapshot {
     }
 }
 
+#[cfg(test)]
+mod six_pack_tests {
+    use super::*;
+    #[test]
+    fn scalar_expiry_uses_selected_quantity_and_preserves_age() {
+        let mut app=App::new();app.apply(instrument_core::Command::LevelPreset).unwrap();app.tick(0);
+        for (instrument,local_ttl) in [(Instrument::Heading,250),(Instrument::Vsi,1000)] {
+            let mut s=Snapshot::from_app(&app);s.selected=instrument;
+            for external in [false,true] {
+                s.external=external;let ttl=if external{500}else{local_ttl};
+                assert_eq!(s.numeric_lifetime_ms(),Some(ttl));
+                assert_eq!(s.aged(ttl-1).displayed_quality(),Some(Quality::Valid));
+                let expired=s.aged(ttl);
+                assert_eq!(expired.displayed_age_ms(),Some(ttl));
+                assert_eq!(expired.displayed_quality(),Some(Quality::Stale));
+                assert_eq!(expired.numeric_lifetime_ms(),None);
+            }
+        }
+    }
+}
+
 /// Presentation supervision independent of the renderer. All arguments use one
 /// monotonic clock domain. These are bench budgets, not aircraft guarantees.
 pub fn presentation_healthy(
@@ -240,6 +316,20 @@ pub fn presentation_healthy(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ias_uses_its_existing_source_freshness_budget_without_extending_sample_age() {
+        let mut app=instrument_core::App::new();
+        app.apply(instrument_core::Command::LevelPreset).unwrap();app.tick(0);
+        app.apply(instrument_core::Command::Select(instrument_core::Instrument::Airspeed)).unwrap();
+        let mut s=super::Snapshot::from_app(&app);
+        assert_eq!(s.numeric_lifetime_ms(),Some(1000));
+        s.external=true;s.external_attitude=true;s.ias.age_ms=Some(450);
+        assert_eq!(s.numeric_lifetime_ms(),Some(50));
+        assert_eq!(s.aged(49).displayed_age_ms(),Some(499));
+        assert_eq!(s.aged(50).displayed_quality(),Some(instrument_core::Quality::Stale));
+        assert_eq!(s.aged(50).numeric_lifetime_ms(),None);
+        assert!(!s.airspeed_demo_limits());
+    }
     #[test]
     fn turn_display_lifetimes_preserve_independent_axes_and_source_policy() {
         use super::*;
@@ -290,6 +380,9 @@ mod tests {
         assert_eq!(held.source_label, live.source_label);
         assert_eq!(held.numeric_lifetime_ms(), None);
         let strict = Snapshot {
+            heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+            vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+            ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
             imu_bench: false,
             ..held
         };
@@ -384,6 +477,9 @@ mod tests {
         assert!(!presentation_healthy(100, 90, 90, 100, 90));
         assert!(!presentation_healthy(10, 11, 9, 100, 9));
         let s = Snapshot {
+            heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+            vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
+            ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
             turn_rate: Reading {
                 value: Some(0.),
                 quality: Quality::Valid,

@@ -408,7 +408,11 @@ impl<'a, T: Target> Canvas<'a, T> {
             );
             let (clip_top, clip_bottom) = (0, self.target.size().1 as i32);
             for dy in 0.max(clip_top - top)..ht.min(clip_bottom - top) {
+                let mut colors = [None; 64];
+                let mut used = 0;
+                let mut start = 0;
                 for dx in 0..w {
+                    colors[used] = None;
                     let row = (ch as usize - 32) * 2240 + (dy * 56 / ht) as usize * 40;
                     let sx = (dx * 40 / w) as usize;
                     let coverage = |x: usize| {
@@ -438,8 +442,16 @@ impl<'a, T: Target> Canvas<'a, T> {
                         let r = blend(11, 31);
                         let g = blend(5, 63);
                         let b = blend(0, 31);
-                        self.target
-                            .pixel(left + dx, top + dy, (r << 11) | (g << 5) | b);
+                        colors[used] = Some((r << 11) | (g << 5) | b);
+                    }
+                    used += 1;
+                    if used == colors.len() || dx == w - 1 {
+                        if let Some(first) = colors[..used].iter().position(Option::is_some) {
+                            let last = colors[..used].iter().rposition(Option::is_some).unwrap() + 1;
+                            self.target.pixels(top + dy, left + start + first as i32, &colors[first..last]);
+                        }
+                        used = 0;
+                        start = dx + 1;
                     }
                 }
             }
@@ -451,6 +463,36 @@ impl<'a, T: Target> Canvas<'a, T> {
 mod tests {
     extern crate std;
     use super::*;
+    #[test]
+    fn batched_regular_and_bold_text_preserve_reference_pixels() {
+        for size in [240,480,1024] {
+            for font in [14.,32.,96.] {
+                for bold in [false,true] {
+                    let mut actual=std::vec![123;size*size];
+                    let mut expected=actual.clone();
+                    let mut fb=Framebuffer::new(&mut expected,size as u32,size as u32).unwrap();
+                    let c=Canvas::new(&mut fb);
+                    let text="0NW 35-";let color=rgb(238,240,230);let background=rgb(8,11,14);
+                    let cell=font*40./48.;let h=font*56./48.;let start=240.-cell*text.len()as f32/2.;
+                    for (i,ch) in text.bytes().enumerate() {
+                        let(left,top)=c.point(start+i as f32*cell,240.-h/2.);
+                        let(w,ht)=((cell*c.scale).max(1.)as i32,(h*c.scale).max(1.)as i32);
+                        for dy in 0..ht {for dx in 0..w {
+                            let row=(ch as usize-32)*2240+(dy*56/ht)as usize*40;let sx=(dx*40/w)as usize;
+                            let ink=|x:usize|{let k=row+x;let b=FONT[k/2];if k%2==0{b>>4}else{b&15}};
+                            let mut a=ink(sx);if bold{a=a.max(ink(sx.saturating_sub(1))).max(ink((sx+1).min(39)));}
+                            if a>0 {let a=a as u16;let blend=|shift:u32,mask:u16|(((color>>shift)&mask)*a+((background>>shift)&mask)*(15-a))/15;
+                                let(x,y)=(left+dx,top+dy);
+                                c.target.pixel(x,y,(blend(11,31)<<11)|(blend(5,63)<<5)|blend(0,31));
+                            }
+                        }}
+                    }
+                    Canvas::new(&mut Framebuffer::new(&mut actual,size as u32,size as u32).unwrap()).text_style(240.,240.,font,text,(color,background),bold);
+                    assert!(actual==expected,"size {size}, font {font}, bold {bold}");
+                }
+            }
+        }
+    }
     #[test]
     fn framebuffer_rejects_dimensions_outside_the_raster_domain() {
         let mut pixels = [0; 4];

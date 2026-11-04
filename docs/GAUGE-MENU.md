@@ -16,18 +16,16 @@ is a shared layout constant in the portable navigation policy, ready for tuning.
 
 ## Availability and source ownership
 
-- Local simulation: altimeter and attitude are selectable.
-- Turn Coordinator development branch: Turn is also selectable with local or
-  external T2 input. It remains unavailable with T1 or IMU input. See
-  [Turn Coordinator](TURN-COORDINATOR.md).
-- Current external T1 stream (including MSFS): altimeter only; attitude says
-  NO SIM DATA because pitch/roll are not transported yet.
-- Development T2 stream (`--sixpack`, used by the Windows tray app): altimeter
-  and attitude are selectable without restarting or changing the source.
-  External attitude timing acceptance is pending; see [driver status](WINDOWS-DRIVER.md).
-- IMU bench source: attitude only; altimeter says NO IMU DATA.
-- Airspeed, heading and vertical speed are visible but disabled
-  with NOT BUILT labels until their renderers/data paths are implemented.
+- Development firmware: all six faces are selectable in local simulation or
+  a T2 multi-instrument stream (`--sixpack`, used by the Windows tray app).
+- Released rc.7 firmware: Altimeter, Attitude and Turn Coordinator are available.
+- Legacy T1 external stream: Altimeter only. Other faces show NO SIM DATA.
+- IMU bench source: Attitude only. The accelerometer supplies no magnetic
+  heading, airspeed, altitude, vertical speed or turn-coordinator data.
+
+Selecting a face does not manufacture missing inputs. A T2 face whose own
+quantity is missing/failed/stale shows its corresponding invalid-data indication.
+See the [six-pack guide](SIX-PACK.md) for scale and validity semantics.
 
 Selection calls the existing `Command::Select` only. It never changes the source,
 barometer, source timestamps, validity or simulation parameters. A missing-data

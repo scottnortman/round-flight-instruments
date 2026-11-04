@@ -28,7 +28,7 @@ def main():
         for command in ['source sim', 'imu off', 'sim preset level', 'sim resume',
                         'touch cancel', 'display recover', 'display gauge', 'display on']:
             ok(command)
-        for gauge, demo in [('altimeter', 'takeoff'), ('attitude', 'attitude'), ('turn', 'turn')]:
+        for gauge, demo in [('altimeter', 'takeoff'), ('attitude', 'attitude'), ('turn', 'turn'), ('airspeed', 'airspeed'), ('heading', 'heading'), ('vsi', 'vsi')]:
             ok(f'sim {demo} {args.seconds + 2}')
             time.sleep(1)  # Separate view entry from the steady-motion window.
             before_display = fields(ok('display status'))
@@ -44,6 +44,8 @@ def main():
                     'before_display': before_display, 'after_display': after_display}
             result['gauges'].append(item)
             require(float(stats['rendered_fps']) >= 30 and stats['failed'] == 'false', str(stats))
+            require(int(after['display_stack_min_free_bytes']) >= 2048,
+                    f'{gauge}: less than 2 KiB renderer stack headroom')
             require(after_display['renderer'] == gauge and after_display['shown_quality'] == 'valid', str(after_display))
             for counter in ['blanked_at_ms', 'expired_ticks']:
                 require(before_display[counter] == after_display[counter], f'{gauge}: changed {counter}')

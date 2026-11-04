@@ -88,7 +88,7 @@ API SimConnect_RequestDataOnSimObject(HANDLE, SIMCONNECT_DATA_REQUEST_ID id, SIM
         1500. * std::sin(t / 2.), 0., 6. * std::sin(t * 2.),
         128. * .8 * std::sin(t * 1.1), 0.};
     if (mode == "failed" && at - started >= 4700 && at - started < 5700) {
-        values[6] = 1.; values[15] = 1.; // Explicit instrument failure, not delay.
+        values[6] = 1.; values[10] = 1.; values[12] = 1.; values[15] = 1.; // Explicit instrument failure, not delay.
     }
     std::memcpy(bytes.data() + 40, values, sizeof(values));
     const unsigned delays[] = {15, 25, 35, 20, 30, 40, 10, 35};

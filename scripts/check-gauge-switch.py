@@ -18,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', default='COM5')
     parser.add_argument('--count', type=int, default=12, choices=range(2, 51, 2))
-    parser.add_argument('--gauges', nargs='+', choices=['altimeter', 'attitude', 'turn'],
+    parser.add_argument('--gauges', nargs='+', choices=['altimeter', 'attitude', 'turn', 'airspeed', 'heading', 'vsi'],
                         default=['attitude', 'altimeter'])
     parser.add_argument('--check-rgb', action='store_true', help='require temporary SDK scanout probe')
     parser.add_argument('--report', type=Path, required=True)

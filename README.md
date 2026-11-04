@@ -1,19 +1,16 @@
 # Round Flight Instruments
 
-Latest prerelease: **v0.2.0-rc.7**. Altimeter, Attitude and Turn Coordinator
-are implemented with touch gauge selection, blue pressed feedback and chirps.
-Development builds now use a 4 MiB application slot and one shared menu cache.
-The live-link fix candidate adds accurate clock aging, independent gauge menus
-and a runtime-inclusive Windows installer; [verification/status](verification/LIVE-GAUGE-TIMING.md).
-The [bounded continuity candidate](verification/CONTINUITY.md) keeps brief
-Attitude/Turn delays invisible while preserving true sample ages in the CLI.
-Its latest menu fix retains static pixels per framebuffer and uses 24-line
-scanout buffers to preserve touch responsiveness during live data.
-The user reported a successful live MSFS 2020 test on November 3, 2026.
-See the measured [flash/RAM budget and six-gauge plan](docs/MEMORY-BUDGET.md).
-Bench motion and the corrected Turn menu run above **32 FPS**. See the
-[Turn Coordinator guide](docs/TURN-COORDINATOR.md) and
-[menu verification](verification/TURN-MENU-FIX.md).
+Source checkpoint **v0.2.0-rc.8** implements all six faces: Airspeed,
+Attitude, Altimeter, Magnetic Heading, Turn Coordinator and Vertical Speed.
+The user reported all tests working on November 4, 2026. See the
+[six-pack guide](docs/SIX-PACK.md), [verification](verification/SIX-PACK.md)
+and [flash/RAM budget](docs/MEMORY-BUDGET.md).
+
+Latest downloadable prerelease: **v0.2.0-rc.7**, with three display faces.
+The rc.8 tag is an accepted source checkpoint; new prebuilt release assets have
+not been published. Its firmware works with the existing rc.7 Windows installer.
+An inherited rapid local CLI-switching deadline issue remains documented in the
+[verification record](verification/SIX-PACK.md#open-inherited-limit-aggressive-local-cli-switching).
 
 The native Windows tray connector starts at sign-in, reconnects automatically,
 and transports all-six instrument data. Background gauges are read-only; only
@@ -29,8 +26,8 @@ A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
 three-pointer altimeter, touch barometer adjustment, a text CLI and a smooth
 0–10,000 ft demonstration, a standalone attitude renderer and touch gauge selection.
-Turn Coordinator is implemented in this checkpoint; the remaining three
-six-pack gauges are planned. MSFS 2020 input and optional two-way barometer
+This development checkout implements all six standard faces; the released rc.7
+firmware implements Altimeter, Attitude and Turn Coordinator. MSFS 2020 input and optional two-way barometer
 control are bench-tested on the Just Flight Piper Warrior. See the
 [MSFS setup guide](docs/MSFS-TWO-WAY-TEST.md).
 
@@ -59,20 +56,17 @@ off, and enter `sim preset level`, then `sim takeoff 60`. Hold the center for
 pressure window for 0.25 seconds to edit it. Boot output uses 115200; an initial
 red X means no data has been supplied yet. Close the terminal before using MSFS.
 
-## Attitude gauge development
+## Gauge selection and attitude demonstration
 
 In this source checkpoint, hold the dial center for **3 seconds**, release,
-then tap Altimeter, Attitude or Turn to select a supported face. All six instruments
-are listed; unfinished or source-incompatible choices are disabled. Active
+then tap a gauge to select it. All six faces are enabled in this development
+checkout with local simulation or the tray app's T2 stream. Source-incompatible
+choices remain disabled. Active
 buttons turn blue and chirp. Set the volatile hold with `touch menu hold 3000`.
 See [touch gauge menu and current MSFS limits](docs/GAUGE-MENU.md).
 
-`feature/attitude-gauge` (checkpoint **v0.2.0-rc.3**) adds the standalone phone-reference attitude face,
-shared pitch/roll CLI inputs and `sim attitude 60`. The board passes a 60-second
-motion test at **32.33 completed FPS**, with no observed deadline misses or
-unexpected blanking. The hardware motion was visually accepted: smooth, with no
-tearing or artifacts. This source tag has no prebuilt firmware release package.
-After building/flashing this branch, enter:
+The standalone attitude face follows the phone prototype. For a local motion
+exercise after building/flashing the current source:
 
 ```text
 source sim
@@ -91,9 +85,8 @@ readings retain the last usable pose without a hold annotation, red X, or
 source-age blanking. See [IMU bench controls and limitations](docs/IMU-ATTITUDE.md).
 The 15-sample IMU motion and adjusted 30/60 bank labels were visually accepted.
 See the [IMU checkpoint and verification](verification/IMU-ATTITUDE.md).
-The tagged T1 baseline does not transport attitude. This development branch's
-T2 profile carries attitude and allows live face selection; see the development
-validation status above before using the preview.
+The legacy T1 profile transports Altimeter only. The installed tray app uses
+T2 for all six faces and permits live gauge selection without restarting.
 
 ## Control the gauge
 
@@ -110,6 +103,7 @@ active-control press; use `touch sound off` to mute or `touch sound on` to re-en
 | `help` / `status` | Commands and current data/validity |
 | `sim set pressure_altitude_ft 8500` | Hold a manual simulated altitude |
 | `sim takeoff 60` / `sim takeoff stop` | Start/stop the climb demonstration |
+| `sim airspeed 60` / `sim heading 60` / `sim vsi 60` | Demonstrate the new scalar gauges (development firmware) |
 | `baro 30.01` | Change the indicated-altitude offset |
 | `touch status` / `touch hold 250` | Touch diagnostics / hold time in milliseconds |
 | `touch sound on` / `touch sound off` / `touch sound status` | Active-control chirp controls and diagnostics |
@@ -158,35 +152,19 @@ actual Rust renderer. [Detailed PC setup](docs/GETTING-STARTED.md).
 
 ## Development, verification and limits
 
-**MSFS integration:** a simulator-independent measurement contract, synthetic/replay
-PC bridge and native MSFS 2020 adapter support the altimeter. Read-only is the
-default; `--writeback` enables barometer edits confirmed by simulator readback.
-The Just Flight Piper Warrior live test confirmed four writes. Full flight/accuracy
-acceptance and other aircraft remain unverified; the DCS adapter is planned.
-The bridge currently exits when aircraft, flight or position changes. Load the
-new flight, unpause, then restart:
+**MSFS integration:** the installed native Rust tray connector transports all
+six instruments, enrolls the board by USB identity and recovers automatically
+from simulator, aircraft and USB changes. Its isolated SimConnect worker can be
+replaced without restarting the app. Simulator readings remain authoritative;
+only explicit actions on the displayed Altimeter can write the barometer.
+Background gauges stay read-only. The user has tested MSFS 2020; other simulator
+versions and aircraft require qualification. DCS is planned.
 
-```powershell
-python scripts/start_msfs.py --port COM5 --writeback --frame-timing
-```
-
-Run this from the Python bridge package folder. For automatic aircraft-change
-recovery and operation without Python, use the native connector below.
-
-The [native connector](docs/NATIVE-CONNECTOR.md) replaces Python with a Rust
-executable and USB-identity enrollment. A hidden
-SimConnect worker contains native crashes and is replaced automatically. Desktop
-tests verify fresh altitude/QNH after recovery and preserve optional two-way mode.
-A two-aircraft live test also passed recovery and pressure writeback; see the
-[acceptance record](verification/MSFS-AIRCRAFT-SWITCH-20261102.md). Receiving simulator values never
-requires `--writeback`; that flag enables gauge-to-simulator edits only. Use the
-[recovery test guide](docs/MSFS-RECOVERY-TEST.md) and return its captured logs.
-Tray UI remains pending. Leave optional diagnostic queries off for normal use
-to avoid their visible timing impact.
-[Two-way setup and test guide](docs/MSFS-TWO-WAY-TEST.md) ·
-[First MSFS test: which PC does what](docs/MSFS-FIRST-TEST.md) ·
-[Run the bridge](docs/TELEMETRY.md) ·
-[Architecture, six-pack semantics and rendering budgets](docs/MSFS-INTEGRATION.md).
+Use the [Windows host setup guide](docs/WINDOWS-DRIVER-SETUP.md) and
+[six-pack test checklist](docs/SIX-PACK.md). The older Python bridge and its
+manual restart instructions are historical; a terminal or Python script is not
+needed for ordinary installed use. Keep optional diagnostic queries off during
+normal operation to avoid their timing impact.
 
 Portable Rust crates separate instrument state, protocol, touch gestures,
 rendering and sensor drivers from ESP-IDF board support. One state owner applies
@@ -194,16 +172,12 @@ validated commands; input freshness, display supervision and watchdogs remain
 independent of rendering. See [architecture](docs/DISPLAY.md) and
 [control contracts](docs/BASELINE.md).
 
-- **159 Rust tests**, native-enabled Clippy and eight executable connector
-  acceptance tests pass for this baseline. Updated firmware passes hardware
-  timeout/recovery and safety checks: altimeter **32.32 FPS**, attitude **32.35 FPS**.
-  Five browser regression suites passed for the standalone baseline.
-  The rapid-QNH hardware benchmark averaged **31.72 completed FPS**. Normal hardware
-  animation measured **32.33 FPS** with IMU polling; repeated popup/setting
-  activity measured **29.22 FPS**. These are measured workloads, not minimum-rate
-  guarantees. [Verification and reset investigations](verification/TOUCH.md).
-- Other hardware gauges, an encoder, persistent
-  settings and faster communications remain future work.
+- **208 Rust workspace tests** and strict all-target Clippy pass. All-six local
+  motion runs measure 32.33-32.41 completed FPS; continuous text telemetry
+  measures 30.80-32.33 FPS. The native MSFS-path timing/load tests also pass;
+  [results and open limits](verification/SIX-PACK.md) distinguish the workloads.
+- Aircraft-specific configuration, persistent settings, an encoder, faster
+  communications and DCS support remain future work.
 - The IMU has an unresolved stationary gyro offset; its readings and bench tilt
   are not calibrated attitude. [IMU limitations](docs/IMU.md).
 - Building firmware uses a separate Cargo workspace and ESP-IDF 5.5.5. The

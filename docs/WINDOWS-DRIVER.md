@@ -4,8 +4,7 @@ Prerelease: **v0.2.0-rc.7**. The user reported live MSFS 2020 success on
 November 3, 2026. See [setup](WINDOWS-DRIVER-SETUP.md)
 and [verification](../verification/WINDOWS-DRIVER.md).
 
-Current branch: `bugfix/live-gauge-timing`, based on the memory-layout
-update. Live MSFS 2020 tests exposed flicker and unusable menus despite 32 FPS.
+The released live-gauge-timing fix is merged into `main`. Live MSFS 2020 tests exposed flicker and unusable menus despite 32 FPS.
 The fix corrects T2 clock-reference aging, avoids full-face caption rebuilds,
 and makes navigation an opaque non-numeric view. The user approved testing
 **200 ms for external Attitude and Turn only**; earlier 150 ms bench results are
@@ -15,12 +14,12 @@ See [verification](../verification/LIVE-GAUGE-TIMING.md).
 
 Accepted scope: per-user Windows tray application, starts at sign-in by default;
 automatic simulator and USB recovery; no Python or terminal for ordinary use.
-Data support for all six standard instruments; Altimeter, Attitude and Turn
-faces implemented, remaining faces disabled. Native Rust runtime, isolated SimConnect worker,
-existing CH343 USB serial driver. DCS remains a future provider.
-The Turn Coordinator development branch also enables Turn using the existing
-T2 data; the user reported a successful live MSFS 2020 test on November 3, 2026. Airspeed, Heading and VSI
-remain disabled.
+Data transport supports all six standard instruments. Released rc.7 firmware
+renders Altimeter, Attitude and Turn; the accepted `v0.2.0-rc.8` firmware
+adds Airspeed, Magnetic Heading and VSI without a new protocol or driver.
+Native Rust runtime, isolated SimConnect worker, existing CH343 USB serial driver.
+DCS remains a future provider. See [six-pack checkpoint](SIX-PACK.md).
+
 
 Background readings never write aircraft state. Simulator readings are authoritative
 on startup, aircraft changes and gauge changes. Only an explicit action on the active

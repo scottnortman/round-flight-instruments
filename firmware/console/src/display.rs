@@ -135,6 +135,9 @@ struct Presented {
     presented_ms: u32,
     source_age_ms: Option<u64>,
     altitude: Option<f32>,
+    ias: Option<f32>,
+    heading: Option<f32>,
+    vsi: Option<f32>,
     pitch: Option<f32>,
     roll: Option<f32>,
     instrument: Option<Instrument>,
@@ -478,7 +481,7 @@ impl Service {
                     Err(_) => return reply(format_args!("ERR display_sample_busy")),
                 };
                 let at = now();
-                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][v.quality as usize],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,v.holding));
+                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={} shown_ias_kt={:?} ias_over_range={} shown_heading_deg={:?} shown_vsi_fpm={:?}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][v.quality as usize],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,v.holding,v.ias,v.ias.is_some_and(|ias|ias>instrument_ui::airspeed::MAX_KT),v.heading,v.vsi));
             }
             DisplayCommand::TouchSound(_) | DisplayCommand::TouchSoundStatus => {
                 return reply(format_args!("ERR touch_sound_unavailable"))
@@ -558,7 +561,7 @@ impl Service {
             DisplayCommand::TransferStall => s.stall.store(2, Ordering::Release),
             DisplayCommand::Recover => s.stall.store(0, Ordering::Release),
             DisplayCommand::Status => {
-                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
+                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn","airspeed","heading","vsi"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][s.shown_quality.load(Ordering::Acquire) as usize],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None}));
             }
         }
         reply(format_args!(
@@ -576,6 +579,9 @@ struct Backend {
     backdrop: &'static mut [u16],
     attitude_backdrop: &'static mut [u16],
     turn_backdrop: &'static mut [u16],
+    airspeed_backdrop: &'static mut [u16],
+    heading_backdrop: &'static mut [u16],
+    vsi_backdrop: &'static mut [u16],
     foreground_pixels: &'static mut [u16],
     navigation_pixels: &'static mut [u16],
     wake: Queue<u32>,
@@ -592,7 +598,7 @@ fn start_display_worker(shared: Arc<Shared>) -> io::Result<()> {
     configuration.set().map_err(io::Error::other)?;
     thread::Builder::new()
         .name("display".into())
-        .stack_size(20480)
+        .stack_size(24576)
         .spawn(move || {
             if let Err(error) = run_display(&shared, backend) {
                 shared.failed.store(true, Ordering::Release);
@@ -660,6 +666,15 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
     let turn_backdrop = unsafe { sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT) };
     if turn_backdrop.is_null() { return Err(io::Error::other("LCD turn backdrop allocation")); }
     let turn_backdrop = unsafe { core::slice::from_raw_parts_mut(turn_backdrop.cast::<u16>(), 480 * 480) };
+    let airspeed_backdrop = unsafe { sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT) };
+    if airspeed_backdrop.is_null() { return Err(io::Error::other("LCD airspeed backdrop allocation")); }
+    let airspeed_backdrop = unsafe { core::slice::from_raw_parts_mut(airspeed_backdrop.cast::<u16>(), 480 * 480) };
+    let heading_backdrop = unsafe { sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT) };
+    if heading_backdrop.is_null() {return Err(io::Error::other("LCD heading backdrop allocation"));}
+    let heading_backdrop=unsafe{core::slice::from_raw_parts_mut(heading_backdrop.cast::<u16>(),480*480)};
+    let vsi_backdrop=unsafe{sys::heap_caps_calloc(480*480,2,sys::MALLOC_CAP_SPIRAM|sys::MALLOC_CAP_8BIT)};
+    if vsi_backdrop.is_null(){return Err(io::Error::other("LCD VSI backdrop allocation"));}
+    let vsi_backdrop=unsafe{core::slice::from_raw_parts_mut(vsi_backdrop.cast::<u16>(),480*480)};
     let navigation_pixels = unsafe {
         sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
     };
@@ -704,6 +719,9 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
         backdrop,
         attitude_backdrop,
         turn_backdrop,
+        airspeed_backdrop,
+        heading_backdrop,
+        vsi_backdrop,
         foreground_pixels,
         navigation_pixels,
         wake,
@@ -716,6 +734,9 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         backdrop,
         attitude_backdrop,
         turn_backdrop,
+        airspeed_backdrop,
+        heading_backdrop,
+        vsi_backdrop,
         foreground_pixels,
         navigation_pixels,
         wake,
@@ -725,6 +746,10 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         .ok_or_else(|| io::Error::other("LCD backdrop size"))?;
     let mut turn_renderer = render::CachedRenderer::new(turn_backdrop,480,480)
         .ok_or_else(|| io::Error::other("LCD turn backdrop size"))?;
+    let mut airspeed_renderer = render::CachedRenderer::new(airspeed_backdrop,480,480)
+        .ok_or_else(|| io::Error::other("LCD airspeed backdrop size"))?;
+    let mut heading_renderer=render::CachedRenderer::new(heading_backdrop,480,480).ok_or_else(||io::Error::other("LCD heading backdrop size"))?;
+    let mut vsi_renderer=render::CachedRenderer::new(vsi_backdrop,480,480).ok_or_else(||io::Error::other("LCD VSI backdrop size"))?;
     let mut attitude_renderer = render::CachedRenderer::with_foreground_cache(
         attitude_backdrop,
         480,
@@ -735,7 +760,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     .with_foreground_pixels(foreground_pixels);
     let mut navigation_cache = render::NavigationCache::new(navigation_pixels)
         .ok_or_else(|| io::Error::other("LCD shared navigation cache size"))?;
-    // Warm all three static faces before the first visible frame. Switching views
+    // Warm all six static faces before the first visible frame. Switching views
     // must not discard/rebuild the other face while a 100 ms attitude deadline
     // is running. These CPU-only caches contain artwork, not sampled readings.
     let mut warm = loop {
@@ -757,6 +782,12 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     }
     warm.selected = Instrument::Turn;
     if !turn_renderer.prepare_background(warm) { return Err(io::Error::other("turn preparation")); }
+    warm.selected = Instrument::Airspeed;
+    if !airspeed_renderer.prepare_background(warm) { return Err(io::Error::other("airspeed preparation")); }
+    warm.selected=Instrument::Heading;
+    if !heading_renderer.prepare_background(warm){return Err(io::Error::other("heading preparation"));}
+    warm.selected=Instrument::Vsi;
+    if !vsi_renderer.prepare_background(warm){return Err(io::Error::other("VSI preparation"));}
     warm.selected = Instrument::Attitude;
     if !attitude_renderer.prepare_background(warm) {
         return Err(io::Error::other("attitude preparation"));
@@ -909,6 +940,12 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
                 &mut attitude_renderer
             } else if snapshot.selected == Instrument::Turn && !pattern {
                 &mut turn_renderer
+            } else if snapshot.selected == Instrument::Airspeed && !pattern {
+                &mut airspeed_renderer
+            } else if snapshot.selected==Instrument::Heading && !pattern {
+                &mut heading_renderer
+            } else if snapshot.selected==Instrument::Vsi && !pattern {
+                &mut vsi_renderer
             } else {
                 &mut renderer
             };
@@ -1047,6 +1084,11 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
             } else {
                 None
             },
+            ias: if !pattern && snapshot.menu.is_none() && snapshot.selected == Instrument::Airspeed {
+                snapshot.airspeed_model().ias_kt
+            } else { None },
+            heading: if !pattern && snapshot.menu.is_none() && snapshot.selected==Instrument::Heading {snapshot.heading_model().magnetic_deg}else{None},
+            vsi: if !pattern && snapshot.menu.is_none() && snapshot.selected==Instrument::Vsi {snapshot.vsi_model().fpm}else{None},
             pitch: if !pattern && snapshot.menu.is_none() && snapshot.selected == Instrument::Attitude {
                 snapshot.attitude_model().angles.map(|a| a.pitch_deg)
             } else {
@@ -1077,7 +1119,9 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
             Instrument::Altimeter => 0,
             Instrument::Attitude => 1,
             Instrument::Turn => 3,
-            _ => 2,
+            Instrument::Airspeed => 4,
+            Instrument::Heading=>5,
+            Instrument::Vsi=>6,
         },
         Ordering::Release,
     );

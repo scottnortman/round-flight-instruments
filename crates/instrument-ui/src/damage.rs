@@ -4,7 +4,7 @@
 use crate::raster::{Framebuffer, Target};
 use instrument_core::Instrument;
 
-pub(crate) type Key = (u32, u32, Instrument, bool);
+pub(crate) type Key = (u32, u32, Instrument, bool, bool);
 pub(crate) fn tile_shift(width: u32) -> u32 {
     if width <= 512 {
         3
@@ -61,9 +61,12 @@ impl FrameHistory {
             let mut tiles = self.rows[ty];
             while tiles != 0 {
                 let tx = tiles.trailing_zeros() as usize;
-                tiles &= tiles - 1;
+                let end = tx + (tiles >> tx).trailing_ones() as usize;
+                // Adjacent dirty tiles are one contiguous PSRAM copy per row.
+                // A rotating card otherwise makes thousands of 16-byte copies.
+                tiles &= if end == 64 { 0 } else { u64::MAX << end };
                 let x0 = tx * tile_width;
-                let x1 = (x0 + tile_width).min(width);
+                let x1 = (end * tile_width).min(width);
                 for y in ty * 8..((ty + 1) * 8).min(height) {
                     let range = y * width + x0..y * width + x1;
                     pixels[range.clone()].copy_from_slice(&background[range]);

@@ -200,7 +200,7 @@ def main():
     try:
         dll = build_fixture(args.report.parent.resolve(), args.sdk)
         for loaded in [False, True]:
-            for gauge in ['altimeter', 'attitude', 'turn']:
+            for gauge in ['altimeter', 'attitude', 'turn', 'airspeed', 'heading', 'vsi']:
                 name = ('loaded-' if loaded else 'normal-') + gauge
                 if args.cases and name not in args.cases:
                     continue
@@ -215,7 +215,7 @@ def main():
                     result.update(passed=False, error=str(error))
                     print(f'FAIL {name}: {error}', flush=True)
                 report['cases'].append(result)
-        for gauge, mode in [('attitude', 'switch'), ('attitude', 'short_gap'), ('turn', 'short_gap'), ('attitude', 'gap'), ('turn', 'gap'), ('attitude', 'failed'), ('turn', 'failed')]:
+        for gauge, mode in [('attitude', 'switch'), ('attitude', 'short_gap'), ('turn', 'short_gap'), ('attitude', 'gap'), ('turn', 'gap'), ('attitude', 'failed'), ('turn', 'failed'), ('heading', 'switch'), ('vsi', 'switch'), ('heading', 'failed'), ('vsi', 'failed')]:
             name = gauge + '-' + mode
             if args.cases and name not in args.cases:
                 continue

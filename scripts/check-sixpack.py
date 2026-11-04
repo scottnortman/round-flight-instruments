@@ -11,7 +11,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--port',default='COM5');p.add_argument('--seconds',type=int,default=30)
     p.add_argument('--report',type=Path,required=True)
-    p.add_argument('--gauges',nargs='+',choices=['altimeter','attitude','turn'],default=['altimeter','attitude','altimeter'])
+    p.add_argument('--gauges',nargs='+',choices=['altimeter','attitude','turn','airspeed','heading','vsi'],default=['altimeter','attitude','altimeter'])
     a=p.parse_args()
     if not 1 <= a.seconds <= 300: p.error('--seconds must be 1..300')
     import ctypes

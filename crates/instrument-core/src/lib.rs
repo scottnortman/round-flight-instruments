@@ -6,6 +6,8 @@ pub mod external;
 pub mod imu_attitude;
 pub mod takeoff;
 pub mod turn_demo;
+pub mod airspeed_demo;
+pub mod scalar_demo;
 pub use simulator_link;
 
 /// Bench verification limits, not validated aircraft operating limits.
@@ -169,6 +171,15 @@ pub enum Command {
     TurnDemo(u32),
     TurnDemoStop,
     TurnDemoStatus,
+    AirspeedDemo(u32),
+    AirspeedDemoStop,
+    AirspeedDemoStatus,
+    HeadingDemo(u32),
+    HeadingDemoStop,
+    HeadingDemoStatus,
+    VsiDemo(u32),
+    VsiDemoStop,
+    VsiDemoStatus,
     AttitudeDemo(u32),
     AttitudeDemoStop,
     AttitudeDemoStatus,
@@ -234,6 +245,9 @@ pub struct App {
     takeoff: takeoff::Takeoff,
     attitude_demo: attitude_demo::Demo,
     turn_demo: turn_demo::Demo,
+    airspeed_demo: airspeed_demo::Demo,
+    heading_demo: scalar_demo::Demo,
+    vsi_demo: scalar_demo::Demo,
     selected: Instrument,
     running: bool,
     baro_inhg: f32,
@@ -276,6 +290,15 @@ impl App {
     }
     pub fn turn_demo(&self) -> &turn_demo::Demo {
         &self.turn_demo
+    }
+    pub fn airspeed_demo(&self) -> &airspeed_demo::Demo {
+        &self.airspeed_demo
+    }
+    pub fn heading_demo(&self)->&scalar_demo::Demo {&self.heading_demo}
+    pub fn vsi_demo(&self)->&scalar_demo::Demo {&self.vsi_demo}
+    fn stop_demos(&mut self,fault:bool){
+        self.takeoff.stop(fault);self.attitude_demo.stop(fault);self.turn_demo.stop(fault);
+        self.airspeed_demo.stop(fault);self.heading_demo.stop(fault);self.vsi_demo.stop(fault);
     }
     pub fn attitude_demo(&self) -> attitude_demo::Demo {
         self.attitude_demo
@@ -396,6 +419,9 @@ impl App {
             takeoff: takeoff::Takeoff::new(),
             attitude_demo: attitude_demo::Demo::new(),
             turn_demo: turn_demo::Demo::new(),
+            airspeed_demo: airspeed_demo::Demo::new(),
+            heading_demo: scalar_demo::Demo::heading(),
+            vsi_demo: scalar_demo::Demo::vsi(),
             selected: Instrument::Altimeter,
             running: true,
             baro_inhg: 29.92,
@@ -425,15 +451,18 @@ impl App {
         self.refresh_control();
         self.tick_count = self.tick_count.saturating_add(1);
         if self.timing_fault || !self.running || self.external.is_some() || self.imu_bench {
-            self.takeoff.stop(self.timing_fault);
-            self.attitude_demo.stop(self.timing_fault);
-            self.turn_demo.stop(self.timing_fault);
+            self.stop_demos(self.timing_fault);
             return;
         }
         if let Some([rate, ball]) = self.turn_demo.advance(now) {
             self.held[Field::TurnDps as usize] = Some(rate);
             self.held[Field::Ball as usize] = Some(ball);
         }
+        if let Some(ias) = self.airspeed_demo.advance(now) {
+            self.held[Field::IasKt as usize] = Some(ias);
+        }
+        if let Some(h)=self.heading_demo.advance(now){self.held[Field::HeadingDeg as usize]=Some(h);}
+        if let Some(v)=self.vsi_demo.advance(now){self.held[Field::VsiFpm as usize]=Some(v);}
         if let Some([pitch, roll]) = self.attitude_demo.advance(now) {
             self.held[Field::PitchDeg as usize] = Some(pitch);
             self.held[Field::RollDeg as usize] = Some(roll);
@@ -516,6 +545,12 @@ impl App {
             && matches!(
                 command,
                 Command::TurnDemo(_)
+                    | Command::AirspeedDemo(_)
+                    | Command::AirspeedDemoStop
+                    | Command::HeadingDemo(_)
+                    | Command::HeadingDemoStop
+                    | Command::VsiDemo(_)
+                    | Command::VsiDemoStop
                     | Command::TurnDemoStop
                     | Command::AttitudeDemo(_)
                     | Command::AttitudeDemoStop
@@ -541,9 +576,7 @@ impl App {
                 self.held = [None; 8];
                 self.publish_phase_ms = None;
                 self.running = true;
-                self.takeoff.stop(false);
-                self.attitude_demo.stop(false);
-                self.turn_demo.stop(false);
+                self.stop_demos(false);
             }
             Command::SourceImu => {
                 if self.timing_fault {
@@ -555,9 +588,7 @@ impl App {
                 self.control = Default::default();
                 self.samples = [None; 8];
                 self.held = [None; 8];
-                self.takeoff.stop(false);
-                self.attitude_demo.stop(false);
-                self.turn_demo.stop(false);
+                self.stop_demos(false);
                 self.running = false;
                 self.selected = Instrument::Attitude;
             }
@@ -578,9 +609,7 @@ impl App {
                 self.control = Default::default();
                 self.samples = [None; 8];
                 self.held = [None; 8];
-                self.takeoff.stop(false);
-                self.attitude_demo.stop(false);
-                self.turn_demo.stop(false);
+                self.stop_demos(false);
             }
             Command::Telemetry2(frame) => {
                 if self.timing_fault {
@@ -608,6 +637,29 @@ impl App {
                     self.baro_inhg = v;
                 }
             }
+            Command::AirspeedDemo(seconds)|Command::HeadingDemo(seconds)|Command::VsiDemo(seconds) => {
+                let(field,instrument,initial)=match command {
+                    Command::HeadingDemo(_)=>(Field::HeadingDeg,Instrument::Heading,350.),
+                    Command::VsiDemo(_)=>(Field::VsiFpm,Instrument::Vsi,0.),
+                    _=>(Field::IasKt,Instrument::Airspeed,0.),
+                };
+                if !(5..=600).contains(&seconds) {return Err(ApplyError::OutOfRange);}
+                if self.timing_fault || self.faults[field as usize] {return Err(ApplyError::NotReady);}
+                self.stop_demos(false);
+                let now=self.now_ms();
+                match instrument {Instrument::Heading=>self.heading_demo.start(now,seconds),Instrument::Vsi=>self.vsi_demo.start(now,seconds),_=>self.airspeed_demo.start(now,seconds)}
+                self.selected=instrument;
+                self.running=true;
+                self.held[field as usize]=Some(initial);
+                self.samples[field as usize]=None;
+                self.publish_phase_ms=None;
+            }
+            Command::AirspeedDemoStop => self.airspeed_demo.stop(false),
+            Command::AirspeedDemoStatus => (),
+            Command::HeadingDemoStop=>self.heading_demo.stop(false),
+            Command::HeadingDemoStatus=>(),
+            Command::VsiDemoStop=>self.vsi_demo.stop(false),
+            Command::VsiDemoStatus=>(),
             Command::TurnDemo(seconds) => {
                 if !(5..=600).contains(&seconds) {
                     return Err(ApplyError::OutOfRange);
@@ -618,8 +670,7 @@ impl App {
                 {
                     return Err(ApplyError::NotReady);
                 }
-                self.takeoff.stop(false);
-                self.attitude_demo.stop(false);
+                self.stop_demos(false);
                 self.turn_demo.start(self.now_ms(), seconds);
                 self.selected = Instrument::Turn;
                 self.running = true;
@@ -632,7 +683,6 @@ impl App {
             Command::TurnDemoStop => self.turn_demo.stop(false),
             Command::TurnDemoStatus => (),
             Command::AttitudeDemo(seconds) => {
-                self.turn_demo.stop(false);
                 if !(5..=600).contains(&seconds) {
                     return Err(ApplyError::OutOfRange);
                 }
@@ -642,7 +692,7 @@ impl App {
                 {
                     return Err(ApplyError::NotReady);
                 }
-                self.takeoff.stop(false);
+                self.stop_demos(false);
                 self.attitude_demo.start(self.now_ms(), seconds);
                 self.selected = Instrument::Attitude;
                 self.running = true;
@@ -661,8 +711,7 @@ impl App {
                 if self.timing_fault || self.faults[Field::PressureAltitudeFt as usize] {
                     return Err(ApplyError::NotReady);
                 }
-                self.attitude_demo.stop(false);
-                self.turn_demo.stop(false);
+                self.stop_demos(false);
                 self.takeoff.start(self.now_ms(), seconds);
                 self.selected = Instrument::Altimeter;
                 self.baro_inhg = 29.92;
@@ -695,6 +744,9 @@ impl App {
                 if !f.accepts(v) {
                     return Err(ApplyError::OutOfRange);
                 }
+                if f==Field::HeadingDeg{self.heading_demo.stop(false);}
+                if f==Field::VsiFpm{self.vsi_demo.stop(false);}
+                if f == Field::IasKt {self.airspeed_demo.stop(false);}
                 if f == Field::PressureAltitudeFt {
                     self.takeoff.stop(false);
                 }
@@ -707,6 +759,9 @@ impl App {
                 self.held[f as usize] = Some(v);
             }
             Command::Clear(f) => {
+                if f==Field::HeadingDeg{self.heading_demo.stop(false);}
+                if f==Field::VsiFpm{self.vsi_demo.stop(false);}
+                if f == Field::IasKt {self.airspeed_demo.stop(false);}
                 if f == Field::PressureAltitudeFt {
                     self.takeoff.stop(false);
                 }
@@ -720,16 +775,12 @@ impl App {
                 self.samples[f as usize] = None;
             }
             Command::Pause => {
-                self.takeoff.stop(false);
-                self.attitude_demo.stop(false);
-                self.turn_demo.stop(false);
+                self.stop_demos(false);
                 self.running = false;
             }
             Command::Resume => self.running = true,
             Command::LevelPreset => {
-                self.takeoff.stop(false);
-                self.attitude_demo.stop(false);
-                self.turn_demo.stop(false);
+                self.stop_demos(false);
                 self.held = [
                     Some(4520.0),
                     Some(0.0),
@@ -742,6 +793,9 @@ impl App {
                 ];
             }
             Command::Fault(f, active) => {
+                if f==Field::HeadingDeg && active{self.heading_demo.stop(true);}
+                if f==Field::VsiFpm && active{self.vsi_demo.stop(true);}
+                if f == Field::IasKt && active {self.airspeed_demo.stop(true);}
                 if active && matches!(f, Field::TurnDps | Field::Ball) {
                     self.turn_demo.stop(true);
                 }
@@ -786,6 +840,64 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn scalar_demos_are_exclusive_atomic_and_stop_only_for_owned_fields() {
+        use super::*;
+        let mut app=App::new();app.tick(0);
+        for (start, field, instrument) in [(Command::HeadingDemo(5),Field::HeadingDeg,Instrument::Heading),(Command::VsiDemo(5),Field::VsiFpm,Instrument::Vsi)] {
+            app.apply(start).unwrap();
+            assert_eq!(app.selected(),instrument);
+            for bad in [Command::HeadingDemo(4),Command::VsiDemo(601),Command::AttitudeDemo(0)] {
+                assert_eq!(app.apply(bad),Err(ApplyError::OutOfRange));
+                assert_eq!(app.selected(),instrument);
+                assert!(if instrument==Instrument::Heading {app.heading_demo().running()}else{app.vsi_demo().running()});
+            }
+            let now=app.now_ms();
+            for t in (now+10..=now+5000).step_by(10) {
+                app.tick(t);let v=app.reading(field,t).value.unwrap();
+                assert!(if instrument==Instrument::Heading {(0.0..360.).contains(&v)}else{(-2000.0..=2000.).contains(&v)});
+            }
+            assert_eq!(app.reading(field,app.now_ms()).value,Some(if instrument==Instrument::Heading{350.}else{0.}));
+            app.apply(start).unwrap();
+            app.apply(Command::Set(Field::TurnDps,1.)).unwrap();
+            assert!(if instrument==Instrument::Heading {app.heading_demo().running()}else{app.vsi_demo().running()});
+            app.apply(Command::Set(field,0.)).unwrap();
+            assert!(!app.heading_demo().running()&&!app.vsi_demo().running());
+        }
+        for start in [Command::Takeoff(5),Command::AttitudeDemo(5),Command::TurnDemo(5),Command::AirspeedDemo(5),Command::HeadingDemo(5),Command::VsiDemo(5)] {
+            app.apply(start).unwrap();
+            let count=[app.takeoff().running(),app.attitude_demo().running(),app.turn_demo().running(),app.airspeed_demo().running(),app.heading_demo().running(),app.vsi_demo().running()].into_iter().filter(|v|*v).count();
+            assert_eq!(count,1);
+        }
+        app.apply(Command::Pause).unwrap();assert!(!app.vsi_demo().running());
+        app.apply(Command::SourceExternal2(simulator_link::Provider::Synthetic,1)).unwrap();
+        for start in [Command::HeadingDemo(5),Command::VsiDemo(5)] {assert_eq!(app.apply(start),Err(ApplyError::Unsupported));}
+    }
+    #[test]
+    fn airspeed_demo_is_bounded_exclusive_and_cannot_override_external_input() {
+        use super::*;
+        let mut app=App::new();app.tick(0);
+        for seconds in [0,4,601,u32::MAX] {assert_eq!(app.apply(Command::AirspeedDemo(seconds)),Err(ApplyError::OutOfRange));}
+        app.apply(Command::AirspeedDemo(5)).unwrap();
+        assert_eq!(app.selected(),Instrument::Airspeed);
+        let mut max=0.0_f32;
+        for now in (10..=5000).step_by(10) {
+            app.tick(now);let value=app.reading(Field::IasKt,now).value.unwrap();
+            assert!((0.0..=200.).contains(&value));max=max.max(value);
+        }
+        assert!(max>199.);assert_eq!(app.airspeed_demo().state,takeoff::State::Complete);
+        assert_eq!(app.reading(Field::IasKt,5000).value,Some(85.));
+        app.apply(Command::AirspeedDemo(5)).unwrap();
+        app.apply(Command::Set(Field::PitchDeg,5.)).unwrap();assert!(app.airspeed_demo().running());
+        app.apply(Command::Set(Field::IasKt,100.)).unwrap();assert!(!app.airspeed_demo().running());
+        app.apply(Command::AirspeedDemo(5)).unwrap();app.apply(Command::TurnDemo(5)).unwrap();assert!(!app.airspeed_demo().running());
+        app.apply(Command::AirspeedDemo(5)).unwrap();app.apply(Command::Fault(Field::IasKt,true)).unwrap();
+        assert_eq!(app.airspeed_demo().state,takeoff::State::Faulted);
+        assert_eq!(app.apply(Command::AirspeedDemo(5)),Err(ApplyError::NotReady));
+        app.apply(Command::SourceExternal2(simulator_link::Provider::Synthetic,1)).unwrap();
+        assert_eq!(app.apply(Command::AirspeedDemo(5)),Err(ApplyError::Unsupported));
+        assert_eq!(app.reading(Field::IasKt,app.now_ms()).value,None);
+    }
     #[test]
     fn turn_demo_is_bounded_and_never_overrides_external_or_manual_controls() {
         use super::*;

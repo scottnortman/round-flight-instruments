@@ -1,8 +1,9 @@
 # Flash and RAM budget
 
 Waveshare ESP32-S3-Touch-LCD-2.8C, SKU 29086: **16 MiB flash / 8 MiB PSRAM**.
-Measured on 2026-11-03 against `v0.2.0-rc.5` (`168542e`). The memory-layout
-update is on `feature/memory-budget`; it includes three implemented faces.
+Current six-face source checkpoint: **v0.2.0-rc.8**, measured November 4,
+2026. The 4 MiB application layout is already merged into `main`; earlier
+three-face migration results remain in [verification](../verification/MEMORY-LAYOUT.md).
 
 ## Flash layout
 
@@ -20,9 +21,8 @@ It has one **4 MiB factory application**, preserving the existing data offsets:
 
 This is a USB-flashed single-app layout; it provides no OTA slots. The old 1 MiB
 slot was 99.16% full (1,039,792 B). Physical flash was never nearly full.
-Current app size and measured RAM results are recorded in
-[the verification report](../verification/MEMORY-LAYOUT.md).
-The later [continuity candidate](../verification/CONTINUITY.md) uses
+The six-face application uses **1,084,992 bytes (25.87%)**, leaving 3,109,312
+bytes in its 4 MiB slot. The historical [continuity candidate](../verification/CONTINUITY.md) uses
 1,051,744 bytes (25.08% of the 4 MiB slot), retains 5,131,000 bytes free PSRAM,
 and adds no full-size bitmap. The normal build's measured display stack reserve
 is about 3 KiB; exact run results are in that report.
@@ -45,9 +45,9 @@ Each 480 x 480 RGB565 bitmap uses **460,800 B (450 KiB)**. Display image storage
 | Allocation | Count | Bytes |
 | --- | ---: | ---: |
 | Shared DMA scanout buffers | 3 | 1,382,400 |
-| Retained face backdrops | 3 | 1,382,400 |
+| Retained face backdrops | 6 | 2,764,800 |
 | Shared CPU-only menu cache | 1 | 460,800 |
-| **Total image PSRAM** | **7** | **3,225,600** |
+| **Total image PSRAM** | **10** | **4,608,000** |
 
 Sharing the menu recovers **450 KiB** versus the previous two per-face caches.
 Further gauges reuse it and the existing scanout buffers/tasks. The cache retains
@@ -62,10 +62,13 @@ Do not add another 96 KiB internal cache
 per gauge: the measured largest free internal block is only 31 KiB. Put large
 future artwork in PSRAM and reuse fonts, transfer buffers and render tasks.
 
-Three more retained backdrops require **1,382,400 B (1.318 MiB)**. With approximately
-4.9 MiB of PSRAM free now, that leaves roughly **3.6 MiB**, before future smaller
-allocations. This is a projection; exact final six-gauge use and frame rate must
-be measured as each remaining face is built. All-six data transport already exists.
+All six backdrops are now allocated. The measured free PSRAM is **3,730,156 B**
+(largest block 3,670,016 B), stable across motion and switching. Free internal
+heap is **91,611 B** (minimum 59,580 B; largest block 31,744 B). The one display
+task now has a 24 KiB stack, with **5,680 B minimum unused** during the six-face
+motion run (5,328 B in rapid switching). No extra renderer task, scanout set or internal glyph cache was
+added per face. DMA/internal capability heaps overlap and must not be summed.
+All-six transport was already present in the released connector.
 
 ## Recheck on the board
 
@@ -78,7 +81,7 @@ sim attitude 30
 display stats reset
 ```
 
-After motion finishes, run `display stats stop`. For a repeatable all-three check,
+After motion finishes, run `display stats stop`. For a repeatable all-six check,
 run the IDF Python with pyserial:
 
 ```powershell
@@ -87,7 +90,7 @@ python scripts/check-memory.py --port COM5 --seconds 30 --report artifacts/memor
 
 This changes to local simulation, checks heap stability, completed FPS and guard
 counters, then restores the level altimeter. It separates steady motion from
-gauge entry; the existing rapid-switch limitation is documented in the report.
+gauge entry. Rapid switching is checked separately with `check-gauge-switch.py`.
 Statistics count completed
 presentations, not merely drawing calls. `memory status` reports the installed
 app offset/size and each heap's total/free/minimum/largest block, plus minimum
@@ -101,3 +104,14 @@ See [development setup](GETTING-STARTED.md) for toolchain/flash commands and
 
 References: [Espressif partition tables](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32s3/api-guides/partition-tables.html),
 [heap capabilities](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32s3/api-reference/system/mem_alloc.html).
+
+
+## Historical four-face Airspeed candidate
+
+The fourth retained backdrop increases image PSRAM to 3,686,400 bytes (eight
+bitmaps). The current airspeed graphics build uses 1,063,152 bytes of flash (25.35% of the 4 MiB
+slot), with 4,664,052 bytes free PSRAM, 95,795 bytes free internal heap and
+2,576 bytes minimum free display stack in the measured four-face regression.
+Heading and VSI now use those two additional backdrops; measured six-face
+headroom is recorded above. See [Airspeed verification](../verification/AIRSPEED.md)
+and the [six-pack results](../verification/SIX-PACK.md).

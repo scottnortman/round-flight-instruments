@@ -156,7 +156,7 @@ impl Supervisor {
     }
     pub fn status(&self) -> String {
         let m = self.message.lock().unwrap();
-        format!("Round Instruments 0.2.0-rc.7 prerelease\r\n\r\n{}\r\nUpdated {} seconds ago\r\n\r\nLast connected simulator: {}\r\n\r\nControls: {}\r\nDevice: {}\r\n\r\nBackground gauges are read-only. Only explicit active-gauge actions can change MSFS.\r\nAirspeed, heading and VSI faces remain unavailable.\r\n\r\nLogs: {}",m.text,m.at.map_or(0,|at|at.elapsed().as_secs()),m.simulator.as_deref().unwrap_or("Not reported yet; start MSFS and connect"),if self.settings.writeback {"Active gauge actions enabled"}else{"Read-only"},if self.root.join("device.json").is_file(){"Enrolled by USB identity"}else{"Select a device from the tray menu"},self.root.join("logs").display())
+        format!("Round Instruments 0.2.0-rc.7 prerelease\r\n\r\n{}\r\nUpdated {} seconds ago\r\n\r\nLast connected simulator: {}\r\n\r\nControls: {}\r\nDevice: {}\r\n\r\nBackground gauges are read-only. Only explicit active-gauge actions can change MSFS.\r\nSelect an available gauge using the device touch menu.\r\n\r\nLogs: {}",m.text,m.at.map_or(0,|at|at.elapsed().as_secs()),m.simulator.as_deref().unwrap_or("Not reported yet; start MSFS and connect"),if self.settings.writeback {"Active gauge actions enabled"}else{"Read-only"},if self.root.join("device.json").is_file(){"Enrolled by USB identity"}else{"Select a device from the tray menu"},self.root.join("logs").display())
     }
     pub fn devices() -> io::Result<Vec<(String, String)>> {
         Ok(serialport::available_ports()

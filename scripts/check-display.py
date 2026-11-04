@@ -73,7 +73,7 @@ def main():
             link.command('display recover','OK ')
             wait(link,backlight='true',shown_quality='valid')
         link.command('instrument airspeed','OK ')
-        wait(link,shown_quality='placeholder',shown_alt_ft='None')
+        wait(link,renderer='airspeed',shown_quality='valid',shown_alt_ft='None')
         link.command('instrument altimeter','OK ')
         wait(link,shown_quality='valid',shown_alt_ft='Some(4520.0)')
         link.command('baro 30.92','OK ')

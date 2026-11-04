@@ -57,18 +57,16 @@ impl Context {
     pub fn enabled(self, instrument: Instrument) -> bool {
         match instrument {
             Instrument::Altimeter => !self.imu,
-            Instrument::Turn => !self.imu && (!self.external || self.external_attitude),
             Instrument::Attitude => !self.external || self.external_attitude,
-            _ => false,
+            _ => !self.imu && (!self.external || self.external_attitude),
         }
     }
     pub fn reason(self, instrument: Instrument) -> &'static str {
         match instrument {
-            Instrument::Altimeter | Instrument::Turn if self.imu => "NO IMU DATA",
-            Instrument::Turn if self.external && !self.external_attitude => "NO SIM DATA",
-            Instrument::Attitude if self.external && !self.external_attitude => "NO SIM DATA",
-            Instrument::Altimeter | Instrument::Attitude | Instrument::Turn => "",
-            _ => "NOT BUILT",
+            Instrument::Altimeter if self.imu => "NO IMU DATA",
+            i if i!=Instrument::Attitude && self.imu => "NO IMU DATA",
+            i if i!=Instrument::Altimeter && self.external && !self.external_attitude => "NO SIM DATA",
+            _ => "",
         }
     }
     fn hit(self, x: u16, y: u16) -> Option<Button> {
@@ -301,6 +299,16 @@ impl Controller {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn all_six_available_for_local_and_t2_but_not_missing_source_capabilities() {
+        let local=ctx();
+        for gauge in GAUGES {
+            assert!(local.enabled(gauge));
+            assert!(Context{external:true,external_attitude:true,..local}.enabled(gauge));
+            assert_eq!(Context{external:true,external_attitude:false,..local}.enabled(gauge),gauge==Instrument::Altimeter);
+            assert_eq!(Context{imu:true,..local}.enabled(gauge),gauge==Instrument::Attitude);
+        }
+    }
     use super::*;
     fn ctx() -> Context {
         Context {
@@ -452,9 +460,9 @@ mod tests {
             let mut c = Controller::default();
             let t = open(&mut c);
             feed(&mut c, t + 10, Contact::Up);
-            feed(&mut c, t + 20, down(if mode == 0 { 150 } else { 300 }, 160));
+            feed(&mut c, t + 20, down(if mode==0 {430}else{300},160));
             match mode {
-                0 => assert!(!c.press_started()), // unfinished airspeed
+                0 => assert!(!c.press_started()), // outside active buttons
                 1 => {
                     feed(&mut c, t + 30, down(430, 160));
                     feed(&mut c, t + 40, down(300, 160));

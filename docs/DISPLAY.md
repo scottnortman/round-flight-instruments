@@ -4,10 +4,12 @@ The first rendered gauge is a three-pointer altimeter. It retains the handoff's
 480-unit face geometry, original MS33558C font, numeral-one substitution,
 pointer periods, barometer window and SIM INPUT marking. It adds an on-face
 numeric bench reference and explicit missing/stale/failed/timing-fault states.
-The development branch also implements [standalone attitude](ATTITUDE.md).
-Remaining instruments show NOT IMPLEMENTED and cannot leave the previous
-altimeter visible. [Touch barometer editing](TOUCH.md) is implemented; instrument
-selection by touch is a subsequent stage.
+The development checkout now implements all six faces using the same bounded
+snapshot, retained background, three scanout buffers and opaque touch menu.
+[Six-pack behavior and testing](SIX-PACK.md) distinguish this candidate from the
+three-face rc.7 release. [Touch barometer editing](TOUCH.md) remains the only
+implemented aircraft control; Heading and VSI are read-only.
+
 
 The Rust face's graphics cleanup moves the numeral centers inward from radius
 179 to 169 in the logical 480-unit viewport, adding tick clearance especially
