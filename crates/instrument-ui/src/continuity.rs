@@ -98,7 +98,7 @@ mod tests {
         let alt=live(Instrument::Altimeter);
         assert_eq!(lifetime_ms(alt),alt.numeric_lifetime_ms());
         let mut menu=stale;
-        menu.menu=Some(crate::navigation::View {
+        menu.menu=Some(crate::navigation::View { info: false,
             context:crate::navigation::Context { selected:front.selected,external:true,
                 external_attitude:true,imu:false,session:front.source_session },
             generation:1,pressed:None,

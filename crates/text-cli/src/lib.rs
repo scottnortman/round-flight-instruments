@@ -87,6 +87,11 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         ["source", "sim"] => Ok(Command::SourceDemo),
         ["source", "imu"] => Ok(Command::SourceImu),
         ["source", "status"] => Ok(Command::SourceStatus),
+        ["device", "info"] | ["device", "uuid"] => Ok(Command::Device(instrument_core::device::Command::Info)),
+        ["device", "uuid", "set", value] => Ok(Command::Device(instrument_core::device::Command::SetUuid(
+            instrument_core::device::Uuid::parse(value).ok_or(Error::Range)?))),
+        ["settings", "status"] => Ok(Command::Device(instrument_core::device::Command::SettingsStatus)),
+        ["settings", "save"] => Ok(Command::Device(instrument_core::device::Command::Save)),
         ["protocol", "capabilities"] => Ok(Command::Capabilities),
         ["control", "enable", session] => Ok(Command::ControlEnable(
             session.parse().map_err(|_| Error::Range)?,
@@ -397,6 +402,9 @@ pub fn execute_with_display(
     if matches!(cmd, Command::Display(_)) {
         return reply(format_args!("ERR display_unsupported_target"));
     }
+    if matches!(cmd, Command::Device(_)) {
+        return reply(format_args!("ERR device_unsupported_target"));
+    }
     if let Err(error) = app.apply(cmd) {
         if error == instrument_core::ApplyError::Unsupported {
             return reply(format_args!("ERR unsupported source_or_target"));
@@ -435,8 +443,8 @@ pub fn execute_with_display(
             let sweep = app.takeoff();
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
-        Command::Echo(_) | Command::Imu(_) | Command::Display(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch menu hold MS; touch sound on|off|status; status; sim heading [SECONDS|stop|status]; sim vsi [SECONDS|stop|status]; sim airspeed [SECONDS|stop|status]; sim turn [SECONDS|stop|status]; sim attitude [SECONDS|stop|status]; sim takeoff [SECONDS|stop|status]; display stats [reset|stop]; display hold [0..10|status]; echo on|off|status; memory status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::Echo(_) | Command::Imu(_) | Command::Display(_) | Command::Device(_) => unreachable!(),
+        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch menu hold MS; touch sound on|off|status; status; sim takeoff [SECONDS|stop|status]; sim heading|vsi|airspeed|turn|attitude [SECONDS|stop|status]; device info|uuid set UUID; settings status|save; display stats [reset|stop]; display hold [0..10|status]; echo on|off|status; memory status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
         Command::HeadingDemo(_)|Command::HeadingDemoStop|Command::HeadingDemoStatus=>{
             let d=app.heading_demo();writeln!(r,"OK heading_demo state={} elapsed_ms={} duration_ms={} source=sim",d.state.name(),d.elapsed_ms,d.duration_ms)
         }
@@ -496,6 +504,19 @@ fn status(r: &mut Response, app: &App, now: u64, display: &str) -> fmt::Result {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn device_settings_commands_are_strict_and_do_not_fabricate_desktop_identity() {
+        use instrument_core::device::{Command as Device, Uuid};
+        assert_eq!(parse("device info"),Ok(Command::Device(Device::Info)));
+        assert_eq!(parse("settings save"),Ok(Command::Device(Device::Save)));
+        assert_eq!(parse("settings status"),Ok(Command::Device(Device::SettingsStatus)));
+        let id=Uuid::parse("11223344-5566-4788-9aab-ccddeeff0011").unwrap();
+        assert_eq!(parse("device uuid set 11223344-5566-4788-9aab-ccddeeff0011"),Ok(Command::Device(Device::SetUuid(id))));
+        for bad in ["device uuid set nil","device uuid set 00000000-0000-0000-0000-000000000000",
+            "device uuid set 11223344-5566-4788-9aab-ccddeeff0011 extra","settings reset"] {assert!(parse(bad).is_err());}
+        let mut app=App::new();
+        assert_eq!(execute(&mut app,parse("device info"),0).as_str(),"ERR device_unsupported_target\n");
+    }
     extern crate std;
     #[test]
     fn bounded_display_hold_has_strict_limits_and_is_hardware_specific() {

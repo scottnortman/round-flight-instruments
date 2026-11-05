@@ -13,16 +13,21 @@ pub const GAUGES: [Instrument; 6] = [
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Button {
     Gauge(Instrument),
+    Info,
+    Back,
     Cancel,
 }
 impl Button {
     pub fn rect(self) -> Rect {
         match self {
-            Self::Cancel => Rect {
+            Self::Back => Rect {
                 x: 168,
                 y: 326,
                 w: 144,
                 h: 42,
+            },
+            Self::Info | Self::Cancel => Rect {
+                x: if self==Self::Info {92}else{244}, y:326, w:144, h:42,
             },
             Self::Gauge(i) => {
                 let n = GAUGES.iter().position(|v| *v == i).unwrap_or(0) as u16;
@@ -69,12 +74,13 @@ impl Context {
             _ => "",
         }
     }
-    fn hit(self, x: u16, y: u16) -> Option<Button> {
+    fn hit(self, x: u16, y: u16, info: bool) -> Option<Button> {
+        if info { return Button::Back.rect().contains(x,y).then_some(Button::Back); }
         GAUGES
             .into_iter()
             .filter(|i| self.enabled(*i))
             .map(Button::Gauge)
-            .chain(core::iter::once(Button::Cancel))
+            .chain([Button::Info,Button::Cancel])
             .find(|b| b.rect().contains(x, y))
     }
     fn center(self, x: u16, y: u16) -> bool {
@@ -86,6 +92,7 @@ impl Context {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
+    pub info: bool,
     pub generation: u32,
     pub context: Context,
     pub pressed: Option<Button>,
@@ -244,9 +251,14 @@ impl Controller {
                 self.holding = None;
                 self.armed = true;
                 if let Some(button) = self.view.and_then(|v| v.pressed) {
-                    self.cancel();
-                    if let Button::Gauge(i) = button {
-                        return context.enabled(i).then_some(i);
+                    match button {
+                        Button::Gauge(i)=>{self.cancel();return context.enabled(i).then_some(i);}
+                        Button::Cancel=>self.cancel(),
+                        Button::Info|Button::Back=>{
+                            self.generation=self.generation.wrapping_add(1).max(1);
+                            self.view=Some(View {info:button==Button::Info,generation:self.generation,context,pressed:None});
+                            self.armed=false;self.pressed_id=None;self.activity=now;
+                        }
                     }
                 }
             }
@@ -258,7 +270,7 @@ impl Controller {
                             self.pressed_id = None;
                         }
                     } else if self.armed {
-                        v.pressed = context.hit(x, y);
+                        v.pressed = context.hit(x, y, v.info);
                         self.pressed_id = v.pressed.map(|_| id);
                         self.press_started = v.pressed.is_some();
                         if self.press_started {
@@ -276,6 +288,7 @@ impl Controller {
                     } else if input.at_ms.saturating_sub(start) >= self.hold_ms as u64 {
                         self.generation = self.generation.wrapping_add(1).max(1);
                         self.view = Some(View {
+                            info: false,
                             generation: self.generation,
                             context,
                             pressed: None,
@@ -643,7 +656,7 @@ mod tests {
         let mut c = Controller::default();
         let t = open(&mut c);
         feed(&mut c, t + 10, Contact::Up);
-        feed(&mut c, t + 20, down(240, 344));
+        feed(&mut c, t + 20, down(310, 344));
         assert_eq!(feed(&mut c, t + 30, Contact::Up), None);
         assert!(c.view().is_none());
         let mut c = Controller::default();
@@ -652,5 +665,30 @@ mod tests {
             assert!(feed(&mut c, time, Contact::Up).is_none());
         }
         assert!(c.view().is_none());
+    }
+    #[test]
+    fn info_and_back_are_local_acknowledged_release_actions_with_blue_press_state() {
+        let mut c=Controller::default();let t=open(&mut c);
+        feed(&mut c,t+10,Contact::Up);
+        let r=Button::Info.rect();
+        feed(&mut c,t+20,down(r.x+20,r.y+15));
+        assert!(c.press_started());assert_eq!(c.view().unwrap().pressed,Some(Button::Info));
+        assert_eq!(feed(&mut c,t+30,Contact::Up),None);
+        let page=c.view().unwrap();assert!(page.info);assert!(page.pressed.is_none());
+        // A held opening contact and a not-yet-presented page cannot trigger Back.
+        c.update(t+40,Some(Input{at_ms:t+40,contact:down(240,345)}),true,ctx(),page.generation-1);
+        assert!(c.view().unwrap().pressed.is_none());
+        feed(&mut c,t+50,Contact::Up);
+        // Gauge positions in INFO are inert and silent.
+        feed(&mut c,t+60,down(300,160));assert!(!c.press_started());
+        feed(&mut c,t+70,Contact::Up);
+        feed(&mut c,t+80,down(240,345));assert!(c.press_started());
+        // Dragging off cancels the action, and dragging back cannot rearm it.
+        feed(&mut c,t+90,down(430,345));feed(&mut c,t+100,down(240,345));
+        feed(&mut c,t+110,Contact::Up);assert!(c.view().unwrap().info);
+        feed(&mut c,t+120,down(240,345));
+        assert_eq!(c.view().unwrap().pressed,Some(Button::Back));
+        feed(&mut c,t+130,Contact::Up);assert!(!c.view().unwrap().info);
+        assert_ne!(c.view().unwrap().generation,page.generation);
     }
 }

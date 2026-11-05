@@ -5,6 +5,15 @@ Current six-face source checkpoint: **v0.2.0-rc.9**, measured November 4,
 2026. The 4 MiB application layout is already merged into `main`; earlier
 three-face migration results remain in [verification](../verification/MEMORY-LAYOUT.md).
 
+The `feature/device-identity-settings` candidate enables PSRAM XIP so NVS writes
+can coexist with RGB scanout. Its measured application is **1,130,400 B (26.95%)**,
+with **2,672,004 B free PSRAM** and **77,799 B free internal heap** (minimum
+45,596 B). Physical PSRAM remains 8 MiB; approximately 1.06 MB is reserved for
+instructions/read-only data and is excluded from the allocator's total. INFO
+reuses the existing menu bitmap. The rc.9 figures below remain the baseline;
+see [candidate results](../verification/DEVICE-SETTINGS.md) for the complete
+memory/performance comparison.
+
 ## Flash layout
 
 The project owns [`firmware/console/partitions.csv`](../firmware/console/partitions.csv).

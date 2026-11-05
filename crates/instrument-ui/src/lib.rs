@@ -23,6 +23,7 @@ use instrument_core::{App, Field, Instrument, Quality, Reading};
 /// Immutable view input. Source age is retained through transport and rendering.
 #[derive(Clone, Copy, Debug)]
 pub struct Snapshot {
+    pub device: instrument_core::device::Info,
     pub imu_bench: bool,
     pub imu_last_good: Option<instrument_core::imu_attitude::Retained>,
     pub external: bool,
@@ -141,6 +142,7 @@ impl Snapshot {
     }
     pub fn from_app(app: &App) -> Self {
         Self {
+            device: instrument_core::device::Info::default(),
             imu_bench: app.imu_bench(),
             imu_last_good: app.imu_last_good(),
             external: app.external().is_some(),
@@ -381,6 +383,7 @@ mod tests {
         assert_eq!(held.source_label, live.source_label);
         assert_eq!(held.numeric_lifetime_ms(), None);
         let strict = Snapshot {
+                device: instrument_core::device::Info::default(),
             heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
             vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
             ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
@@ -478,6 +481,7 @@ mod tests {
         assert!(!presentation_healthy(100, 90, 90, 100, 90));
         assert!(!presentation_healthy(10, 11, 9, 100, 9));
         let s = Snapshot {
+                device: instrument_core::device::Info::default(),
             heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
             vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
             ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },

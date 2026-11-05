@@ -200,6 +200,7 @@ pub struct Service {
     stats: Mutex<Stats>,
     interaction: RefCell<Controller>,
     navigation: RefCell<instrument_ui::navigation::Controller>,
+    device_info: RefCell<instrument_core::device::Info>,
     touch_input: RefCell<instrument_ui::interaction::InputCache>,
     touch_snapshot_misses: AtomicU32,
     touch_state: RefCell<Option<crate::touch::State>>,
@@ -405,6 +406,7 @@ impl Service {
         Ok(Self {
             interaction: RefCell::new(Controller::default()),
             navigation: RefCell::new(instrument_ui::navigation::Controller::default()),
+            device_info: RefCell::new(instrument_core::device::Info::default()),
             touch_input: RefCell::new(instrument_ui::interaction::InputCache::default()),
             touch_snapshot_misses: AtomicU32::new(0),
             touch_state: RefCell::new(None),
@@ -416,6 +418,7 @@ impl Service {
             }),
         })
     }
+    pub fn set_device_info(&self, info: instrument_core::device::Info) { *self.device_info.borrow_mut()=info; }
     pub fn publish(&self, app: &mut App, touch: Option<crate::touch::State>) -> bool {
         let s = &self.shared;
         if touch.is_some() {
@@ -479,6 +482,7 @@ impl Service {
         }
         if let Ok(mut v) = s.snapshot.try_lock() {
             let mut snapshot = Snapshot::from_app(app);
+            snapshot.device = *self.device_info.borrow();
             snapshot.editor = interaction.view();
             snapshot.kollsman_pressed = interaction.window_pressed();
             snapshot.menu = navigation.view();

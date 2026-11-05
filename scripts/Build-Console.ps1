@@ -3,7 +3,14 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Enter-DevShell.ps1')
 $rfiPreviousTarget = $env:CARGO_TARGET_DIR
 $rfiPreviousDefaults = $env:ESP_IDF_SDKCONFIG_DEFAULTS
+$rfiPreviousRevision = $env:RFI_BUILD_REV
 try {
+    $rfiSourceRoot = Split-Path $PSScriptRoot -Parent
+    $env:RFI_BUILD_REV = 'source-archive'
+    if ((Test-Path -LiteralPath (Join-Path $rfiSourceRoot '.git')) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+        $env:RFI_BUILD_REV = (& git -C $rfiSourceRoot describe --tags --long --always --dirty --abbrev=8).Trim()
+        if ($LASTEXITCODE -ne 0) { throw 'Could not identify firmware source revision' }
+    }
     $env:CARGO_TARGET_DIR = 'D:\rfi-c'
     New-Item -ItemType Directory -Path $env:CARGO_TARGET_DIR -Force | Out-Null
     # esp-idf-sys creates its CMake project outside this checkout. Resolve the
@@ -55,6 +62,9 @@ try {
             'CONFIG_SPIRAM_MODE_OCT=y',
             'CONFIG_SPIRAM_SPEED_80M=y',
             'CONFIG_SPIRAM_USE_MALLOC=y',
+            'CONFIG_SPIRAM_XIP_FROM_PSRAM=y',
+            'CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y',
+            'CONFIG_SPIRAM_RODATA=y',
             'CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y',
             'CONFIG_ESP32S3_DATA_CACHE_32KB=y',
             'CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB=y',
@@ -77,4 +87,4 @@ try {
         [ordered]@{executable=$rfiExecutable;sdkconfig=$rfiSdk;bootloader=$rfiBoot;bootloader_sha256=(Get-FileHash $rfiBoot).Hash;partition_csv=$rfiCsv;partition_csv_sha256=(Get-FileHash $rfiCsv).Hash;partition_binary=$rfiPartition;partition_binary_sha256=(Get-FileHash $rfiPartition).Hash;watchdog_self_test=[bool]$WatchdogSelfTest;sha256=(Get-FileHash -LiteralPath $rfiExecutable).Hash} | ConvertTo-Json | Set-Content -LiteralPath 'D:\rfi-c\console-build-artifacts.json' -Encoding UTF8
         Write-Output 'Console build and generated SDK safety settings verified.'
     } finally { Pop-Location }
-} finally { $env:CARGO_TARGET_DIR = $rfiPreviousTarget; $env:ESP_IDF_SDKCONFIG_DEFAULTS = $rfiPreviousDefaults }
+} finally { $env:CARGO_TARGET_DIR = $rfiPreviousTarget; $env:ESP_IDF_SDKCONFIG_DEFAULTS = $rfiPreviousDefaults; $env:RFI_BUILD_REV = $rfiPreviousRevision }

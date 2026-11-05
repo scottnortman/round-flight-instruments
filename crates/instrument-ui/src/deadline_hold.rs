@@ -118,7 +118,7 @@ mod tests {
         s.pitch.value = None;
         assert_eq!(fresh_lifetime(s, false, false), None);
         s = crate::Snapshot::from_app(&app);
-        s.menu = Some(crate::navigation::View {
+        s.menu = Some(crate::navigation::View { info: false,
             generation: 1,
             context: crate::navigation::Context::from_app(&app),
             pressed: None,

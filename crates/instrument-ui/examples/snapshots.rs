@@ -20,6 +20,7 @@ fn main() -> std::io::Result<()> {
             render::draw(
                 &mut Framebuffer::new(&mut pixels, size, size).unwrap(),
                 Snapshot {
+                    device: instrument_core::device::Info::default(),
                     heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                     vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                     ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },

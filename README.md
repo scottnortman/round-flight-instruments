@@ -1,5 +1,10 @@
 # Round Flight Instruments
 
+Source checkpoint **v0.2.0-rc.10** remembers the board's selected gauge
+and stores a persistent UUID. Hold center, release, then tap **INFO** for the
+firmware revision and UUID. See [device settings, CLI and aircraft-profile
+design](docs/DEVICE-SETTINGS.md). This feature is not yet in a published installer.
+
 Source checkpoint **v0.2.0-rc.9** adds a **three-miss display hold**:
 brief late frames retain the last reading; the fourth consecutive miss blanks.
 See [policy and CLI](docs/DISPLAY-HOLD.md) and [verification](verification/DISPLAY-HOLD.md).
@@ -177,11 +182,11 @@ validated commands; input freshness, display supervision and watchdogs remain
 independent of rendering. See [architecture](docs/DISPLAY.md) and
 [control contracts](docs/BASELINE.md).
 
-- **208 Rust workspace tests** and strict all-target Clippy pass. All-six local
+- **225 Rust workspace tests** and strict all-target Clippy pass. All-six local
   motion runs measure 32.33-32.41 completed FPS; continuous text telemetry
   measures 30.80-32.33 FPS. The native MSFS-path timing/load tests also pass;
   [results and open limits](verification/SIX-PACK.md) distinguish the workloads.
-- Aircraft-specific configuration, persistent settings, an encoder, faster
+- Aircraft-specific configuration, multi-device host management, an encoder, faster
   communications and DCS support remain future work.
 - The IMU has an unresolved stationary gyro offset; its readings and bench tilt
   are not calibrated attitude. [IMU limitations](docs/IMU.md).

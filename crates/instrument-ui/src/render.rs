@@ -14,6 +14,22 @@ const DIAL_NUMBER_RADIUS: f32 = 169.;
 const KOLLSMAN_TOP: f32 = 211.;
 const KOLLSMAN_PRESSED: u16 = rgb(0, 90, 156);
 const NAVIGATION_BACKGROUND: u16 = rgb(9, 14, 19);
+const PANEL_PIXELS: usize = 320 * 288;
+// Pack both pages into the existing bitmap. Coordinates remain in the common
+// 480-unit viewport; no extra framebuffer or per-frame allocation is needed.
+struct Panel<'a>(&'a mut [u16]);
+impl Target for Panel<'_> {
+    fn size(&self)->(u32,u32){(480,480)}
+    fn pixel(&mut self,x:i32,y:i32,color:u16){
+        if (80..400).contains(&x)&&(96..384).contains(&y){self.0[(y-96)as usize*320+(x-80)as usize]=color;}
+    }
+    fn span(&mut self,y:i32,start:i32,end:i32,color:u16){
+        let lo=start.clamp(80,400);let hi=end.clamp(80,400);
+        if (96..384).contains(&y)&&lo<hi {
+            let base=(y-96)as usize*320;self.0[base+(lo-80)as usize..base+(hi-80)as usize].fill(color);
+        }
+    }
+}
 /// One caller-owned CPU-only menu bitmap shared across any number of faces.
 /// Its context key includes the selected gauge, provider session and source mode.
 /// No allocation, sampled data or DMA ownership is retained here.
@@ -21,20 +37,23 @@ pub struct NavigationCache<'a> {
     pixels: &'a mut [u16],
     prepared: u8,
     key: Option<(crate::navigation::Context, Option<crate::navigation::Button>)>,
+    info_key: Option<instrument_core::device::Info>,
+    info_prepared: u8,
+    info_pressed: bool,
 }
 impl<'a> NavigationCache<'a> {
     pub fn new(pixels: &'a mut [u16]) -> Option<Self> {
-        (pixels.len() == 480 * 480).then_some(Self { pixels, prepared: 0, key: None })
+        (pixels.len() == 480 * 480).then_some(Self { pixels, prepared: 0, key: None, info_key:None,info_prepared:0,info_pressed:false })
     }
     /// Warm CPU-only artwork before the first visible frame. This does not
     /// publish pixels or renew any measurement's presentation deadline.
     pub fn prepare_background(&mut self, snapshot: Snapshot) {
-        for _ in 0..8 { self.prepare(snapshot); }
+        for _ in 0..13 { self.prepare(snapshot); }
     }
-    // Spread cold menu construction over eight normal frames, before the
+    // Spread cold menu/info construction over thirteen normal frames, before the
     // user can finish the hold. Never publish a partially prepared bitmap.
     fn prepare(&mut self, snapshot: Snapshot) {
-        let cache = &mut *self.pixels;
+        let cache = &mut self.pixels[..PANEL_PIXELS];
         let context = snapshot.menu.map_or(
             crate::navigation::Context {
                 selected: snapshot.selected,
@@ -50,9 +69,10 @@ impl<'a> NavigationCache<'a> {
             // all cached lettering when only the gauge/session changes; retain
             // pressed state until the next menu view restores that button.
             if let Some((old, pressed)) = self.key {
-                if self.prepared == 8 && crate::navigation::GAUGES.into_iter().all(|g|
+                if self.prepared == 9 && crate::navigation::GAUGES.into_iter().all(|g|
                     old.enabled(g) == context.enabled(g) && old.reason(g) == context.reason(g)) {
                     self.key = Some((context, pressed));
+                    self.prepare_info(snapshot);
                     return;
                 }
             }
@@ -62,8 +82,8 @@ impl<'a> NavigationCache<'a> {
             self.key = Some((context, None));
             self.prepared = u8::from(panel_ready);
         }
-        if self.prepared < 8 {
-            let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
+        if self.prepared < 9 {
+            let mut fb = Panel(&mut *cache);
             let mut c = Canvas::new(&mut fb);
             if self.prepared == 0 {
                 draw_navigation_panel(&mut c);
@@ -72,10 +92,11 @@ impl<'a> NavigationCache<'a> {
                     .get(self.prepared as usize - 1)
                     .copied()
                     .map(crate::navigation::Button::Gauge)
-                    .unwrap_or(crate::navigation::Button::Cancel);
+                    .unwrap_or(if self.prepared==7 {crate::navigation::Button::Info}else{crate::navigation::Button::Cancel});
                 draw_navigation_cached_button(
                     &mut c,
                     crate::navigation::View {
+                        info: false,
                         context,
                         generation: 0,
                         pressed: None,
@@ -84,6 +105,16 @@ impl<'a> NavigationCache<'a> {
                 );
             }
             self.prepared += 1;
+        } else {
+            self.prepare_info(snapshot);
+        }
+    }
+    fn prepare_info(&mut self,snapshot:Snapshot) {
+        if self.info_key!=Some(snapshot.device){self.info_key=Some(snapshot.device);self.info_prepared=0;self.info_pressed=false;}
+        if self.info_prepared<4 {
+            let mut fb=Panel(&mut self.pixels[PANEL_PIXELS..2*PANEL_PIXELS]);
+            draw_info_part(&mut Canvas::new(&mut fb),snapshot.device,self.info_prepared,false);
+            self.info_prepared+=1;
         }
     }
     fn navigation(
@@ -94,15 +125,23 @@ impl<'a> NavigationCache<'a> {
     ) {
         if snapshot.menu.is_some() {
             self.prepare(snapshot);
-            while self.prepared < 8 {
+            while self.prepared < 9 || (snapshot.menu.is_some_and(|m|m.info) && (self.info_prepared<4||self.info_key!=Some(snapshot.device))) {
                 self.prepare(snapshot);
             }
         }
         if let Some(menu) = snapshot.menu {
-            let cache = &mut *self.pixels;
+            let info=menu.info;
+            let cache=if info {&mut self.pixels[PANEL_PIXELS..2*PANEL_PIXELS]}else{&mut self.pixels[..PANEL_PIXELS]};
             let key = (menu.context, menu.pressed);
-            if self.key != Some(key) {
-                let mut fb = crate::raster::Framebuffer::new(cache, 480, 480).unwrap();
+            if info {
+                let pressed=menu.pressed==Some(crate::navigation::Button::Back);
+                if self.info_pressed!=pressed {
+                    let mut fb=Panel(&mut *cache);
+                    draw_info_part(&mut Canvas::new(&mut fb),snapshot.device,3,pressed);
+                    self.info_pressed=pressed;
+                }
+            } else if self.key != Some(key) {
+                let mut fb = Panel(&mut *cache);
                 let mut c = Canvas::new(&mut fb);
                 // Only the old and new pressed buttons change. Rebuilding all
                 // lettering on each finger transition exceeds attitude's budget.
@@ -118,10 +157,11 @@ impl<'a> NavigationCache<'a> {
             // mark them so the moving horizon restores them when it closes.
             for y in 96..384 {
                 let row = y * 480 + 80..y * 480 + 400;
-                pixels[row.clone()].copy_from_slice(&cache[row]);
+                let start=(y-96)*320;
+                pixels[row].copy_from_slice(&cache[start..start+320]);
             }
             let mut fb = crate::raster::Framebuffer::new(pixels, 480, 480).unwrap();
-            draw_navigation_selection(&mut Canvas::new(&mut fb), menu.context.selected);
+            if !info {draw_navigation_selection(&mut Canvas::new(&mut fb), menu.context.selected);}
             history.mark_rect(
                 480,
                 crate::interaction::Rect {
@@ -771,11 +811,15 @@ fn draw_navigation<T: Target>(target: &mut T, s: Snapshot) {
     let Some(menu) = s.menu else {
         return;
     };
+    if menu.info {
+        for part in 0..4 {draw_info_part(&mut c,s.device,part,menu.pressed==Some(Button::Back));}
+        return;
+    }
     draw_navigation_panel(&mut c);
     for b in GAUGES
         .into_iter()
         .map(Button::Gauge)
-        .chain(core::iter::once(Button::Cancel))
+        .chain([Button::Info,Button::Cancel])
     {
         draw_navigation_button(&mut c, menu, b);
     }
@@ -785,6 +829,41 @@ fn draw_navigation_panel<T: Target>(c: &mut Canvas<T>) {
     c.rect(80., 96., 320., 288., rgb(145, 155, 165));
     c.rect(83., 99., 314., 282., panel);
     c.text_on(240., 117., 21., "SELECT GAUGE", (WHITE, panel));
+}
+fn draw_info_part<T:Target>(c:&mut Canvas<T>,info:instrument_core::device::Info,part:u8,pressed:bool){
+    let panel=rgb(22,29,36);
+    match part {
+        0=>{
+            c.rect(80.,96.,320.,288.,rgb(145,155,165));c.rect(83.,99.,314.,282.,panel);
+            c.text_on(240.,117.,21.,"DEVICE INFO",(WHITE,panel));
+        }
+        1=>{
+            c.text_on(240.,158.,15.,"FIRMWARE",(WARN,panel));
+            // The instrument font contains uppercase glyphs. 24 cells at 14px
+            // fit inside the 320px panel, including its border/padding.
+            let mut revision=Text::new();
+            for ch in info.firmware.bytes(){let _=revision.write_char(ch.to_ascii_uppercase() as char);}
+            for (line,chunk) in revision.str().as_bytes().chunks(24).take(2).enumerate(){
+                if let Ok(text)=core::str::from_utf8(chunk){c.text_on(240.,183.+line as f32*19.,14.,text,(WHITE,panel));}
+            }
+        }
+        2=>{
+            c.text_on(240.,237.,15.,"DEVICE UUID",(WARN,panel));
+            let mut id=Text::new();
+            if let Some(uuid)=info.uuid{let _=write!(id,"{uuid}");}else{let _=write!(id,"UNAVAILABLE");}
+            let mut canonical=Text::new();
+            for ch in id.str().bytes(){let _=canonical.write_char(ch.to_ascii_uppercase() as char);}
+            for (line,chunk) in canonical.str().as_bytes().chunks(18).enumerate(){
+                if let Ok(text)=core::str::from_utf8(chunk){c.text_on(240.,265.+line as f32*21.,17.,text,(WHITE,panel));}
+            }
+        }
+        _=>{
+            let r=crate::navigation::Button::Back.rect();
+            let bg=if pressed{KOLLSMAN_PRESSED}else{rgb(66,80,92)};
+            c.rect(r.x as f32,r.y as f32,r.w as f32,r.h as f32,bg);
+            c.text_on(240.,349.,18.,"BACK",(WHITE,bg));
+        }
+    }
 }
 fn draw_navigation_selection<T: Target>(c: &mut Canvas<T>, selected: Instrument) {
     let r = crate::navigation::Button::Gauge(selected).rect();
@@ -807,6 +886,8 @@ fn draw_navigation_button_inner<T: Target>(
     use crate::navigation::Button;
     let (label, enabled, selected, reason) = match b {
         Button::Cancel => ("CANCEL", true, false, ""),
+        Button::Info => ("INFO", true, false, ""),
+        Button::Back => ("BACK", true, false, ""),
         Button::Gauge(i) => (
             match i {
                 Instrument::Altimeter => "ALTIMETER",
@@ -931,7 +1012,7 @@ mod tests {
         let mut app = App::new(); app.apply(Command::LevelPreset).unwrap(); app.tick(0);
         app.apply(Command::Select(Instrument::Attitude)).unwrap();
         let mut first = Snapshot::from_app(&app);
-        first.menu = Some(crate::navigation::View { context:crate::navigation::Context::from_app(&app),generation:1,pressed:None });
+        first.menu = Some(crate::navigation::View { info: false, context:crate::navigation::Context::from_app(&app),generation:1,pressed:None });
         let mut second = first.aged(500);
         second.pitch.value = Some(-25.); second.roll.value = Some(65.);
         let mut a = std::vec![0;480*480];let mut b=a.clone();
@@ -959,7 +1040,7 @@ mod tests {
                 let mut s = Snapshot::from_app(&app);
                 s.pitch.value = Some(n as f32 - 18.);
                 s.roll.value = Some(n as f32 * 3. - 50.);
-                s.menu = (3..30).contains(&n).then_some(View {
+                s.menu = (3..30).contains(&n).then_some(View { info: false,
                     context: Context::from_app(&app), generation: 1,
                     pressed: (12..21).contains(&n).then_some(Button::Cancel),
                 });
@@ -977,7 +1058,7 @@ mod tests {
         app.apply(Command::LevelPreset).unwrap();
         app.tick(0);
         let mut s = Snapshot::from_app(&app);
-        s.menu = Some(crate::navigation::View {
+        s.menu = Some(crate::navigation::View { info: false,
             context: crate::navigation::Context::from_app(&app), generation: 1, pressed: None,
         });
         assert!(NavigationCache::new(&mut [0; 4]).is_none());
@@ -992,6 +1073,30 @@ mod tests {
             assert!(renderer.draw_incremental_with_menu(&mut pixels, &mut history, s, &mut menu, &mut || {}));
             assert!(draw_frame(&mut expected, size as u32, size as u32, s, false));
             assert_eq!(pixels, expected);
+        }
+    }
+    #[test]
+    fn shared_info_cache_matches_full_renderer_through_page_identity_and_face_changes() {
+        use instrument_core::{App, Command, device::{Info,Uuid}};
+        use crate::navigation::{Button,Context,View};
+        let mut app=App::new();app.apply(Command::LevelPreset).unwrap();app.tick(0);
+        let mut menu_pixels=std::vec![0xffff;480*480];
+        let mut menu=NavigationCache::new(&mut menu_pixels).unwrap();
+        for gauge in instrument_core::Instrument::ALL {
+            app.apply(Command::Select(gauge)).unwrap();
+            let mut background=std::vec![0;480*480];
+            let mut renderer=CachedRenderer::new(&mut background,480,480).unwrap();
+            let mut pixels=std::vec![0;480*480];let mut expected=pixels.clone();
+            let mut history=crate::damage::FrameHistory::new();
+            for (n,(info,pressed)) in [(false,None),(false,Some(Button::Info)),(true,None),
+                (true,Some(Button::Back)),(true,None),(false,None),(false,Some(Button::Cancel))].into_iter().enumerate(){
+                let mut s=Snapshot::from_app(&app);
+                s.device=Info{firmware:"v0.2.0-rc.9-12-g1234567-dirty",uuid:Some(Uuid::v4([n as u8;16]))};
+                s.menu=Some(View{info,context:Context::from_app(&app),generation:1,pressed});
+                assert!(renderer.draw_incremental_with_menu(&mut pixels,&mut history,s,&mut menu,&mut||{}));
+                assert!(draw_frame(&mut expected,480,480,s,false));
+                assert_eq!(pixels,expected,"{gauge:?}, page={info}, press={pressed:?}");
+            }
         }
     }
 
@@ -1021,7 +1126,7 @@ mod tests {
             s.center_pressed = n % 4 == 3;
             // Open immediately on a cold context as well as after warming;
             // switch directly while a pressed button remains in the old cache.
-            s.menu = (n % 4 != 3).then_some(View {
+            s.menu = (n % 4 != 3).then_some(View { info: false,
                 context: Context { selected, external: s.external, external_attitude: s.external_attitude,
                     imu: false, session: s.source_session }, generation: n as u32,
                 pressed: match n % 4 { 0 => Some(Button::Cancel), 1 => None,
@@ -1136,7 +1241,7 @@ mod tests {
                 for n in 0..12 {
                     s.center_pressed = n == 1 || n == 10;
                     s.menu = if (2..8).contains(&n) {
-                        Some(View {
+                        Some(View { info: false,
                             generation: 1,
                             context: Context::from_app(&app),
                             pressed: match n {
@@ -1198,6 +1303,7 @@ mod tests {
             let mut output = std::vec![0xffff; size * size];
             let mut reference = output.clone();
             let mut snapshot = Snapshot {
+                device: instrument_core::device::Info::default(),
                 heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                 vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                 ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
@@ -1302,6 +1408,7 @@ mod tests {
             let mut reference = std::vec![0; len];
             for n in 0..60 {
                 let snapshot = Snapshot {
+                device: instrument_core::device::Info::default(),
                     heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                     vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                     ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
@@ -1575,6 +1682,7 @@ mod tests {
         for size in [240, 480, 720] {
             let mut pixels = std::vec![0u16;size*size];
             let valid = Snapshot {
+                device: instrument_core::device::Info::default(),
                 heading: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                 vsi: instrument_core::Reading { value: Some(0.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },
                 ias: instrument_core::Reading { value: Some(120.), quality: instrument_core::Quality::Valid, age_ms: Some(0) },

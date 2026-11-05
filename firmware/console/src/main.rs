@@ -8,6 +8,7 @@ mod buzzer;
 mod display;
 mod panel_init;
 mod touch;
+mod settings;
 use esp_idf_svc::{
     hal::{gpio::PinDriver, peripherals::Peripherals},
     sys,
@@ -62,6 +63,7 @@ impl io::Read for UartRx {
 
 fn main() {
     sys::link_patches();
+    let settings = settings::Service::start(env!("RFI_FIRMWARE_REV")).expect("settings worker startup");
     let peripherals = Peripherals::take().expect("peripherals unavailable");
     // SKU 29086: hold GPIO6 LOW until the independent display guard observes
     // healthy owner/renderer/scanout progress and a non-expired frame.
@@ -167,7 +169,7 @@ fn main() {
     console_threads.priority=8;
     console_threads.pin_to_core=Some(Core::Core0);
     console_threads.set().expect("console scheduling");
-    let result = console_runtime::run_with_owner_input(
+    let result = console_runtime::run_with_device_control(
         UartRx { buffer:[0;512], begin:0, end:0 },
         io::stdout(),
         Arc::new(console_runtime::Metrics::default()),
@@ -182,6 +184,8 @@ fn main() {
             if display.publish(app, touch.snapshot()) {
                 buzzer.request_press();
             }
+            settings.observe(app.selected());
+            if let Some(info)=settings.info(){display.set_device_info(info);}
             #[cfg(feature = "watchdog-self-test")]
             if app.tick_count() == 100 {
                 // Bench-only fault injection. The normal build has no stall.
@@ -205,7 +209,9 @@ fn main() {
                 .handle(command)
                 .unwrap_or_else(|| display.handle(command))
         },
+        |command| settings.handle(command),
         console_runtime::Options {
+            startup_instrument: Some(settings.startup()),
             imu_attitude: imu.is_ok(),
             // std nanosleep adds an extra RTOS tick. Use the platform scheduler
             // directly, blocking at least one configured 1 ms tick.

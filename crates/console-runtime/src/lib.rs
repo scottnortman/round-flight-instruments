@@ -27,6 +27,8 @@ enum Input {
 
 #[derive(Default)]
 pub struct Options {
+    /// Restores only the display choice; sources, live samples and controls start clean.
+    pub startup_instrument: Option<instrument_core::Instrument>,
     /// True only when the platform supplies a mounted, typed IMU attitude input.
     pub imu_attitude: bool,
     pub display_managed: bool,
@@ -110,12 +112,12 @@ where
 /// every tick, even when UART output is backpressured. It may apply validated
 /// application commands before publishing the snapshot. No hardware I/O here.
 pub fn run_with_owner_input<R, W, H, I, D>(
-    mut reader: R,
-    mut writer: W,
+    reader: R,
+    writer: W,
     metrics: Arc<Metrics>,
-    mut health_hook: H,
-    mut imu: I,
-    mut display: D,
+    health_hook: H,
+    imu: I,
+    display: D,
     options: Options,
 ) -> io::Result<()>
 where
@@ -124,6 +126,30 @@ where
     H: FnMut(&mut App) -> io::Result<()>,
     I: FnMut(ImuCommand) -> Response,
     D: FnMut(DisplayCommand) -> Response,
+{
+    run_with_device_control(reader,writer,metrics,health_hook,imu,display,
+        |_| text_cli::reply(format_args!("ERR device_unsupported_target")),options)
+}
+
+/// Device storage handlers must enqueue work or return a snapshot without waiting for flash.
+#[allow(clippy::too_many_arguments)]
+pub fn run_with_device_control<R, W, H, I, D, C>(
+    mut reader: R,
+    mut writer: W,
+    metrics: Arc<Metrics>,
+    mut health_hook: H,
+    mut imu: I,
+    mut display: D,
+    mut device: C,
+    options: Options,
+) -> io::Result<()>
+where
+    R: Read + Send + 'static,
+    W: Write + Send + 'static,
+    H: FnMut(&mut App) -> io::Result<()>,
+    I: FnMut(ImuCommand) -> Response,
+    D: FnMut(DisplayCommand) -> Response,
+    C: FnMut(instrument_core::device::Command) -> Response,
 {
     let epoch = Instant::now();
     let (input_tx, input_rx) = mpsc::sync_channel(COMMAND_CAPACITY);
@@ -199,6 +225,9 @@ where
             }
         })?;
     let mut app = App::new();
+    if let Some(instrument) = options.startup_instrument {
+        app.apply(Command::Select(instrument)).map_err(|_| io::Error::other("invalid startup instrument"))?;
+    }
     let mut pending = Some(if options.display_managed {
         text_cli::reply(format_args!(
             "READY protocol=1 source=sim display=managed echo={} commands=help,status,display,echo",
@@ -258,6 +287,10 @@ where
                         }
                         Ok(Command::Imu(cmd)) => imu(cmd),
                         Ok(Command::Display(cmd)) => display(cmd),
+                        Ok(Command::Device(instrument_core::device::Command::SetUuid(_)))
+                            if app.external().is_some() || app.imu_bench() =>
+                                text_cli::reply(format_args!("ERR device_busy disconnect_external_source_first")),
+                        Ok(Command::Device(cmd)) => device(cmd),
                         _ => text_cli::execute_with_display(
                             &mut app,
                             command,
@@ -353,6 +386,29 @@ fn elapsed_ms(epoch: Instant) -> u64 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn startup_restores_only_gauge_and_blocks_identity_changes_while_external_is_connected() {
+        use instrument_core::{device,Instrument,Quality,Field};
+        let mut queries=0;
+        let mut first=true;
+        run_with_device_control(
+            Cursor::new(b"device info\nsource external2 synthetic 91\ndevice uuid set 11223344-5566-4788-9aab-ccddeeff0011\n".to_vec()),
+            io::sink(),Arc::new(Metrics::default()),
+            |app|{
+                if first {
+                    assert_eq!(app.selected(),Instrument::Turn);
+                    assert!(app.external().is_none());assert!(!app.imu_bench());
+                    assert_eq!(app.baro_inhg(),29.92);
+                    assert_eq!(app.reading(Field::TurnDps,0).quality,Quality::Missing);
+                    first=false;
+                }
+                Ok(())
+            },|_|unreachable!(),|_|unreachable!(),
+            |command|{assert_eq!(command,device::Command::Info);queries+=1;text_cli::reply(format_args!("OK device test"))},
+            Options{startup_instrument:Some(Instrument::Turn),..Options::default()},
+        ).unwrap();
+        assert_eq!(queries,1);
+    }
     use super::*;
     #[test]
     fn imu_source_requires_platform_support_and_successful_enqueue() {
@@ -397,6 +453,7 @@ mod tests {
                 },
                 |_| unreachable!(),
                 Options {
+                    startup_instrument: None,
                     imu_attitude: available,
                     ..Options::default()
                 },
@@ -527,6 +584,7 @@ mod tests {
                 |_| unreachable!(),
                 |_| unreachable!(),
                 Options {
+                    startup_instrument: None,
                     imu_attitude: false,
                     owner_wait: None,
                     display_managed: false,
@@ -579,6 +637,7 @@ mod tests {
                 |_| unreachable!(),
                 |_| unreachable!(),
                 Options {
+                    startup_instrument: None,
                     imu_attitude: false,
                     owner_wait: None,
                     display_managed: false,

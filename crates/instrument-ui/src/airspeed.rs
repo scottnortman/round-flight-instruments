@@ -420,7 +420,7 @@ mod tests {
                 };
                 s.center_pressed = n % 4 == 0;
                 if n % 9 < 3 {
-                    s.menu = Some(View {
+                    s.menu = Some(View { info: false,
                         generation: 1,
                         context: Context {
                             selected: Instrument::Airspeed,

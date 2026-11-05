@@ -8,6 +8,7 @@ pub mod takeoff;
 pub mod turn_demo;
 pub mod airspeed_demo;
 pub mod scalar_demo;
+pub mod device;
 pub use simulator_link;
 
 /// Bench verification limits, not validated aircraft operating limits.
@@ -159,6 +160,7 @@ pub enum ImuCommand {
 // reserves its queue and parser stack once; no allocation occurs per sample.
 #[allow(clippy::large_enum_variant)]
 pub enum Command {
+    Device(device::Command),
     ControlClaim(u64, u64),
     Capabilities,
     SourceDemo,
@@ -725,7 +727,7 @@ impl App {
             }
             Command::TakeoffStop => self.takeoff.stop(false),
             Command::TakeoffStatus => (),
-            Command::Echo(_) | Command::Imu(_) | Command::Display(_) => {
+            Command::Echo(_) | Command::Imu(_) | Command::Display(_) | Command::Device(_) => {
                 return Err(ApplyError::Unsupported)
             }
             Command::Select(i) => {
