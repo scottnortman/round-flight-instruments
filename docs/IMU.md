@@ -1,10 +1,13 @@
+Calibration-capable firmware adds [menu LEVEL / FULL 24 calibration](IMU-CALIBRATION.md), persistent coefficients and guarded Madgwick fusion. The accelerometer-only details below describe the uncalibrated fallback and earlier measurements. Raw `imu read` remains uncorrected; accepted calibration is used by the estimator.
+
 # QMI8658C driver and CLI
 
 The board now reads its physical IMU through a Rust driver. Acquisition is
 explicitly enabled and separate from the simulated gauge source. Explicit
 [IMU attitude bench mode](IMU-ATTITUDE.md) adds upright mounting and a short
-acceleration average. Fusion and bias calibration remain future work; the known
-gyro offset is not integrated into gauge indications.
+acceleration average before calibration. Saved LEVEL / FULL calibration enables
+guarded gyro fusion; [the calibration guide](IMU-CALIBRATION.md) describes review,
+the known large gyro offset, persistence and remaining accuracy limits.
 
 ## Control
 

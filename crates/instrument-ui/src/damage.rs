@@ -4,7 +4,7 @@
 use crate::raster::{Framebuffer, Target};
 use instrument_core::Instrument;
 
-pub(crate) type Key = (u32, u32, Instrument, bool, bool);
+pub(crate) type Key = (u32, u32, Instrument, bool, bool, Option<instrument_core::gauge_profile::Profile>);
 pub(crate) fn tile_shift(width: u32) -> u32 {
     if width <= 512 {
         3
@@ -18,6 +18,7 @@ pub struct FrameHistory {
     rows: [u64; 128],
     pub(crate) attitude: Option<crate::attitude::Angles>,
     pub(crate) menu: Option<crate::navigation::View>,
+    pub(crate) calibration: Option<crate::calibration::View>,
 }
 impl Default for FrameHistory {
     fn default() -> Self {
@@ -31,6 +32,7 @@ impl FrameHistory {
             rows: [0; 128],
             attitude: None,
             menu: None,
+            calibration: None,
         }
     }
     pub(crate) fn dirty_row(&self, y: i32) -> u64 {
@@ -48,6 +50,7 @@ impl FrameHistory {
         self.rows.fill(0);
         self.attitude = None;
         self.menu = None;
+        self.calibration = None;
     }
     pub(crate) fn restore(
         &mut self,
@@ -55,6 +58,13 @@ impl FrameHistory {
         background: &[u16],
         width: usize,
         height: usize,
+    ) {
+        self.restore_except(pixels, background, width, height, |_| (0, 0));
+    }
+    /// Skip pixels that the next opaque component is guaranteed to overwrite.
+    pub(crate) fn restore_except(
+        &mut self, pixels: &mut [u16], background: &[u16], width: usize, height: usize,
+        opaque_span: impl Fn(usize) -> (usize, usize),
     ) {
         let tile_width = 1usize << tile_shift(width as u32);
         for ty in 0..height.div_ceil(8) {
@@ -68,8 +78,12 @@ impl FrameHistory {
                 let x0 = tx * tile_width;
                 let x1 = (end * tile_width).min(width);
                 for y in ty * 8..((ty + 1) * 8).min(height) {
-                    let range = y * width + x0..y * width + x1;
-                    pixels[range.clone()].copy_from_slice(&background[range]);
+                    let (lo, hi) = opaque_span(y);
+                    let row = y * width;
+                    let left = row + x0..row + x1.min(lo).max(x0);
+                    let right = row + x0.max(hi).min(x1)..row + x1;
+                    pixels[left.clone()].copy_from_slice(&background[left]);
+                    pixels[right.clone()].copy_from_slice(&background[right]);
                 }
             }
         }

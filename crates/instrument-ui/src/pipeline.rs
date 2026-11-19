@@ -86,7 +86,7 @@ pub fn capture_delay_ms(
     if previous == Some(next)
         && matches!(
             next,
-            instrument_core::Instrument::Attitude | instrument_core::Instrument::Turn
+            instrument_core::Instrument::Attitude | instrument_core::Instrument::Turn | instrument_core::Instrument::Consolidated
         )
     {
         frame_ms
@@ -243,6 +243,9 @@ mod tests {
             capture_delay_ms(Some(Instrument::Attitude), Instrument::Turn, 16, 5),
             0
         );
+        assert_eq!(capture_delay_ms(Some(Instrument::Consolidated), Instrument::Consolidated, 16, 22), 7);
+        assert_eq!(capture_delay_ms(Some(Instrument::Altimeter), Instrument::Consolidated, 16, 22), 0);
+        assert_eq!(capture_delay_ms(Some(Instrument::Consolidated), Instrument::Altimeter, 16, 22), 0);
     }
 
     #[test]

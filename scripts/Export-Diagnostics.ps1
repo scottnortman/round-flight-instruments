@@ -6,6 +6,8 @@ $rfiData = (Resolve-Path -LiteralPath $DataDirectory).Path
 $rfiStage = Join-Path ([IO.Path]::GetTempPath()) ('rfi-diagnostics-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $rfiStage | Out-Null
 try {
+    $rfiRelease=Join-Path $PSScriptRoot 'release-info.json'
+    if (Test-Path -LiteralPath $rfiRelease -PathType Leaf) { Copy-Item -LiteralPath $rfiRelease -Destination $rfiStage }
     foreach ($rfiName in @('settings.json','device.json','last-message.txt')) {
         $rfiFile = Join-Path $rfiData $rfiName
         if (Test-Path -LiteralPath $rfiFile -PathType Leaf) { Copy-Item -LiteralPath $rfiFile -Destination $rfiStage }

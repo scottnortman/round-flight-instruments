@@ -35,6 +35,7 @@ impl Default for Settings {
 #[derive(Default)]
 struct Message {
     text: String,
+    profile: Option<String>,
     simulator: Option<String>,
     at: Option<Instant>,
 }
@@ -84,6 +85,21 @@ fn simulator_identity(line: &str) -> Option<String> {
     };
     Some(format!("{} {} (SimConnect {})",name,version("application_version")?,version("simconnect_version")?))
 }
+fn connector_status(v: &serde_json::Value) -> String {
+    let screen = match v["instrument"].as_str() {
+        Some("altimeter") => "Altimeter",
+        Some("attitude") => "Attitude",
+        Some("airspeed") => "Airspeed",
+        Some("heading") => "Magnetic heading",
+        Some("turn") => "Turn coordinator",
+        Some("vsi") => "Vertical speed",
+        Some("consolidated") => "Combined flight panel",
+        Some("debug") => "Telemetry debug",
+        _ => "Not reported",
+    };
+    format!("MSFS data stream: {}\r\nDevice screen: {}\r\nReceived frames: {}",
+        v["state"].as_str().unwrap_or("unknown"),screen,v["frames"])
+}
 pub struct Supervisor {
     pub root: PathBuf,
     pub bin: PathBuf,
@@ -93,6 +109,9 @@ pub struct Supervisor {
     retry: Instant,
     failures: u32,
     message: Arc<Mutex<Message>>,
+    active_profile: Option<aircraft_profiles::Profile>,
+    profile_check: Instant,
+    profile_blocked: bool,
 }
 impl Supervisor {
     pub fn open() -> io::Result<Self> {
@@ -141,6 +160,9 @@ impl Supervisor {
             retry: Instant::now(),
             failures: 0,
             message: Arc::default(),
+            active_profile: None,
+            profile_check: Instant::now(),
+            profile_blocked: false,
         })
     }
     pub fn save(&self) -> io::Result<()> {
@@ -156,7 +178,7 @@ impl Supervisor {
     }
     pub fn status(&self) -> String {
         let m = self.message.lock().unwrap();
-        format!("Round Instruments 0.2.0-rc.7 prerelease\r\n\r\n{}\r\nUpdated {} seconds ago\r\n\r\nLast connected simulator: {}\r\n\r\nControls: {}\r\nDevice: {}\r\n\r\nBackground gauges are read-only. Only explicit active-gauge actions can change MSFS.\r\nSelect an available gauge using the device touch menu.\r\n\r\nLogs: {}",m.text,m.at.map_or(0,|at|at.elapsed().as_secs()),m.simulator.as_deref().unwrap_or("Not reported yet; start MSFS and connect"),if self.settings.writeback {"Active gauge actions enabled"}else{"Read-only"},if self.root.join("device.json").is_file(){"Enrolled by USB identity"}else{"Select a device from the tray menu"},self.root.join("logs").display())
+        format!("Round Instruments {} MSFS test release\r\n\r\n{}\r\nUpdated {} seconds ago\r\n\r\nLast connected simulator: {}\r\n\r\nGauge profile: {}\r\nControls: {}\r\nDevice: {}\r\n\r\nHold the device center for 1 second to select any of eight screens.\r\nTurn DEMO off for live MSFS readings; DEMO stays on across screen changes.\r\nOnly explicit Altimeter actions can change MSFS; DEMO blocks these controls.\r\n\r\nLogs: {}",env!("CARGO_PKG_VERSION"),m.text,m.at.map_or(0,|at|at.elapsed().as_secs()),m.simulator.as_deref().unwrap_or("Not reported yet; start MSFS and connect"),m.profile.as_deref().unwrap_or("Default gauges; no aircraft limits"),if self.settings.writeback {"Active gauge actions permitted"}else{"Read-only"},if self.root.join("device.json").is_file(){"Enrolled by USB identity"}else{"Select a device from the tray menu"},self.root.join("logs").display())
     }
     pub fn devices() -> io::Result<Vec<(String, String)>> {
         Ok(serialport::available_ports()
@@ -208,6 +230,26 @@ impl Supervisor {
         }
     }
     pub fn tick(&mut self) {
+        if Instant::now() >= self.profile_check {
+            self.profile_check=Instant::now()+Duration::from_secs(1);
+            match aircraft_profiles::store::Store::open(self.root.join("profiles")).and_then(|s|s.active()) {
+                Ok(profile) => {
+                    self.profile_blocked=false;
+                    if self.active_profile!=profile {
+                        self.active_profile=profile;
+                        if let Ok(mut m)=self.message.lock(){m.profile=Some("Selection changed; waiting for board confirmation".into());}
+                        if self.stop_at.is_none(){self.stop();}
+                        self.retry=Instant::now();
+                    }
+                }
+                Err(e) if e.raw_os_error()==Some(32)=>(),
+                Err(e)=> {
+                    self.profile_blocked=true;
+                    self.note(format!("Profile selection invalid: {e}"));
+                    if self.stop_at.is_none(){self.stop();}
+                }
+            }
+        }
         if let Some(child) = self.child.as_mut() {
             if self
                 .stop_at
@@ -240,7 +282,7 @@ impl Supervisor {
                 }
             }
         }
-        if !self.settings.connect || Instant::now() < self.retry {
+        if self.profile_blocked || !self.settings.connect || Instant::now() < self.retry {
             return;
         }
         if !self.root.join("device.json").is_file() {
@@ -278,6 +320,9 @@ impl Supervisor {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        if let Some(profile)=&self.active_profile {
+            cmd.arg("--gauge-profile").arg(self.root.join("profiles").join(format!("{}.json",profile.profile_uuid)));
+        }else if let Ok(mut m)=self.message.lock(){m.profile=None;}
         if self.settings.writeback {
             cmd.arg("--writeback");
         }
@@ -307,18 +352,25 @@ impl Supervisor {
                     Ok(_) if line.len() > 8192 => break,
                     _ => {}
                 }
+                if let Some(json)=line.strip_prefix("PROFILE ") {
+                    if let Ok(v)=serde_json::from_str::<serde_json::Value>(json) {
+                        if v["applied"]==true {
+                            if let (Some(name),Some(revision))=(v["name"].as_str(),v["revision"].as_u64()) {
+                                if name.len()<=400 && !name.chars().any(char::is_control) {
+                                    if let Ok(mut m)=message.lock(){m.profile=Some(format!("{} (revision {}) confirmed by board",name,revision));}
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
                 if let Some(info) = simulator_identity(&line) {
                     if let Ok(mut m) = message.lock() { m.simulator = Some(info); }
                     continue;
                 }
                 let text = if let Some(json) = line.strip_prefix("STATUS ") {
                     match serde_json::from_str::<serde_json::Value>(json) {
-                        Ok(v) => format!(
-                            "MSFS: {}\r\nDisplayed gauge: {}\r\nReceived frames: {}",
-                            v["state"].as_str().unwrap_or("unknown"),
-                            v["instrument"].as_str().unwrap_or("unknown"),
-                            v["frames"]
-                        ),
+                        Ok(v) => connector_status(&v),
                         Err(_) => "Malformed connector status".into(),
                     }
                 } else if line.trim().is_empty() || line.trim_start().starts_with(['{', '}', '"']) {
@@ -396,6 +448,21 @@ impl Drop for Supervisor {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn watcher_tracks_manual_selection_revisions_and_default_without_starting_a_connector() {
+        let root=std::env::temp_dir().join(format!("rfi-profile-watch-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir(&root).unwrap();
+        let store=aircraft_profiles::store::Store::open(root.join("profiles")).unwrap();
+        let mut p=aircraft_profiles::Profile::new(instrument_core::device::Uuid::parse("00000000-0000-4000-8000-000000000013").unwrap());
+        p.aircraft.package="test".into();p.aircraft.variant="test".into();
+        let one=store.save(&p,None).unwrap();store.set_active(&one).unwrap();
+        let mut s=Supervisor {root:root.clone(),bin:root.clone(),settings:Settings{connect:false,..Settings::default()},child:None,stop_at:None,retry:Instant::now(),failures:0,message:Arc::default(),active_profile:None,profile_check:Instant::now(),profile_blocked:false};
+        s.tick();assert_eq!(s.active_profile,Some(one.clone()));assert!(s.child.is_none());
+        let two=store.save(&one,Some(&one)).unwrap();s.profile_check=Instant::now();s.tick();assert_eq!(s.active_profile,Some(two));
+        store.clear_active().unwrap();s.profile_check=Instant::now();s.tick();assert!(s.active_profile.is_none());assert!(!s.profile_blocked);
+        fs::write(store.root().join("active.selection"),b"not-a-uuid").unwrap();s.profile_check=Instant::now();s.tick();assert!(s.profile_blocked);assert!(s.child.is_none());
+        drop(s);let resolved=root.canonicalize().unwrap();assert_eq!(resolved.parent(),Some(std::env::temp_dir().canonicalize().unwrap().as_path()));assert!(resolved.file_name().unwrap().to_string_lossy().starts_with("rfi-profile-watch-"));fs::remove_dir_all(resolved).unwrap();
+    }
+    #[test]
     fn reports_server_versions_without_guessing_from_sdk_and_rejects_malformed_identity() {
         assert_eq!(simulator_identity(r#"SIMULATOR {"name":"MSFS fixture","application_version":[1,38,2,0],"simconnect_version":[10,0,0,0]}"#).unwrap(), "MSFS fixture 1.38.2.0 (SimConnect 10.0.0.0)");
         assert!(simulator_identity(r#"SIMULATOR {"name":"bad","application_version":[1],"simconnect_version":[10,0,0,0]}"#).is_none());
@@ -445,6 +512,9 @@ mod tests {
             retry: Instant::now(),
             failures: 0,
             message: Arc::default(),
+            active_profile: None,
+            profile_check: Instant::now(),
+            profile_blocked: false,
         };
         supervisor.tick();
         assert!(supervisor.running());

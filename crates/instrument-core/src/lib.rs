@@ -9,7 +9,10 @@ pub mod turn_demo;
 pub mod airspeed_demo;
 pub mod scalar_demo;
 pub mod device;
+pub mod gauge_profile;
+pub mod screen_demo;
 pub use simulator_link;
+pub use attitude_estimator::calibration;
 
 /// Bench verification limits, not validated aircraft operating limits.
 // Generate bench-source samples at 100 Hz to budget acquisition age separately
@@ -25,15 +28,19 @@ pub enum Instrument {
     Heading,
     Turn,
     Vsi,
+    Consolidated,
+    Debug,
 }
 impl Instrument {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 8] = [
         Self::Altimeter,
         Self::Attitude,
         Self::Airspeed,
         Self::Heading,
         Self::Turn,
         Self::Vsi,
+        Self::Consolidated,
+        Self::Debug,
     ];
     pub fn name(self) -> &'static str {
         match self {
@@ -43,6 +50,8 @@ impl Instrument {
             Self::Heading => "heading",
             Self::Turn => "turn",
             Self::Vsi => "vsi",
+            Self::Consolidated => "consolidated",
+            Self::Debug => "debug",
         }
     }
     pub fn parse(s: &str) -> Option<Self> {
@@ -146,6 +155,12 @@ struct Sample {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ImuCommand {
+    CalibrateLevel,
+    CalibrateFull,
+    CalibrationReset,
+    CalibrationStatus,
+    CalibrationSave(u32),
+    CalibrationCancel(u32),
     Estimator,
     Audit,
     SelfTest,
@@ -160,6 +175,7 @@ pub enum ImuCommand {
 // reserves its queue and parser stack once; no allocation occurs per sample.
 #[allow(clippy::large_enum_variant)]
 pub enum Command {
+    Demo(Option<bool>),
     Device(device::Command),
     ControlClaim(u64, u64),
     Capabilities,
@@ -167,6 +183,7 @@ pub enum Command {
     SourceImu,
     SourceExternal(simulator_link::Provider, u64),
     SourceExternal2(simulator_link::Provider, u64),
+    GaugeProfile(gauge_profile::Command),
     SourceStatus,
     Telemetry(simulator_link::Frame),
     Telemetry2(simulator_link::multi::Frame),
@@ -208,6 +225,7 @@ pub enum Command {
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DisplayCommand {
+    Calibration,
     HoldMisses(u32),
     HoldStatus,
     MemoryStatus,
@@ -241,6 +259,9 @@ pub enum ApplyError {
 
 /// Single-writer application state. A renderer receives readings, never raw stale values.
 pub struct App {
+    calibration_overlay: bool,
+    gauge_profile: Option<gauge_profile::Profile>,
+    screen_demo: Option<u64>,
     imu_bench: bool,
     imu_attitude: imu_attitude::Receiver,
     external: Option<external::External>,
@@ -271,6 +292,38 @@ impl Default for App {
     }
 }
 impl App {
+    /// Local calibration cannot hide an aircraft write already in dispatch.
+    /// Unsent edits are cancelled before the modal calibration view opens.
+    pub fn gauge_profile(&self) -> Option<gauge_profile::Profile> { self.gauge_profile }
+    pub fn set_calibration_overlay(&mut self, open: bool) -> bool {
+        if open && self.control_dispatch_in_progress() { return false; }
+        if open { self.control.pending = None; }
+        self.calibration_overlay = open;
+        true
+    }
+    pub fn demo_active(&self) -> bool { self.screen_demo.is_some() }
+    pub fn demo_uses_imu(&self) -> bool {
+        self.demo_active() && matches!(self.selected, Instrument::Attitude | Instrument::Turn | Instrument::Consolidated)
+    }
+    pub fn demo_frame(&self) -> Option<screen_demo::Frame> {
+        let mut frame = screen_demo::frame(self.now_ms().saturating_sub(self.screen_demo?));
+        if self.demo_uses_imu() {
+            let pitch = self.imu_attitude.read(Field::PitchDeg, self.now_ms(), None);
+            let roll = self.imu_attitude.read(Field::RollDeg, self.now_ms(), None);
+            if pitch.quality == Quality::Valid && roll.quality == Quality::Valid {
+                frame.using_imu = true;
+                frame.readings[Field::PitchDeg as usize] = pitch;
+                frame.readings[Field::RollDeg as usize] = roll;
+                // Tilt-driven demonstration controls, not measured flight turn/slip.
+                frame.readings[Field::TurnDps as usize] = Reading {value: roll.value.map(|v| (v / 10.).clamp(-6.,6.)), ..roll};
+                frame.readings[Field::Ball as usize] = Reading {value: roll.value.map(|v| (v / 45.).clamp(-1.,1.)), ..roll};
+            }
+        }
+        if self.timing_fault {
+            for r in &mut frame.readings { r.value=None; r.quality=Quality::TimingFault; }
+        }
+        Some(frame)
+    }
     pub fn imu_bench(&self) -> bool {
         self.imu_bench
     }
@@ -280,12 +333,12 @@ impl App {
             .flatten()
     }
     pub fn accept_imu(&mut self, mut input: imu_attitude::Input) {
-        if self.imu_bench {
+        if self.imu_bench || self.demo_uses_imu() {
             // A faulted axis makes the pair unusable, including for display
             // retention. Still consume its receipt watermark to prevent replay.
             if self.timing_fault {
                 input.quality = Quality::TimingFault;
-            } else if self.faults[Field::PitchDeg as usize] || self.faults[Field::RollDeg as usize]
+            } else if self.imu_bench && (self.faults[Field::PitchDeg as usize] || self.faults[Field::RollDeg as usize])
             {
                 input.quality = Quality::Failed;
             }
@@ -411,6 +464,9 @@ impl App {
     }
     pub const fn new() -> Self {
         Self {
+            screen_demo: None,
+            calibration_overlay: false,
+            gauge_profile: None,
             imu_bench: false,
             imu_attitude: imu_attitude::Receiver::new(),
             external: None,
@@ -570,8 +626,20 @@ impl App {
             return Err(ApplyError::Unsupported);
         }
         match command {
+            Command::Demo(None) => (),
+            Command::Demo(Some(enabled)) => {
+                if enabled && (self.timing_fault || self.control_dispatch_in_progress()) {
+                    return Err(ApplyError::NotReady);
+                }
+                if enabled && !self.demo_active() {
+                    self.control.pending = None;
+                    self.screen_demo = Some(self.now_ms());
+                    if !self.imu_bench { self.imu_attitude = Default::default(); }
+                } else if !enabled { self.screen_demo = None; }
+            }
             Command::SourceStatus => (),
             Command::SourceDemo => {
+                self.gauge_profile = None;
                 self.imu_bench = false;
                 self.imu_attitude = Default::default();
                 self.external = None;
@@ -583,6 +651,7 @@ impl App {
                 self.stop_demos(false);
             }
             Command::SourceImu => {
+                self.gauge_profile = None;
                 if self.timing_fault {
                     return Err(ApplyError::NotReady);
                 }
@@ -605,6 +674,7 @@ impl App {
                     return Err(ApplyError::OutOfRange);
                 }
                 self.highest_session = session;
+                self.gauge_profile = None;
                 self.imu_bench = false;
                 self.imu_attitude = Default::default();
                 self.external = Some(external::External::new_at(provider, session, self.now_ms()));
@@ -827,7 +897,17 @@ impl App {
             Command::ControlClaim(session, id) => self.claim_control(session, id)?,
             Command::ControlPoll => (),
             Command::ControlReply(reply) => self.control_reply(reply)?,
+            Command::GaugeProfile(command) => match command {
+                gauge_profile::Command::Status => (),
+                gauge_profile::Command::Set(session,p) => {
+                    if !p.valid() { return Err(ApplyError::OutOfRange); }
+                    let e=self.external.as_ref().ok_or(ApplyError::NotReady)?;
+                    if e.session!=session || !e.multi_profile || e.sequence()!=0 || self.control_request().is_some() {return Err(ApplyError::NotReady);}
+                    self.gauge_profile=Some(p);
+                }
+            },
             Command::Baro(v) => {
+                if self.demo_active() || self.calibration_overlay { return Err(ApplyError::NotReady); }
                 if self.external.is_some() {
                     return self.request_baro(v);
                 }
@@ -837,6 +917,11 @@ impl App {
                 self.baro_inhg = v;
             }
             Command::Help | Command::Status | Command::Instruments | Command::Capabilities => (),
+        }
+        if matches!(command, Command::SourceDemo | Command::SourceImu | Command::SourceExternal(..)
+            | Command::SourceExternal2(..) | Command::Takeoff(_) | Command::AttitudeDemo(_)
+            | Command::TurnDemo(_) | Command::AirspeedDemo(_) | Command::HeadingDemo(_) | Command::VsiDemo(_)) {
+            self.screen_demo = None;
         }
         Ok(())
     }

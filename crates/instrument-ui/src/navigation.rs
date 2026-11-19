@@ -2,40 +2,41 @@
 use crate::interaction::{Contact, Input, Rect, EDIT_TIMEOUT_MS, KOLLSMAN, TOUCH_STALE_MS};
 use instrument_core::{App, Instrument};
 
-pub const GAUGES: [Instrument; 6] = [
+pub const MENU_HOLD_MS: u32 = 1_000;
+pub const GAUGES: [Instrument; 8] = [
     Instrument::Airspeed,
     Instrument::Attitude,
     Instrument::Altimeter,
     Instrument::Heading,
     Instrument::Turn,
     Instrument::Vsi,
+    Instrument::Consolidated,
+    Instrument::Debug,
 ];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Button {
     Gauge(Instrument),
     Info,
+    Demo,
+    Calibrate,
     Back,
     Cancel,
 }
 impl Button {
     pub fn rect(self) -> Rect {
         match self {
-            Self::Back => Rect {
-                x: 168,
-                y: 326,
-                w: 144,
-                h: 42,
-            },
-            Self::Info | Self::Cancel => Rect {
-                x: if self==Self::Info {92}else{244}, y:326, w:144, h:42,
+            Self::Back => Rect { x:168,y:332,w:144,h:38 },
+            Self::Info | Self::Demo | Self::Calibrate | Self::Cancel => Rect {
+                x: if matches!(self,Self::Calibrate|Self::Info) {92}else{244},
+                y: if matches!(self,Self::Calibrate|Self::Demo) {292}else{332}, w:144,h:38,
             },
             Self::Gauge(i) => {
                 let n = GAUGES.iter().position(|v| *v == i).unwrap_or(0) as u16;
                 Rect {
                     x: 92 + (n % 2) * 152,
-                    y: 138 + (n / 2) * 60,
+                    y: 132 + (n / 2) * 40,
                     w: 144,
-                    h: 52,
+                    h: 38,
                 }
             }
         }
@@ -43,6 +44,7 @@ impl Button {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Context {
+    pub demo: bool,
     pub selected: Instrument,
     pub external: bool,
     pub external_attitude: bool,
@@ -52,6 +54,7 @@ pub struct Context {
 impl Context {
     pub fn from_app(app: &App) -> Self {
         Self {
+            demo: app.demo_active(),
             selected: app.selected(),
             external: app.external().is_some(),
             external_attitude: app.external().is_some_and(|e| e.multi_profile),
@@ -60,14 +63,18 @@ impl Context {
         }
     }
     pub fn enabled(self, instrument: Instrument) -> bool {
+        if self.demo { return true; }
         match instrument {
+            Instrument::Debug => true,
             Instrument::Altimeter => !self.imu,
             Instrument::Attitude => !self.external || self.external_attitude,
             _ => !self.imu && (!self.external || self.external_attitude),
         }
     }
     pub fn reason(self, instrument: Instrument) -> &'static str {
+        if self.demo { return ""; }
         match instrument {
+            Instrument::Debug => "",
             Instrument::Altimeter if self.imu => "NO IMU DATA",
             i if i!=Instrument::Attitude && self.imu => "NO IMU DATA",
             i if i!=Instrument::Altimeter && self.external && !self.external_attitude => "NO SIM DATA",
@@ -80,7 +87,7 @@ impl Context {
             .into_iter()
             .filter(|i| self.enabled(*i))
             .map(Button::Gauge)
-            .chain([Button::Info,Button::Cancel])
+            .chain([Button::Calibrate,Button::Demo,Button::Info,Button::Cancel])
             .find(|b| b.rect().contains(x, y))
     }
     fn center(self, x: u16, y: u16) -> bool {
@@ -98,6 +105,8 @@ pub struct View {
     pub pressed: Option<Button>,
 }
 pub struct Controller {
+    demo_requested: bool,
+    calibrate_requested: bool,
     hold_ms: u32,
     armed: bool,
     holding: Option<(u64, u8, u16, u16)>,
@@ -115,7 +124,9 @@ pub struct Controller {
 impl Default for Controller {
     fn default() -> Self {
         Self {
-            hold_ms: 3000,
+            demo_requested: false,
+            calibrate_requested: false,
+            hold_ms: MENU_HOLD_MS,
             armed: false,
             holding: None,
             view: None,
@@ -132,6 +143,9 @@ impl Default for Controller {
     }
 }
 impl Controller {
+    /// One owner-tick event; the application owns activation/control validation.
+    pub fn demo_requested(&self) -> bool { self.demo_requested }
+    pub fn calibrate_requested(&self) -> bool { self.calibrate_requested }
     pub fn hold_ms(&self) -> u32 {
         self.hold_ms
     }
@@ -170,6 +184,8 @@ impl Controller {
         if let Some(view)=&mut self.view { view.pressed=None; }
     }
     pub fn cancel(&mut self) {
+        self.demo_requested = false;
+        self.calibrate_requested = false;
         self.armed = false;
         self.holding = None;
         self.view = None;
@@ -199,6 +215,8 @@ impl Controller {
         presented: u32,
     ) -> Option<Instrument> {
         self.press_started = false;
+        self.demo_requested = false;
+        self.calibrate_requested = false;
         let bad_gap = self
             .last_tick
             .is_some_and(|last| now.checked_sub(last).is_none_or(|d| d >= TOUCH_STALE_MS));
@@ -254,6 +272,8 @@ impl Controller {
                     match button {
                         Button::Gauge(i)=>{self.cancel();return context.enabled(i).then_some(i);}
                         Button::Cancel=>self.cancel(),
+                        Button::Demo=>{self.cancel();self.demo_requested=true;}
+                        Button::Calibrate=>{self.cancel();self.calibrate_requested=true;}
                         Button::Info|Button::Back=>{
                             self.generation=self.generation.wrapping_add(1).max(1);
                             self.view=Some(View {info:button==Button::Info,generation:self.generation,context,pressed:None});
@@ -313,19 +333,87 @@ impl Controller {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn calibration_is_a_local_acknowledged_menu_action() {
+        let mut c=Controller::default();let t=open(&mut c);
+        feed(&mut c,t+10,Contact::Up);let r=Button::Calibrate.rect();
+        feed(&mut c,t+20,down(r.x+10,r.y+10));assert!(!c.calibrate_requested());
+        assert_eq!(feed(&mut c,t+30,Contact::Up),None);
+        assert!(c.calibrate_requested());assert!(c.view().is_none());assert!(!c.demo_requested());
+        feed(&mut c,t+40,Contact::Up);assert!(!c.calibrate_requested());
+    }
+    #[test]
+    fn default_menu_opens_at_one_second_from_first_contact_on_every_screen() {
+        for selected in GAUGES {
+            let mut c = Controller::default();
+            let context = Context { selected, ..ctx() };
+            c.update(0, Some(Input {at_ms:0,contact:Contact::Up}), true, context, 0);
+            for t in (10..1010).step_by(10) {
+                c.update(t, Some(Input {at_ms:t,contact:down(240,240)}), true, context, 0);
+                assert!(c.view().is_none());
+            }
+            c.update(1009, Some(Input {at_ms:1009,contact:down(240,240)}), true, context, 0);
+            assert!(c.view().is_none());
+            c.update(1010, Some(Input {at_ms:1010,contact:down(240,240)}), true, context, 0);
+            assert!(c.view().is_some(), "{selected:?}");
+        }
+    }
+    #[test]
+    fn demo_requires_acknowledged_visible_tap_and_cancels_interrupted_gestures() {
+        for cause in 0..5 {
+            let mut c=Controller::default();let t=open(&mut c);
+            feed(&mut c,t+10,Contact::Up);let r=Button::Demo.rect();
+            feed(&mut c,t+20,down(r.x+10,r.y+10));assert!(c.press_started());
+            assert!(!c.demo_requested());
+            match cause {
+                1=>{feed(&mut c,t+30,down(430,400));},
+                2=>{feed(&mut c,t+30,Contact::Multiple);},
+                3=>{c.update(t+30,None,true,ctx(),0);},
+                4=>{c.update_visible(t+30,Some(Input {at_ms:t+30,contact:Contact::Up}),true,false,ctx(),0);},
+                _=>{}
+            }
+            feed(&mut c,t+40,Contact::Up);
+            assert_eq!(c.demo_requested(),cause==0);
+            if cause==0 {assert!(c.view().is_none());}
+            feed(&mut c,t+50,Contact::Up);assert!(!c.demo_requested());
+        }
+    }
+    #[test]
     fn all_six_available_for_local_and_t2_but_not_missing_source_capabilities() {
         let local=ctx();
         for gauge in GAUGES {
             assert!(local.enabled(gauge));
+            assert!(Context{demo:true,imu:true,external:true,..local}.enabled(gauge));
+            assert_eq!(Context{demo:true,imu:true,external:true,..local}.reason(gauge), "");
             assert!(Context{external:true,external_attitude:true,..local}.enabled(gauge));
-            assert_eq!(Context{external:true,external_attitude:false,..local}.enabled(gauge),gauge==Instrument::Altimeter);
-            assert_eq!(Context{imu:true,..local}.enabled(gauge),gauge==Instrument::Attitude);
+            assert_eq!(Context{external:true,external_attitude:false,..local}.enabled(gauge),matches!(gauge,Instrument::Altimeter | Instrument::Debug));
+            assert_eq!(Context{imu:true,..local}.enabled(gauge),matches!(gauge,Instrument::Attitude | Instrument::Debug));
         }
     }
     use super::*;
+    #[test]
+    fn all_eight_choices_are_reachable_and_buttons_do_not_overlap() {
+        for gauge in GAUGES {
+            let mut c=Controller::default(); let t=open(&mut c);
+            feed(&mut c,t+10,Contact::Up);
+            let r=Button::Gauge(gauge).rect();
+            feed(&mut c,t+20,down(r.x+r.w/2,r.y+r.h/2));
+            assert_eq!(feed(&mut c,t+30,Contact::Up),Some(gauge));
+        }
+        let buttons=GAUGES.map(Button::Gauge);
+        for a in buttons.into_iter().chain([Button::Calibrate,Button::Demo,Button::Info,Button::Cancel]) {
+            let r=a.rect();
+            assert!(r.x>=83 && r.x+r.w<=397 && r.y>=132 && r.y+r.h<=381);
+            for b in buttons.into_iter().chain([Button::Calibrate,Button::Demo,Button::Info,Button::Cancel]).filter(|b|*b!=a) {
+                let s=b.rect();
+                assert!(r.x+r.w<=s.x || s.x+s.w<=r.x || r.y+r.h<=s.y || s.y+s.h<=r.y);
+            }
+        }
+        assert!(!Context {external:true,external_attitude:false,..ctx()}.enabled(Instrument::Consolidated));
+        assert!(!Context {imu:true,..ctx()}.enabled(Instrument::Consolidated));
+    }
     fn ctx() -> Context {
         Context {
-            selected: Instrument::Altimeter,
+            demo: false, selected: Instrument::Altimeter,
             external: false,
             external_attitude: false,
             imu: false,
@@ -366,29 +454,30 @@ mod tests {
         )
     }
     fn open(c: &mut Controller) -> u64 {
+        assert_eq!(c.hold_ms(),1000);
         feed(c, 0, Contact::Up);
-        for t in (10..3010).step_by(10) {
+        for t in (10..1010).step_by(10) {
             feed(c, t, down(240, 240));
             assert_eq!(c.press_started(), t == 10);
             assert!(c.view().is_none());
         }
-        feed(c, 3010, down(240, 240));
+        feed(c, 1010, down(240, 240));
         assert!(c.view().is_some());
-        3010
+        1010
     }
     #[test]
     fn numeric_blackouts_do_not_abort_navigation_hold_but_unseen_buttons_cannot_select() {
         let mut c = Controller::default();
         feed(&mut c, 0, Contact::Up);
-        for t in (10..=3010).step_by(10) {
+        for t in (10..=1010).step_by(10) {
             c.update_visible(t, Some(Input { at_ms: t, contact: down(240, 240) }),
                 true, t % 50 != 0, ctx(), 0);
         }
         assert!(c.view().is_some(), "numeric expiry must not make navigation inaccessible");
         let generation = c.view().unwrap().generation;
         let r = Button::Gauge(Instrument::Attitude).rect();
-        assert_eq!(c.update_visible(3020, Some(Input { at_ms:3020, contact:Contact::Up }),true,false,ctx(),generation),None);
-        assert_eq!(c.update_visible(3030, Some(Input { at_ms:3030, contact:down(r.x,r.y) }),true,false,ctx(),generation),None);
+        assert_eq!(c.update_visible(1020, Some(Input { at_ms:1020, contact:Contact::Up }),true,false,ctx(),generation),None);
+        assert_eq!(c.update_visible(1030, Some(Input { at_ms:1030, contact:down(r.x,r.y) }),true,false,ctx(),generation),None);
         assert!(c.view().is_some());
         assert!(c.view().unwrap().pressed.is_none());
     }
@@ -621,8 +710,8 @@ mod tests {
             ctx(),
             0,
         );
-        for t in (10..=3010).step_by(10) {
-            let update = if t == 500 || t == 1750 {
+        for t in (10..=1010).step_by(10) {
+            let update = if t == 500 || t == 750 {
                 None
             } else {
                 Some(Some(Input {
@@ -637,26 +726,27 @@ mod tests {
             c.view().is_some(),
             "Mailbox contention cancelled a healthy long press"
         );
-        assert!(cache.read(3129, None).is_some());
-        assert!(cache.read(3130, None).is_none());
+        assert!(cache.read(1129, None).is_some());
+        assert!(cache.read(1130, None).is_none());
         assert!(cache
             .read(
-                3140,
+                1140,
                 Some(Some(Input {
-                    at_ms: 3140,
+                    at_ms: 1140,
                     contact: down(240, 240)
                 }))
             )
             .is_some());
-        assert!(cache.read(3140, Some(None)).is_none());
-        assert!(cache.read(3141, None).is_none());
+        assert!(cache.read(1140, Some(None)).is_none());
+        assert!(cache.read(1141, None).is_none());
     }
     #[test]
     fn cancel_and_inactivity_close_without_selection() {
         let mut c = Controller::default();
         let t = open(&mut c);
         feed(&mut c, t + 10, Contact::Up);
-        feed(&mut c, t + 20, down(310, 344));
+        let r = Button::Cancel.rect();
+        feed(&mut c, t + 20, down(r.x + r.w / 2, r.y + r.h / 2));
         assert_eq!(feed(&mut c, t + 30, Contact::Up), None);
         assert!(c.view().is_none());
         let mut c = Controller::default();

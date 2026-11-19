@@ -1,8 +1,14 @@
 # Touch gauge selection
 
-Hold one finger near the dial center for **3 seconds**, then release. The center
+**CALIBRATE** opens the onboard IMU's guided LEVEL / FULL 24 procedure, with
+review, SAVE, CANCEL and reviewed RESET. This is available from every screen;
+it does not change MSFS values. Follow the [IMU calibration guide](IMU-CALIBRATION.md).
+The modal blocks new barometer edits and cancels unsent edits; an already
+dispatched aircraft write must complete before the modal can open.
+
+Hold one finger near the dial center for **1 second**, then release. The center
 turns blue with a MENU label and chirps once when a valid press starts. A menu
-shows all six instruments; tap an enabled instrument and release to select it.
+shows all eight screens; tap an enabled instrument and release to select it.
 The current selection has an amber border. Active buttons turn blue and chirp
 once per press, using the existing sound setting and cooldown. Disabled buttons,
 titles and empty areas are silent. Selection closes the menu; Cancel preserves
@@ -16,11 +22,11 @@ is a shared layout constant in the portable navigation policy, ready for tuning.
 
 ## Availability and source ownership
 
-- Development firmware: all six faces are selectable in local simulation or
+- v0.2.0 firmware: all eight faces are selectable in local simulation or
   a T2 multi-instrument stream (`--sixpack`, used by the Windows tray app).
-- Released rc.7 firmware: Altimeter, Attitude and Turn Coordinator are available.
-- Legacy T1 external stream: Altimeter only. Other faces show NO SIM DATA.
-- IMU bench source: Attitude only. The accelerometer supplies no magnetic
+- Historical rc.7 firmware: Altimeter, Attitude and Turn Coordinator are available.
+- Legacy T1 external stream: Altimeter and DEBUG. Other faces show NO SIM DATA.
+- IMU bench source: Attitude and DEBUG. The accelerometer supplies no magnetic
   heading, airspeed, altitude, vertical speed or turn-coordinator data.
 
 Selecting a face does not manufacture missing inputs. A T2 face whose own
@@ -32,7 +38,7 @@ barometer, source timestamps, validity or simulation parameters. A missing-data
 face can still open the menu when the display is healthy. Navigation and pressure
 editing are mutually exclusive. Choosing a gauge does not start a demo.
 
-The legacy T1 profile selects Altimeter on connection/recovery. The development
+The legacy T1 profile selects Altimeter on connection/recovery. The current
 T2 profile preserves the selected face and transports all-six instrument data
 with individual units, channels, ages and validity. Hidden gauges never render
 or issue aircraft controls. Switching cancels unsent pressure edits; a claimed,
@@ -41,14 +47,14 @@ already dispatched edit must finish or time out before selection can change.
 ## CLI and lifetime
 
 ```text
-touch menu hold 3000
+touch menu hold 1000
 touch status
 touch cancel
 touch sound off
 touch sound on
 ```
 
-`touch menu hold MS` accepts 250–5000 ms and cancels an open menu/hold. It is
+`touch menu hold MS` accepts 250â€“5000 ms and cancels an open menu/hold. It is
 independent of `touch hold MS`, which configures the barometer editor. Both are
 volatile and reset on reboot. `touch cancel` closes either popup. `touch status`
 adds menu state, hold duration, center press state and requested/presented menu

@@ -14,7 +14,7 @@ uses the same portable Rust model and pixel sink on desktop and hardware.
 
 ## Use on the board
 
-Hold the center for three seconds, release, and select **Turn**. The menu retains
+Hold the center for one second, release, and select **Turn**. The menu retains
 blue pressed feedback and active-button chirps. Altimeter and Attitude remain
 available; Airspeed, Heading and VSI remain disabled. Turn is available for local
 simulation and the external T2 profile. T1 and IMU do not supply this face's data.
@@ -31,7 +31,7 @@ sim turn 60
 
 The bounded demo moves through right/left standard-rate turns, independently
 displaces the ball left/right, then returns to centered zero rate. Duration is
-5–600 seconds; default 60. `sim turn status` reports progress; `sim turn stop`
+5â€“600 seconds; default 60. `sim turn status` reports progress; `sim turn stop`
 holds the current simulated values. Source changes, pause, relevant faults and
 manual edits to either Turn field stop the exercise. Unrelated pitch edits do not.
 
@@ -60,12 +60,12 @@ centered zero. `display status`, `display sample`, `status` and
 
 `turn_dps` is the **instrument's effective turn-rate indication**, in degrees
 per second; positive is right turn. It is not bank angle. The standard-rate marks
-correspond to ±3°/s (a two-minute full turn), using the phone prototype's ±20°
-airplane deflection. The visual indication saturates at ±45°, without changing
+correspond to Â±3Â°/s (a two-minute full turn), using the phone prototype's Â±20Â°
+airplane deflection. The visual indication saturates at Â±45Â°, without changing
 the source value. It carries no pitch information.
 
-`ball` is normalized displacement, −1 left, 0 centered, +1 right. The phone's
-17° curved tube geometry is retained. No bank-derived or fabricated ball is used.
+`ball` is normalized displacement, âˆ’1 left, 0 centered, +1 right. The phone's
+17Â° curved tube geometry is retained. No bank-derived or fabricated ball is used.
 
 The MSFS adapter already reads `TURN INDICATOR RATE` and `TURN COORDINATOR BALL`
 with the turn-coordinator failure flag. Its instrument-rate reading goes straight

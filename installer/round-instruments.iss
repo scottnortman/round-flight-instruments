@@ -4,11 +4,17 @@
 #ifndef OutputDir
   #error OutputDir must identify the artifact directory
 #endif
+#ifndef ReleaseVersion
+  #error ReleaseVersion must identify the test release
+#endif
+#ifndef InstallerVersion
+  #error InstallerVersion must be the numeric Windows version
+#endif
 [Setup]
 AppId=RoundFlightInstruments
 AppName=Round Instruments
-AppVersion=0.2.0.7
-AppVerName=Round Instruments 0.2.0-rc.7 prerelease
+AppVersion={#InstallerVersion}
+AppVerName=Round Instruments {#ReleaseVersion} MSFS test release
 AppPublisher=Round Flight Instruments contributors
 DefaultDirName={localappdata}\Programs\Round Instruments
 DefaultGroupName=Round Instruments
@@ -17,7 +23,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#OutputDir}
-OutputBaseFilename=round-instruments-0.2.0-rc.7-setup
+OutputBaseFilename=round-instruments-{#ReleaseVersion}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -31,7 +37,7 @@ Name: startup; Description: "Start Round Instruments when I sign in"; Flags: che
 Source: "{#PackageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{group}\Round Instruments"; Filename: "{app}\instrument-tray.exe"
-Name: "{group}\Setup guide"; Filename: "{app}\START-HERE.md"
+Name: "{group}\MSFS test instructions"; Filename: "{app}\START-HERE.txt"
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "RoundFlightInstruments"; ValueData: """{app}\instrument-tray.exe"""; Tasks: startup; Flags: uninsdeletevalue
 [Run]

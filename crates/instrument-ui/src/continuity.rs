@@ -11,7 +11,7 @@ fn eligible(s: Snapshot) -> bool {
     s.external && s.external_attitude && s.source_running && !s.imu_bench
         && s.source_session != 0
         && matches!(s.selected, Instrument::Attitude | Instrument::Turn)
-        && s.menu.is_none() && s.editor.is_none()
+        && s.menu.is_none() && s.calibration.is_none() && s.editor.is_none()
 }
 /// Repeat immutable, completed pixels into the disjoint drawing buffer.
 /// The next real draw must restore its face, not reuse obsolete damage history.
@@ -36,7 +36,7 @@ pub fn repeat_allowed_with_budget(latest: Snapshot, front: Snapshot, elapsed_ms:
         Instrument::Turn=>[latest.turn_rate,latest.ball],
         _=>return false,
     };
-    eligible(latest) && eligible(front)
+    eligible(latest) && eligible(front) && latest.gauge_profile==front.gauge_profile
         && latest.source_session==front.source_session && latest.selected==front.selected
         && front.displayed_quality()==Some(Quality::Valid)
         && latest.displayed_quality()==Some(Quality::Stale)
@@ -99,7 +99,7 @@ mod tests {
         assert_eq!(lifetime_ms(alt),alt.numeric_lifetime_ms());
         let mut menu=stale;
         menu.menu=Some(crate::navigation::View { info: false,
-            context:crate::navigation::Context { selected:front.selected,external:true,
+            context:crate::navigation::Context { demo: false, selected:front.selected,external:true,
                 external_attitude:true,imu:false,session:front.source_session },
             generation:1,pressed:None,
         });

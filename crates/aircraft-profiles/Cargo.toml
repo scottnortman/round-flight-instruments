@@ -1,0 +1,14 @@
+[package]
+name = "aircraft-profiles"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+instrument-core = { path = "../instrument-core" }
+instrument-ui = { path = "../instrument-ui" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+text-cli = { path = "../text-cli" }

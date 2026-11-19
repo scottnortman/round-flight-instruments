@@ -138,6 +138,8 @@ pub fn encode_selection(gauge: Instrument) -> [u8; 12] {
         Instrument::Heading => 3,
         Instrument::Turn => 4,
         Instrument::Vsi => 5,
+        Instrument::Consolidated => 6,
+        Instrument::Debug => 7,
     };
     let checksum = crc(&b[..8]);
     b[8..].copy_from_slice(&checksum.to_le_bytes());
@@ -155,6 +157,8 @@ pub fn decode_selection(b: &[u8]) -> Result<Instrument, RecordError> {
         3 => Ok(Instrument::Heading),
         4 => Ok(Instrument::Turn),
         5 => Ok(Instrument::Vsi),
+        6 => Ok(Instrument::Consolidated),
+        7 => Ok(Instrument::Debug),
         _ => Err(RecordError::Corrupt),
     }
 }

@@ -10,6 +10,34 @@ use std::{
 const LIMIT: usize = 1024;
 const TIMEOUT: Duration = Duration::from_millis(200);
 
+/// Sends one atomic configuration after each new T2 session handshake and
+/// before the session owner publishes telemetry or enables aircraft controls.
+pub struct ProfileDevice<D> { device:D, profile:aircraft_profiles::Profile }
+impl<D:DeviceLink> ProfileDevice<D> {
+    pub fn new(device:D,profile:aircraft_profiles::Profile)->io::Result<Self> {
+        profile.live()?;Ok(Self {device,profile})
+    }
+}
+impl<D:DeviceLink> DeviceLink for ProfileDevice<D> {
+    fn abandon(&mut self){self.device.abandon();}
+    fn request(&mut self,command:&str)->io::Result<String> {
+        let response=self.device.request(command)?;
+        if command=="protocol capabilities" && !response.split_ascii_whitespace().any(|w|w=="gauge_config=G1") {
+            self.device.abandon();return Err(io::Error::other("Firmware update required for live aircraft profiles (G1)."));
+        }
+        if command.starts_with("source external2 ") && response.starts_with("OK ") {
+            let session=command.split_ascii_whitespace().last().and_then(|s|s.parse::<u64>().ok()).ok_or_else(||io::Error::other("Invalid session"))?;
+            let profile=self.profile.live()?;
+            let mut packet=String::new();profile.encode(session,&mut packet).map_err(io::Error::other)?;
+            let ack=self.device.request(&packet)?;
+            let expected=format!("OK gauge_profile id={} revision={} session={session} airspeed_max={} linear={} limits={} vsi_max={}",profile.id,profile.revision,profile.airspeed_max,profile.linear,profile.limits.is_some(),profile.vsi_max);
+            if ack!=expected {self.device.abandon();return Err(io::Error::other(format!("Profile delivery was not acknowledged: {ack}")));}
+            println!("PROFILE {}",serde_json::json!({"name":self.profile.name,"id":self.profile.profile_uuid,"revision":self.profile.revision,"session":session,"applied":true}));
+        }
+        Ok(response)
+    }
+}
+
 pub trait Wire {
     fn send(&mut self, bytes: &[u8], deadline: Instant) -> io::Result<()>;
     fn line(&mut self, deadline: Instant) -> io::Result<Vec<u8>>;
@@ -272,6 +300,29 @@ impl Drop for DesktopWire {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn profile_is_acknowledged_for_each_new_session_and_wrong_revision_fails_closed() {
+        use super::*;
+        struct Device {app:instrument_core::App,bad:bool,abandoned:bool}
+        impl DeviceLink for Device {
+            fn request(&mut self,c:&str)->io::Result<String> {
+                let r=text_cli::execute(&mut self.app,text_cli::parse(c),0).as_str().trim().to_string();
+                Ok(if self.bad && c.starts_with("G1 ") {r.replace("revision=1","revision=99")}else{r})
+            }
+            fn abandon(&mut self){self.abandoned=true;}
+        }
+        let mut profile=aircraft_profiles::Profile::new(instrument_core::device::Uuid::parse("00000000-0000-4000-8000-000000000001").unwrap());
+        profile.aircraft.package="fixture".into();profile.aircraft.variant="fixture".into();profile.revision=1;
+        let mut app=instrument_core::App::new();app.tick(0);
+        let mut d=ProfileDevice::new(Device{app,bad:false,abandoned:false},profile.clone()).unwrap();
+        d.request("protocol capabilities").unwrap();
+        for session in [10,11] {
+            d.request(&format!("source external2 synthetic {session}")).unwrap();
+            assert_eq!(d.device.app.gauge_profile(),Some(profile.live().unwrap()));
+            assert!(d.device.app.control_request().is_none());
+        }
+        d.device.bad=true;assert!(d.request("source external2 synthetic 12").is_err());assert!(d.device.abandoned);
+    }
     use super::*;
     use std::{cell::Cell, collections::VecDeque, rc::Rc};
     struct Fake {

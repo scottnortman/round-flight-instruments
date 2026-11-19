@@ -1,5 +1,9 @@
 # Text CLI protocol 1
 
+`demo on|off|status` controls the selected screen's display-only demonstration.
+It works alongside the live source and blocks aircraft-control writes while
+active. `instrument GAUGE` preserves demo mode. [Demo modes and IMU behavior](DEMO.md).
+
 On the integration branch, `source sim`, `source imu`, `source status`, and
 `source external PROVIDER SESSION` control explicit data ownership. The bounded
 `T1` telemetry command is intended for the bridge, not manual typing. External
@@ -86,15 +90,15 @@ slow client. Do not treat queued text status as live flight telemetry.
 
 ### Touch gauge menu
 
-Hold the center for 3 seconds, release, then tap an enabled gauge. All six are
+Hold the center for 1 second, release, then tap an enabled gauge. All six are
 listed; unfinished gauges and gauges unsupported by the current source are
-disabled. `touch menu hold MS` configures 250–5000 ms independently of pressure
+disabled. `touch menu hold MS` configures 250â€“5000 ms independently of pressure
 editing; the setting is volatile. `touch status` includes menu diagnostics and
 `touch cancel` closes either popup. See [gauge menu](GAUGE-MENU.md).
 
 ### Touch barometer editor
 
-Hold the Kollsman window for a quarter second, release, then use −/+ and Apply/Cancel.
+Hold the Kollsman window for a quarter second, release, then use âˆ’/+ and Apply/Cancel.
 Only Apply changes the active barometer/indicated-altitude offset. See
 [touch behaviour and safety](TOUCH.md) for cancellation and freshness rules.
 
@@ -155,7 +159,7 @@ not that a hardware self-test certified the display or sensors.
 | `sim clear FIELD` | Immediately remove staged input and current sample |
 | `sim pause` / `sim resume` | Stop/restart source publication |
 | `fault FIELD on` / `fault FIELD off` | Fail one quantity; recovery requires a new sample |
-| `baro INHG` | Set reference, 28.10–31.00 inHg; pressure altitude remains unchanged |
+| `baro INHG` | Set reference, 28.10â€“31.00 inHg; pressure altitude remains unchanged |
 
 Instrument selection preserves source state and barometric settings. Settings
 are RAM-only and reset at reboot. ACK means the command was accepted, not that a
@@ -253,3 +257,7 @@ reports live quality separately from `holding`, `held_pitch_roll_deg` and
 continues increasing during a hold. Source changes clear the retained pose.
 This display-only policy does not change SIM/external freshness or pipeline
 watchdogs. See [IMU attitude](IMU-ATTITUDE.md).
+
+Test.12 adds `instrument debug` to show ten received telemetry values, ages and
+validity; see DEBUG.md. `display sample` includes all ten physically presented
+DEBUG values, with placeholders reported as None.

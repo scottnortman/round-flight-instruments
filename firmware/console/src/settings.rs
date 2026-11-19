@@ -15,6 +15,9 @@ use std::{
 use text_cli::{reply, Response};
 
 const ID_KEY: &[u8] = b"uuid\0";
+use imu_service::{calibration::{Record as CalibrationRecord, RecordError as CalibrationRecordError, RECORD_SIZE}, StoreStatus};
+
+const CALIBRATION_KEY: &[u8] = b"imu_calibration\0";
 const GAUGE_KEY: &[u8] = b"selection\0";
 const BAD_RECORD: i32 = -1;
 struct Store(sys::nvs_handle_t);
@@ -88,6 +91,11 @@ impl Drop for Store {
 }
 
 struct State {
+    calibration: Option<CalibrationRecord>,
+    calibration_pending: Option<CalibrationRecord>,
+    calibration_writing: bool,
+    calibration_writable: bool,
+    calibration_error: i32,
     info: Info,
     selection: SelectionSave,
     uuid_pending: Option<Uuid>,
@@ -115,6 +123,8 @@ impl Service {
             uuid: None,
         };
         let mut saved = None;
+        let mut calibration = None;
+        let mut calibration_writable = store.is_ok();
         let mut boot_status = "loaded";
         let mut error = 0;
         let mut writes = 0;
@@ -155,6 +165,15 @@ impl Service {
                     boot_status = "identity_read_failed";
                 }
             }
+            match store.read::<RECORD_SIZE>(CALIBRATION_KEY) {
+                Ok(Some(bytes)) => match CalibrationRecord::decode(&bytes) {
+                    Ok(record) => calibration = Some(record),
+                    Err(CalibrationRecordError::Unsupported) => calibration_writable = false,
+                    Err(CalibrationRecordError::Corrupt) => (), // Retain bytes until an explicit successful recalibration.
+                },
+                Ok(None) => (),
+                Err(_) => calibration_writable = false,
+            }
             match store.read::<12>(GAUGE_KEY) {
                 Ok(Some(bytes)) => match device::decode_selection(&bytes) {
                     Ok(gauge) => saved = Some(gauge),
@@ -180,6 +199,8 @@ impl Service {
         let selection = SelectionSave::new(saved);
         let startup = selection.selected;
         let state = Arc::new(Mutex::new(State {
+            calibration, calibration_pending: None, calibration_writing: false,
+            calibration_writable, calibration_error: 0,
             info,
             selection,
             uuid_pending: None,
@@ -214,6 +235,9 @@ impl Service {
                         if let Some(id) = s.uuid_pending.take() {
                             s.uuid_writing = true;
                             Some(Work::Identity(id))
+                        } else if let Some(record) = s.calibration_pending.take() {
+                            s.calibration_writing = true;
+                            Some(Work::Calibration(record))
                         } else if s.preferences_writable {
                             s.selection.due(ms(epoch)).map(Work::Selection)
                         } else {
@@ -223,6 +247,7 @@ impl Service {
                     if let Some(work) = task {
                         let start = Instant::now();
                         let result = match work {
+                            Work::Calibration(record) => store.write(CALIBRATION_KEY, &record.encode()),
                             Work::Identity(id) => store.write(ID_KEY, &device::encode_uuid(id)),
                             Work::Selection(gauge) => {
                                 store.write(GAUGE_KEY, &device::encode_selection(gauge))
@@ -230,6 +255,11 @@ impl Service {
                         };
                         let mut s = state.lock().unwrap();
                         match work {
+                            Work::Calibration(record) => {
+                                s.calibration_writing = false;
+                                s.calibration_error = result.as_ref().err().copied().unwrap_or(0);
+                                if result.is_ok() { s.calibration = Some(record); }
+                            }
                             Work::Identity(id) => {
                                 s.uuid_writing = false;
                                 if result.is_ok() {
@@ -263,6 +293,26 @@ impl Service {
             spawned?;
         }
         Ok(service)
+    }
+    pub fn calibration_record(&self) -> Option<CalibrationRecord> {
+        self.state.try_lock().ok().and_then(|s|s.calibration)
+    }
+    /// A nonblocking mailbox. Only the existing settings thread touches NVS.
+    /// Saved means commit AND independent blob readback both succeeded.
+    pub fn calibration_sync(&self, candidate: Option<CalibrationRecord>) -> StoreStatus {
+        let Ok(mut s) = self.state.try_lock() else { return StoreStatus::Busy; };
+        if !s.writable || !s.calibration_writable { return StoreStatus::Unavailable; }
+        if let Some(record) = candidate {
+            if !record.valid() { return StoreStatus::Failed(BAD_RECORD); }
+            if s.calibration == Some(record) { return StoreStatus::Saved(record.generation); }
+            if record.generation != s.calibration.map_or(0,|r|r.generation).wrapping_add(1).max(1) {return StoreStatus::Failed(BAD_RECORD);}
+            if s.calibration_writing || s.calibration_pending.is_some() {return StoreStatus::Pending;}
+            s.calibration_pending = Some(record); s.calibration_error = 0;
+            return StoreStatus::Pending;
+        }
+        if s.calibration_pending.is_some() || s.calibration_writing {StoreStatus::Pending}
+        else if s.calibration_error != 0 {StoreStatus::Failed(s.calibration_error)}
+        else {StoreStatus::Saved(s.calibration.map_or(0,|r|r.generation))}
     }
     pub fn startup(&self) -> Instrument {
         self.startup
@@ -299,6 +349,7 @@ impl Service {
 }
 #[derive(Clone, Copy)]
 enum Work {
+    Calibration(CalibrationRecord),
     Identity(Uuid),
     Selection(Instrument),
 }
