@@ -28,6 +28,9 @@ independent IMU dynamic-accuracy qualification or qualification of other aircraf
 - `python -m unittest discover -s scripts -p 'test_*.py'` after building the
   current native executables: 20 passed. Includes synthetic/replay, process-crash
   recovery, malformed-packet rejection, six-pack recovery and partition guards.
+- The three SimConnect worker recovery/malformed-packet/six-pack checks also
+  passed against the exact packaged test.13 executables selected with
+  `RFI_NATIVE_BIN`, without recompiling those release artifacts.
 - Coverage audit and independent focused review found no blocking regression
   in profile validation/storage, session-bound delivery, QNH control guards,
   calibration persistence or source ownership. No exhaustive numeric coverage
