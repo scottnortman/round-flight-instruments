@@ -1,16 +1,17 @@
-# Round Instruments Windows setup (v0.2.0-rc.7 prerelease)
+# Round Instruments Windows setup (v0.2.0)
 
-**User-reported live MSFS 2020 test passed on November 3, 2026.** This prerelease
-includes Altimeter, Attitude and Turn, touch gauge selection and pressure editing.
-See [installation from release downloads](PRERELEASE-0.2.md) and the detailed
-[continuity verification](../verification/CONTINUITY.md). The firmware is the
-same tested image from rc.6; firmware installation is separate from this installer.
+**The user confirmed the latest firmware and Windows app work as expected on
+November 18, 2026.** v0.2.0 includes six standard faces, Combined and DEBUG,
+manual live aircraft profiles, touch QNH editing and reviewed IMU calibration.
+See [release downloads and installation](releases/v0.2.0.md) and
+[release verification](../verification/RELEASE-v0.2.0.md). Firmware installation
+is separate from the Windows installer.
 
-Source checkpoint **v0.2.0-rc.6** is compatible with the existing runtime-inclusive
-`round-instruments-0.2.0-preview6-setup.exe` (SHA256
-`D049D7B4E7384B804C95EBEEE38C4DD684907072285176D0E19D7C14B3507ACB`).
-No new host installer is required for this firmware update. Earlier installations
-can be upgraded in place: exit the tray app, then run that installer; uninstalling
+The release preserves the tested runtime-inclusive
+`round-instruments-0.2.0-test.13-setup.exe` (Windows version **0.2.0.13**) and
+November 9 firmware without recompilation. The test.13 app label is expected.
+Earlier installations
+can be upgraded in place: exit the tray app, then run the installer; uninstalling
 first is unnecessary. Device identity/settings are retained. Leave **Read-only**
 unchecked to test explicit pressure-window Apply actions.
 
@@ -24,7 +25,8 @@ and the board's existing CH343 serial driver.
 * Windows 10/11 x64, MSFS 2020, Waveshare SKU 29086, connected through **UART USB**.
 * Updated firmware supporting `protocol capabilities`: it must advertise **T2**,
   `active_only=true` and `control_claim=true`. Earlier released firmware needs an
-  update on the development PC first. The installer does not flash the board.
+  update first using the release firmware bundle. Live profiles also require
+  its G1 capability. The installer does not flash the board.
 * The supplied **runtime-inclusive installer** contains the unmodified
   Microsoft SimConnect client and its license/notice. The app selects that copy
   automatically. The maintainer confirmed redistribution permission on November 3,
@@ -36,7 +38,7 @@ and the board's existing CH343 serial driver.
 
 ## Install once
 
-1. Run `round-instruments-0.2.0-rc.7-setup.exe`. Install for your Windows user.
+1. Run `round-instruments-0.2.0-test.13-setup.exe`. Install for your Windows user.
    Leave **Start Round Instruments when I sign in** checked.
 2. Launch **Round Instruments** from Start. Click its icon in the notification
    area near the clock (it may be under the hidden-icons arrow).
@@ -56,10 +58,16 @@ and the board's existing CH343 serial driver.
 
 Start Windows, connect the board and load MSFS. No terminal command or bridge
 script is needed. The app reconnects after aircraft switches or USB loss.
-Hold the dial center for **3 seconds**, release, and select **Altimeter**,
-**Attitude** or **Turn**. The menu temporarily covers the entire gauge so it can
+Hold the dial center for **1 second**, release, and select a screen. The six
+standard faces, **COMBINED** and **DEBUG** are included. The menu temporarily
+covers the entire gauge so it can
 stay responsive without displaying stale numbers. Data continues updating in
-the background. Airspeed, Heading and VSI display faces remain unfinished.
+the background. Turn DEMO off before comparing readings with the cockpit.
+
+Open **Aircraft profiles**, select the intended aircraft/variant and click
+**Use on connected board**. Wait for its name/revision and **confirmed by board**
+in Status. Selection is manual; preview samples never become live readings.
+**Use defaults** clears the selection. See [profiles](PROFILE-EDITOR.md).
 
 ## Simulator versions
 
@@ -83,9 +91,12 @@ Apache-2.0 license; keep its accompanying Microsoft license and notice intact.
 MSFS values are authoritative. Merely changing gauge, connecting, or loading an
 aircraft sends **no aircraft control**. Hidden gauges are read-only. On Altimeter,
 hold the pressure window for **0.25 seconds**, adjust, and tap **Apply** to request
-a pressure change. The displayed value follows simulator confirmation. Cancel,
+a pressure change. On Combined, tap/release the outlined QNH box for the same
+editor. The displayed value follows simulator confirmation. Cancel,
 timeout and unsent edits during gauge/aircraft changes never write to MSFS.
 A dispatched edit finishes or times out before the gauge can be changed.
+DEMO and calibration block barometer editing. The retained app may still say
+Altimeter-only in Status; the accepted firmware also supports Combined QNH.
 
 Check **Read-only** in the tray menu to disable all gauge-to-aircraft changes.
 Changing this setting reconnects the session; old edits are not replayed.
@@ -95,7 +106,8 @@ instrument variables or standard pressure controls.
 
 ## Test on the simulator PC
 
-Compare altitude, QNH, pitch and bank with the cockpit. Verify direction during
+Compare all six instruments with the cockpit, including indicated knots,
+magnetic heading, signed VSI, altitude, QNH, pitch and bank. Verify direction during
 small pitch/roll changes. Change QNH using Apply and confirm the cockpit changes
 once. Select Attitude, change cockpit QNH, then return to Altimeter: it should
 show the new cockpit value without changing it. Switch aircraft twice and
@@ -117,4 +129,4 @@ cable/port and the official Waveshare CH343 installation instructions.
 Exit from the tray menu before flashing firmware or using PuTTY. Uninstall via
 Windows Settings > Apps. Startup registration is removed; settings and logs
 are retained in `%LOCALAPPDATA%\RoundFlightInstruments` for diagnosis/reinstall.
-This preview is unsigned and is not a certified flight instrument.
+The installer is unsigned. This is for bench/simulation use, not a certified flight instrument.

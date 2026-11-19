@@ -1,8 +1,9 @@
 # Installed Windows connector
 
-Prerelease: **v0.2.0-rc.7**. The user reported live MSFS 2020 success on
-November 3, 2026. See [setup](WINDOWS-DRIVER-SETUP.md)
-and [verification](../verification/WINDOWS-DRIVER.md).
+Release: **v0.2.0**, preserving the accepted Windows **0.2.0-test.13** build
+and November 9 firmware. The user confirmed the latest firmware/app work as
+expected on November 18, 2026. See [setup](WINDOWS-DRIVER-SETUP.md),
+[release notes](releases/v0.2.0.md) and [verification](../verification/RELEASE-v0.2.0.md).
 
 The released live-gauge-timing fix is merged into `main`. Live MSFS 2020 tests exposed flicker and unusable menus despite 32 FPS.
 The fix corrects T2 clock-reference aging, avoids full-face caption rebuilds,
@@ -14,9 +15,10 @@ See [verification](../verification/LIVE-GAUGE-TIMING.md).
 
 Accepted scope: per-user Windows tray application, starts at sign-in by default;
 automatic simulator and USB recovery; no Python or terminal for ordinary use.
-Data transport supports all six standard instruments. Released rc.7 firmware
-renders Altimeter, Attitude and Turn; the accepted `v0.2.0-rc.8` firmware
-adds Airspeed, Magnetic Heading and VSI without a new protocol or driver.
+Data transport supports all six standard instruments. The firmware renders
+all six standard faces, Combined and DEBUG. The native aircraft-profile editor
+saves/previews profiles and manually selects display configuration for live
+delivery; there is no automatic aircraft matching.
 Native Rust runtime, isolated SimConnect worker, existing CH343 USB serial driver.
 DCS remains a future provider. See [six-pack checkpoint](SIX-PACK.md).
 
@@ -45,6 +47,9 @@ Implemented components:
 5. Windows tray configuration/status, single-instance device ownership, USB reconnect.
 6. Per-user installer/uninstaller, startup registration, SDK runtime deployment review,
    diagnostic export, installation and live-test guide.
+7. Bounded session/CRC/revision-checked G1 profile delivery and board acknowledgement
+   before T2 telemetry, with confirmed name/revision in Status. Profiles configure
+   scales/limits; preview samples never replace live readings.
 
 The tray owns settings and one supervised connector child. The connector owns
 serial access and simulator sessions; an isolated worker owns native SDK calls.
@@ -82,7 +87,7 @@ external indicated altitude. A read-only tray setting disables all writeback.
 
 Build with `scripts/Build-WindowsDriver.ps1`, the MSFS 2020 SDK and Inno Setup 6.
 The unsigned installer contains native executables, source/dependency notices and
-hashes. It does not flash firmware. The rc.7 prerelease
+hashes. It does not flash firmware. The v0.2.0 release
 also includes the unmodified Microsoft client runtime and its license/notice;
 it selects that runtime automatically. Source builds omit the DLL unless
 `-IncludeSdkRuntime` is requested. The maintainer confirmed permission to include

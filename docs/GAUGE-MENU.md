@@ -22,9 +22,9 @@ is a shared layout constant in the portable navigation policy, ready for tuning.
 
 ## Availability and source ownership
 
-- Development firmware: all eight faces are selectable in local simulation or
+- v0.2.0 firmware: all eight faces are selectable in local simulation or
   a T2 multi-instrument stream (`--sixpack`, used by the Windows tray app).
-- Released rc.7 firmware: Altimeter, Attitude and Turn Coordinator are available.
+- Historical rc.7 firmware: Altimeter, Attitude and Turn Coordinator are available.
 - Legacy T1 external stream: Altimeter and DEBUG. Other faces show NO SIM DATA.
 - IMU bench source: Attitude and DEBUG. The accelerometer supplies no magnetic
   heading, airspeed, altitude, vertical speed or turn-coordinator data.
@@ -38,7 +38,7 @@ barometer, source timestamps, validity or simulation parameters. A missing-data
 face can still open the menu when the display is healthy. Navigation and pressure
 editing are mutually exclusive. Choosing a gauge does not start a demo.
 
-The legacy T1 profile selects Altimeter on connection/recovery. The development
+The legacy T1 profile selects Altimeter on connection/recovery. The current
 T2 profile preserves the selected face and transports all-six instrument data
 with individual units, channels, ages and validity. Hidden gauges never render
 or issue aircraft controls. Switching cancels unsent pressure edits; a claimed,

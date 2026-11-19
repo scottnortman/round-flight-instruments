@@ -31,9 +31,10 @@ IMU tilt takes priority:
   animation takes over with the **DEMO AUTO** caption. Fresh usable estimates
   restore **DEMO IMU**. Old IMU receipts cannot renew the input's age.
 
-The current bench estimator uses accelerometer tilt. The gyro's previously
-measured bias remains unresolved, so DEMO does not integrate its raw output
-into heading or aircraft attitude. The board has no magnetic heading input;
+Accepted calibration enables guarded six-axis Madgwick attitude fusion for
+IMU-driven DEMO motion; without it, the estimator uses accelerometer tilt.
+The high gyro-bias warning and independent dynamic-accuracy limits remain.
+See [calibration and limits](IMU-CALIBRATION.md). The board has no magnetic heading input;
 altitude, airspeed and vertical speed also cannot be measured by this IMU.
 Those components animate even in the combined IMU demonstration.
 See [IMU bench behavior](IMU-ATTITUDE.md) for mounting and estimator details.
