@@ -1,16 +1,18 @@
 # Attitude estimator extension boundary
 
-The board runs a replaceable estimator on the IMU worker. `BenchTilt` provides
-unfiltered accelerometer tilt; the board now selects `AveragedTilt`, a 15-sample
-acceleration average, for explicit IMU attitude bench mode. There is **no Kalman
-filter, gyro integration, bias subtraction or absolute heading**. The confirmed
-large stationary Y gyro offset remains unresolved and is not integrated.
+The board runs `CalibratedFusion` on the IMU worker. It selects six-axis
+`Madgwick` after an accepted, saved LEVEL or FULL calibration at a compatible
+temperature. Otherwise `AveragedTilt`, a 15-sample acceleration average, remains
+the fallback. Calibration removes measured gyro zero-rate bias and mounting
+tilt; FULL also corrects accelerometer bias, scale and symmetric cross-axis error.
+There is no absolute heading or Kalman covariance claim. Follow the
+[guided calibration and accuracy-validation procedure](IMU-CALIBRATION.md).
 
 ## Architecture and extension point
 
 `qmi8658::Sample` retains raw counts. `imu-service` converts a newly accepted
 sample into an `attitude_estimator::Observation`, then calls `Pipeline<E>`.
-The dependency-free `attitude-estimator` crate is `no_std` and forbids unsafe
+The `attitude-estimator` crate uses `libm`, is `no_std`, and forbids unsafe
 code. It can be tested on desktop and used with other sensor/board adapters.
 The core application remains independent of estimator implementation and RTOS.
 
@@ -24,7 +26,8 @@ specific measurement/output quantities; they do not constrain internal P.
 
 `update` and `reset` must be bounded synchronous math without I/O, blocking,
 allocation, or scheduling. They run on the sensor worker, outside the shared
-snapshot lock. The current worker has an 8192-byte stack: size and measure any
+snapshot lock. The current worker has a 12288-byte stack and a boxed startup
+capture to avoid duplicated launch frames on Xtensa: size and measure any
 new filter's stack/state and timing before enabling it on hardware. An async
 adapter can later own the same pure estimator interface.
 
@@ -57,7 +60,10 @@ initialization after reset. Current acquisition is latest-sample polling, not
 lossless: skipped device counts are exposed. Receipt intervals and nominal ODR
 are not a substitute for verified sample timing. A high-rate fusion stage must
 establish acquisition timing, missed-sample behavior, anti-aliasing, and noise
-parameters before relying on integrated rates.
+parameters before relying on integrated rates. The current Madgwick adapter
+uses the verified 24-bit sample counter with nominal ODR and a receipt-clock
+period estimate; receipt freshness guards still reject gaps. It exposes
+`counter_with_receipt_guard`, not a fabricated hardware acquisition timestamp.
 
 ## Invalidity and lifecycle
 
@@ -94,8 +100,12 @@ imu estimator
 
 Wait for on/audit/off operation IDs to appear as `completed` in `imu status`.
 `imu estimator` is a snapshot, not a filter-selection command. It reports
-`estimator=accel_mean15` on the current board, `quality=bench_only` when tilt geometry is usable,
-`attitude_covariance=unknown`, `gyro_bias_rad_s=None`, and `yaw_deg=None`.
+`estimator=madgwick6dof_or_tilt` for the board's composite adapter. Eligible saved
+calibration selects Madgwick, reported with `timebase=counter_with_receipt_guard`
+and residual gyro-bias output; otherwise the adapter selects averaged tilt.
+Both remain `quality=bench_only`, with `attitude_covariance=unknown`
+and `yaw_deg=None`. Madgwick reports its additional residual bias estimate;
+the saved zero-rate offsets are separately reported by `imu calibration status`.
 Off/invalid input reports `quality=unavailable` with absent angles.
 An accelerometer norm near 1 g does not prove stationarity or trustworthy tilt
 under acceleration. The existing `imu read` raw/scaled contract is preserved.
@@ -117,6 +127,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 & D:\rfi-e\python_env\idf5.5_py3.11_env\Scripts\python.exe scripts/check-estimator.py --report verification/estimator-hooks-local.json
 ```
 
-The board check verifies audit agreement, estimator metadata, off/re-enable,
+The older `check-estimator.py` targets the uncalibrated baseline. It verifies
+audit agreement, estimator metadata, off/re-enable,
 unchanged simulation source/settings, and owner timing. It leaves IMU acquisition
 off. See [hardware evidence and unresolved offset](../verification/ESTIMATOR.md).

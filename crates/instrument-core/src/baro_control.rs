@@ -41,10 +41,12 @@ impl App {
         }
     }
     pub(crate) fn control_data_ready(&self) -> bool {
-        self.selected == crate::Instrument::Altimeter
+        !self.demo_active() && !self.calibration_overlay
             && self
                 .external
-                .is_some_and(|e| e.state() == Lifecycle::Running)
+                .is_some_and(|e| e.state() == Lifecycle::Running
+                    && (self.selected == crate::Instrument::Altimeter
+                        || (self.selected == crate::Instrument::Consolidated && e.multi_profile)))
             && self.altimeter_reading(self.now_ms()).quality == Quality::Valid
             && self
                 .external_baro(self.now_ms())
@@ -69,6 +71,7 @@ impl App {
         }
     }
     pub fn baro_edit_allowed(&self) -> bool {
+        if self.demo_active() || self.calibration_overlay { return false; }
         if self.external.is_none() {
             return self.altimeter_reading(self.now_ms()).quality == Quality::Valid;
         }
@@ -196,6 +199,35 @@ mod tests {
         a
     }
     #[test]
+    fn calibration_blocks_new_aircraft_writes_and_cannot_hide_a_claimed_write() {
+        let mut local=App::new();
+        let original=local.baro_inhg();
+        assert!(local.set_calibration_overlay(true));
+        assert!(local.apply(Command::Baro(30.01)).is_err());
+        assert_eq!(local.baro_inhg(),original);
+        let mut a=ready();a.apply(Command::ControlEnable(10)).unwrap();
+        a.apply(Command::Baro(29.92)).unwrap();
+        assert!(a.set_calibration_overlay(true));
+        assert!(a.control_request().is_none());assert!(!a.baro_edit_allowed());
+        assert!(a.apply(Command::Baro(30.01)).is_err());
+        assert_eq!(a.altimeter_reading(20).value,Some(12.));
+        assert!(a.set_calibration_overlay(false));
+        use simulator_link::{multi,measurements::{Measurements,Measurement,Key,Quantity,Value}};
+        let mut a=App::new();a.tick(0);
+        a.apply(Command::SourceExternal2(Provider::Msfs2020,10)).unwrap();
+        let mut measurements=Measurements::new();
+        for (quantity,value) in [(Quantity::IndicatedAltitudeFt,12.),(Quantity::PressureAltitudeFt,12.),(Quantity::BarometerInHg,30.12)] {
+            measurements.push(Measurement {key:Key::primary(quantity),value:Value::Valid(value),age_ms:0}).unwrap();
+        }
+        a.apply(Command::Telemetry2(multi::Frame {session:10,sequence:1,receiver_ms:0,state:Lifecycle::Running,measurements})).unwrap();
+        a.apply(Command::ControlEnable(10)).unwrap();
+        a.apply(Command::Baro(29.92)).unwrap();
+        let request=a.control_request().unwrap();a.claim_control(10,request.id).unwrap();
+        assert!(!a.set_calibration_overlay(true));
+        assert_eq!(a.control_status(),Some(Status::Sent));
+        assert_eq!(a.control_request().unwrap().id,request.id);
+    }
+    #[test]
     fn edits_are_requests_never_local_corrections_and_require_matching_readback() {
         let mut a = ready();
         assert!(!a.baro_edit_allowed());
@@ -246,7 +278,7 @@ mod tests {
     }
     #[test]
     fn hidden_altimeter_cannot_write_and_switching_back_cannot_replay_an_edit() {
-        for hidden in [crate::Instrument::Attitude, crate::Instrument::Turn] {
+        for hidden in [crate::Instrument::Attitude, crate::Instrument::Turn, crate::Instrument::Consolidated] {
             let mut a = ready();
             a.apply(Command::ControlEnable(10)).unwrap();
             a.apply(Command::Baro(29.92)).unwrap();
@@ -271,5 +303,31 @@ mod tests {
             a.apply(Command::Baro(29.92)).unwrap();
             assert!(a.control_request().unwrap().id > old.id);
         }
+    }
+    #[test]
+    fn screen_demo_cancels_unsent_control_and_cannot_interrupt_a_claimed_write() {
+        let mut a=ready();a.apply(Command::ControlEnable(10)).unwrap();
+        a.apply(Command::Baro(29.92)).unwrap();
+        a.apply(Command::Demo(Some(true))).unwrap();
+        assert!(a.control_request().is_none());assert!(!a.baro_edit_allowed());
+        assert!(a.apply(Command::Baro(30.01)).is_err());
+        feed(&mut a,40,2,30.20,Lifecycle::Running);
+        assert!(a.demo_active());assert_eq!(a.baro_inhg(),30.20);
+        a.apply(Command::Demo(Some(false))).unwrap();assert!(a.baro_edit_allowed());
+        assert!(a.control_request().is_none());
+        // Claims are a T2-only control path.
+        use simulator_link::{multi,measurements::{Measurements,Measurement,Key,Quantity,Value}};
+        let mut a=App::new();a.tick(0);
+        a.apply(Command::SourceExternal2(Provider::Msfs2020,10)).unwrap();
+        let mut measurements=Measurements::new();
+        for (quantity,value) in [(Quantity::IndicatedAltitudeFt,12.),(Quantity::PressureAltitudeFt,12.),(Quantity::BarometerInHg,30.12)] {
+            measurements.push(Measurement {key:Key::primary(quantity),value:Value::Valid(value),age_ms:0}).unwrap();
+        }
+        a.apply(Command::Telemetry2(multi::Frame {session:10,sequence:1,receiver_ms:0,state:Lifecycle::Running,measurements})).unwrap();
+        a.apply(Command::ControlEnable(10)).unwrap();
+        a.apply(Command::Baro(29.92)).unwrap();let request=a.control_request().unwrap();
+        a.apply(Command::ControlClaim(request.session,request.id)).unwrap();
+        assert!(a.apply(Command::Demo(Some(true))).is_err());assert!(!a.demo_active());
+        assert_eq!(a.control_request().unwrap().id,request.id);
     }
 }

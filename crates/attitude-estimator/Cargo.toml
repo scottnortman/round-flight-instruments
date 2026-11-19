@@ -3,3 +3,6 @@ name = "attitude-estimator"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
+
+[dependencies]
+libm = "=0.2.16"

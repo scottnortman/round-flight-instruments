@@ -37,6 +37,7 @@ impl Error {
 }
 
 pub fn parse(line: &str) -> Result<Command, Error> {
+    if line.starts_with("G1 ") { return instrument_core::gauge_profile::decode(line).map(Command::GaugeProfile).ok_or(Error::Range); }
     if line.starts_with("T2 ") {
         return instrument_core::simulator_link::multi::Frame::decode(line)
             .map(Command::Telemetry2)
@@ -84,6 +85,7 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         }
     };
     match &words[..count] {
+        ["profile", "status"] => Ok(Command::GaugeProfile(instrument_core::gauge_profile::Command::Status)),
         ["source", "sim"] => Ok(Command::SourceDemo),
         ["source", "imu"] => Ok(Command::SourceImu),
         ["source", "status"] => Ok(Command::SourceStatus),
@@ -203,6 +205,7 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         ["display", "status"] => Ok(Command::Display(DisplayCommand::Status)),
         ["display", "clock", "12"] => Ok(Command::Display(DisplayCommand::PixelClock(12_000_000))),
         ["display", "clock", "18"] => Ok(Command::Display(DisplayCommand::PixelClock(18_000_000))),
+        ["display", "calibration"] => Ok(Command::Display(DisplayCommand::Calibration)),
         ["display", "on"] => Ok(Command::Display(DisplayCommand::On)),
         ["display", "off"] => Ok(Command::Display(DisplayCommand::Off)),
         ["display", "pattern"] => Ok(Command::Display(DisplayCommand::Pattern)),
@@ -210,6 +213,15 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         ["display", "stall"] => Ok(Command::Display(DisplayCommand::Stall)),
         ["display", "transfer-stall"] => Ok(Command::Display(DisplayCommand::TransferStall)),
         ["display", "recover"] => Ok(Command::Display(DisplayCommand::Recover)),
+        ["imu", "calibration", "level"] => Ok(Command::Imu(ImuCommand::CalibrateLevel)),
+        ["imu", "calibration", "full"] => Ok(Command::Imu(ImuCommand::CalibrateFull)),
+        ["imu", "calibration", "status"] => Ok(Command::Imu(ImuCommand::CalibrationStatus)),
+        ["imu", "calibration", "reset"] => Ok(Command::Imu(ImuCommand::CalibrationReset)),
+        ["imu", "calibration", action @ ("save" | "cancel"), job] => {
+            let job=job.parse::<u32>().map_err(|_| Error::Number)?;
+            if job==0 {return Err(Error::Range);}
+            Ok(Command::Imu(if *action=="save" {ImuCommand::CalibrationSave(job)}else{ImuCommand::CalibrationCancel(job)}))
+        }
         ["imu", "on"] => Ok(Command::Imu(ImuCommand::On)),
         ["imu", "estimator"] => Ok(Command::Imu(ImuCommand::Estimator)),
         ["imu", "audit"] => Ok(Command::Imu(ImuCommand::Audit)),
@@ -219,6 +231,9 @@ pub fn parse(line: &str) -> Result<Command, Error> {
         ["imu", "read"] => Ok(Command::Imu(ImuCommand::Read)),
         ["help"] => Ok(Command::Help),
         ["status"] => Ok(Command::Status),
+        ["demo", "on"] => Ok(Command::Demo(Some(true))),
+        ["demo", "off"] => Ok(Command::Demo(Some(false))),
+        ["demo", "status"] => Ok(Command::Demo(None)),
         ["instrument", "list"] => Ok(Command::Instruments),
         ["instrument", name] => Ok(Command::Select(
             Instrument::parse(name).ok_or(Error::UnknownInstrument)?,
@@ -417,7 +432,12 @@ pub fn execute_with_display(
     }
     let mut r = Response::new();
     let result = match cmd {
-        Command::Capabilities => writeln!(r,"OK capabilities protocols=T1,T2 max_line=512 gauges=altimeter,attitude,turn,airspeed,heading,vsi controls=barometer active_only=true control_claim=true"),
+        Command::Demo(_) => writeln!(r,"OK demo active={} screen={} input={} live_source={} writeback=false",app.demo_active(),app.selected().name(),app.demo_frame().map_or("none",|f|if f.using_imu {"imu"} else {"automatic"}),app.source_name()),
+        Command::GaugeProfile(_) => {
+            if let Some(p)=app.gauge_profile() {writeln!(r,"OK gauge_profile id={} revision={} session={} airspeed_max={} linear={} limits={} vsi_max={}",p.id,p.revision,app.external().map_or(0,|e|e.session),p.airspeed_max,p.linear,p.limits.is_some(),p.vsi_max)}
+            else {writeln!(r,"OK gauge_profile id=none")}
+        },
+        Command::Capabilities => writeln!(r,"OK capabilities protocols=T1,T2 max_line=512 gauges=altimeter,attitude,turn,airspeed,heading,vsi,consolidated,debug controls=barometer active_only=true control_claim=true gauge_config=G1"),
         Command::SourceImu | Command::SourceStatus if app.imu_bench() => {
             let p=app.reading(Field::PitchDeg,now); let roll=app.reading(Field::RollDeg,now);
             let held=app.imu_last_good();
@@ -444,7 +464,7 @@ pub fn execute_with_display(
             writeln!(r, "OK takeoff state={} elapsed_ms={} total_ms={} climb_ms={} from_ft=0 to_ft=10000 ground_hold_ms=1000 source=sim render_stats=display_stats", sweep.state.name(), sweep.elapsed_ms, sweep.total_ms(), sweep.climb_ms)
         }
         Command::Echo(_) | Command::Imu(_) | Command::Display(_) | Command::Device(_) => unreachable!(),
-        Command::Help => writeln!(r, "OK help commands: source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch menu hold MS; touch sound on|off|status; status; sim takeoff [SECONDS|stop|status]; sim heading|vsi|airspeed|turn|attitude [SECONDS|stop|status]; device info|uuid set UUID; settings status|save; display stats [reset|stop]; display hold [0..10|status]; echo on|off|status; memory status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; instrument list|altimeter|attitude|airspeed|heading|turn|vsi; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. SIMULATION ONLY; baro is a setting, pressure altitude is not corrected here."),
+        Command::Help => writeln!(r, "OK help commands: demo on|off|status; source sim|imu|status|external PROVIDER SESSION; touch status|cancel|hold MS; touch menu hold MS; touch sound on|off|status; status; sim takeoff [SECONDS|stop|status]; sim heading|vsi|airspeed|turn|attitude [SECONDS|stop|status]; device info|uuid set UUID; settings status|save; display stats [reset|stop]; display hold [0..10|status]; echo on|off|status; memory status; display status|on|off|pattern|gauge|stall|transfer-stall|recover; imu on|off|status|read|selftest|audit|estimator; imu calibration level|full|reset|status|save JOB|cancel JOB; instrument list|altimeter|attitude|airspeed|heading|turn|vsi|consolidated|debug; sim preset level; sim set FIELD VALUE; sim clear FIELD; sim pause|resume; fault FIELD on|off; baro INHG. fields: pressure_altitude_ft,pitch_deg,roll_deg,heading_deg,ias_kt,turn_dps,ball,vsi_fpm. Local sim requires source sim."),
         Command::HeadingDemo(_)|Command::HeadingDemoStop|Command::HeadingDemoStatus=>{
             let d=app.heading_demo();writeln!(r,"OK heading_demo state={} elapsed_ms={} duration_ms={} source=sim",d.state.name(),d.elapsed_ms,d.duration_ms)
         }
@@ -463,7 +483,7 @@ pub fn execute_with_display(
             let d=app.attitude_demo();
             writeln!(r,"OK attitude_demo state={} elapsed_ms={} duration_ms={} source=sim",d.state.name(),d.elapsed_ms,d.duration_ms)
         }
-        Command::Instruments => writeln!(r, "OK instruments altimeter attitude airspeed heading turn vsi renderers=altimeter,attitude,turn,airspeed,heading,vsi"),
+        Command::Instruments => writeln!(r, "OK instruments altimeter attitude airspeed heading turn vsi consolidated renderers=altimeter,attitude,turn,airspeed,heading,vsi,consolidated"),
         Command::Status => status(&mut r, app, now,display),
         Command::Set(f, _) => writeln!(r, "OK sim field={} applies=next_sample", f.name()),
         Command::Clear(f) => writeln!(r, "OK sim field={} cleared=true", f.name()),
@@ -505,6 +525,27 @@ fn status(r: &mut Response, app: &App, now: u64, display: &str) -> fmt::Result {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn screen_demo_commands_are_strict_and_status_does_not_restart_the_sequence() {
+        assert_eq!(parse("demo on"),Ok(Command::Demo(Some(true))));
+        assert_eq!(parse("demo off"),Ok(Command::Demo(Some(false))));
+        assert_eq!(parse("demo status"),Ok(Command::Demo(None)));
+        for bad in ["demo","demo 1","demo toggle","demo on extra"] {assert!(parse(bad).is_err());}
+        let mut app=App::new();app.tick(0);
+        assert!(execute(&mut app,parse("demo on"),0).as_str().contains("active=true"));
+        assert!(execute(&mut app,parse("demo status"),0).as_str().contains("input=automatic"));
+        assert!(execute(&mut app,parse("demo off"),0).as_str().contains("active=false"));
+    }
+    #[test]
+    fn consolidated_is_selectable_and_advertised_with_existing_streams() {
+        assert_eq!(parse("instrument consolidated"),Ok(Command::Select(Instrument::Consolidated)));
+        let mut app=App::new();
+        let response=execute(&mut app,parse("instrument consolidated"),0);
+        assert!(response.as_str().starts_with("OK"));
+        assert_eq!(app.selected(),Instrument::Consolidated);
+        assert!(execute(&mut app,parse("instrument list"),0).as_str().contains("consolidated"));
+        assert!(execute(&mut app,parse("protocol capabilities"),0).as_str().contains("vsi,consolidated"));
+    }
+    #[test]
     fn device_settings_commands_are_strict_and_do_not_fabricate_desktop_identity() {
         use instrument_core::device::{Command as Device, Uuid};
         assert_eq!(parse("device info"),Ok(Command::Device(Device::Info)));
@@ -530,7 +571,8 @@ mod tests {
         assert_eq!(execute(&mut app,parse("display hold 3"),0).as_str(),"ERR display_unsupported_target\n");
         let help=execute(&mut app,Ok(Command::Help),0);
         assert!(help.as_str().starts_with("OK help")&&help.as_str().contains("display hold [0..10|status]"));
-        assert!(help.as_str().ends_with("here.\n"));
+        assert!(help.as_str().ends_with("source sim.\n"));
+        assert!(help.as_str().contains("imu calibration level|full|reset|status|save JOB|cancel JOB"));
     }
     #[test]
     fn heading_and_vsi_demos_are_strict_bounded_and_report_state() {
@@ -578,6 +620,17 @@ mod tests {
             "sim turn 5 extra",
         ] {
             assert!(parse(command).is_err());
+        }
+    }
+    #[test]
+    fn calibration_commands_are_explicit_strict_and_desktop_cannot_calibrate() {
+        for (line,expected) in [("imu calibration level",ImuCommand::CalibrateLevel),("imu calibration full",ImuCommand::CalibrateFull),
+            ("imu calibration reset",ImuCommand::CalibrationReset),("imu calibration status",ImuCommand::CalibrationStatus),
+            ("imu calibration save 12",ImuCommand::CalibrationSave(12)),("imu calibration cancel 12",ImuCommand::CalibrationCancel(12))] {
+            assert_eq!(parse(line),Ok(Command::Imu(expected)));
+        }
+        for line in ["imu calibration save 0","imu calibration save -1","imu calibration save","imu calibration level extra","imu calibration cancel 4294967296"] {
+            assert!(parse(line).is_err());
         }
     }
     #[test]

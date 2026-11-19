@@ -12,13 +12,18 @@ use qmi8658::{Bus, Driver, Error, Identity, Sample, SelfTest};
 use std::{
     io,
     sync::{
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex, TryLockError,
     },
     thread,
     time::{Duration, Instant},
 };
 use text_cli::{reply, Response};
+
+pub use attitude_estimator::calibration;
+use calibration::{Record, Session, Phase, Reason, View as CalibrationView};
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StoreStatus { Busy, Unavailable, Pending, Saved(u32), Failed(i32) }
 
 pub const STALE_MS: u128 = 100;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,6 +47,9 @@ impl State {
 }
 #[derive(Clone, Copy)]
 struct Snapshot {
+    calibration: CalibrationView,
+    profile: Record,
+    storage_available: bool,
     estimate_rejections: u64,
     raw_tilt_rejections: u64,
     estimator_name: &'static str,
@@ -63,6 +71,9 @@ struct Snapshot {
 impl Snapshot {
     fn new() -> Self {
         Self {
+            calibration: CalibrationView::default(),
+            profile: Record::default(),
+            storage_available: false,
             estimate_rejections: 0,
             raw_tilt_rejections: 0,
             estimator_name: "accel_tilt",
@@ -113,6 +124,7 @@ impl Snapshot {
 }
 
 pub struct Service {
+    calibration_reserved: Arc<AtomicBool>,
     commands: mpsc::SyncSender<(u32, ImuCommand)>,
     next_request: AtomicU32,
     snapshot: Arc<Mutex<Snapshot>>,
@@ -148,22 +160,48 @@ impl Service {
         bus: B,
         estimator: E,
         mount: Option<Mount>,
-        mut poll: P,
+        poll: P,
     ) -> io::Result<Self>
     where
         B: Bus + Send + 'static,
         E: AttitudeEstimator + Send + 'static,
         P: FnMut(&mut B, bool) -> bool + Send + 'static,
     {
+        Self::start_with_calibration(bus, estimator, mount, poll, None, |_| StoreStatus::Unavailable)
+    }
+    pub fn start_with_calibration<B, E, P, F>(
+        bus: B, estimator: E, mount: Option<Mount>, mut poll: P,
+        initial: Option<Record>, mut persist: F,
+    ) -> io::Result<Self>
+    where
+        B: Bus + Send + 'static,
+        E: AttitudeEstimator + Send + 'static,
+        P: FnMut(&mut B, bool) -> bool + Send + 'static,
+        F: FnMut(Option<Record>) -> StoreStatus + Send + 'static,
+    {
+        let storage_available = !matches!(persist(None), StoreStatus::Unavailable | StoreStatus::Failed(_));
+        let calibration_reserved = Arc::new(AtomicBool::new(false));
+        let worker_reserved = calibration_reserved.clone();
         let (commands, receiver) = mpsc::sync_channel(2);
-        let snapshot = Arc::new(Mutex::new(Snapshot::new()));
+        let mut initial_snapshot = Snapshot::new();
+        initial_snapshot.storage_available = storage_available;
+        initial_snapshot.profile = initial.filter(|r| r.valid()).unwrap_or_default();
+        initial_snapshot.calibration.calibrated = initial_snapshot.profile.level;
+        initial_snapshot.calibration.generation = initial_snapshot.profile.generation;
+        let snapshot = Arc::new(Mutex::new(initial_snapshot));
         let shared = snapshot.clone();
         thread::Builder::new()
             .name("imu".into())
-            .stack_size(8192)
-            .spawn(move || {
+            .stack_size(12288)
+            // Keep the large capture out of the nested pthread/unwind launch
+            // frames on Xtensa. Only the boxed pointer crosses those frames.
+            .spawn(Box::new(move || {
                 let mut driver = Driver::new(bus);
-                let mut state = Snapshot::new();
+                let mut state = initial_snapshot;
+                let mut profile = state.profile;
+                let mut session = Session::default();
+                let mut restore_off = false;
+                let mut save_enqueued = false;
                 let mut pipeline = Pipeline::new(estimator);
                 let clock = Instant::now();
                 let mut epoch = 0u32;
@@ -172,8 +210,21 @@ impl Service {
                     let poll_started = Instant::now();
                     poll(driver.bus_mut(), false);
                     let received = receiver.try_recv();
-                    if let Ok((request, _)) = received {
-                        if !poll(driver.bus_mut(), true) {
+                    if let Ok((request, command)) = received {
+                        // Review/save/cancel are short local operations. They
+                        // must remain usable even if buzzer shutoff has failed.
+                        let local = matches!(command, ImuCommand::CalibrationReset |
+                            ImuCommand::CalibrationSave(_) | ImuCommand::CalibrationCancel(_));
+                        if !local && !poll(driver.bus_mut(), true) {
+                            if matches!(command, ImuCommand::CalibrateLevel | ImuCommand::CalibrateFull) {
+                                session.start(request, command == ImuCommand::CalibrateFull, profile,
+                                    clock.elapsed().as_micros() as u64);
+                            }
+                            if session.view.busy() && session.view.phase != Phase::Saving {
+                                session.fail(Reason::Sensor);
+                            }
+                            if !session.view.busy() { worker_reserved.store(false, Ordering::Release); }
+                            state.calibration = session.view;
                             state.request = request;
                             state.completed = request;
                             state.state = State::Failed;
@@ -192,6 +243,56 @@ impl Service {
                         }
                     }
                     match received {
+                        Ok((request, ImuCommand::CalibrationReset)) => {
+                            session.prepare_reset(request,profile,clock.elapsed().as_micros() as u64);
+                            restore_off=false;save_enqueued=false;state.request=request;state.completed=request;
+                        }
+                        Ok((request, command @ (ImuCommand::CalibrateLevel | ImuCommand::CalibrateFull))) => {
+                            restore_off = state.state != State::Running;
+                            let full = command == ImuCommand::CalibrateFull;
+                            session.start(request, full, profile, clock.elapsed().as_micros() as u64);
+                            state.request = request; state.calibration = session.view;
+                            if let Ok(mut s) = shared.lock() { *s = state; } else { return; }
+                            let result = (|| {
+                                if full {
+                                    let result = driver.self_test()?;
+                                    state.self_test = Some(result);
+                                    if !result.passed() { return Err(Error::AuditMismatch); }
+                                }
+                                if full || state.state != State::Running { driver.enable()?; }
+                                let audit = driver.audit()?;
+                                state.audit = Some(audit);
+                                if !audit.configuration_matches() || !audit.data_match {return Err(Error::AuditMismatch);}
+                                Ok(())
+                            })();
+                            match result {
+                                Ok(()) => {
+                                    session.start(request, full, profile, clock.elapsed().as_micros() as u64);
+                                    state.state = State::Running;
+                                    state.identity = driver.identity();
+                                    state.sample = None; state.estimate = None;
+                                    epoch = epoch.wrapping_add(1); pipeline.reset(ResetReason::SourceChanged);
+                                    save_enqueued = false;
+                                }
+                                Err(error) => {
+                                    session.fail(Reason::Sensor); state.state = State::Failed;
+                                    state.errors += 1; state.last_error = Some(error);
+                                    state.sample = None; state.estimate = None;
+                                    let _ = driver.disable();
+                                }
+                            }
+                            state.completed = request;
+                        }
+                        Ok((request, ImuCommand::CalibrationSave(job))) => {
+                            if session.view.job == job && session.view.phase == Phase::Review {
+                                session.view.phase = Phase::Saving; save_enqueued = false;
+                            }
+                            state.request = request; state.completed = request;
+                        }
+                        Ok((request, ImuCommand::CalibrationCancel(job))) => {
+                            if session.view.job == job && session.view.phase != Phase::Saving {session.cancel();}
+                            state.request = request; state.completed = request;
+                        }
                         Ok((request, ImuCommand::SelfTest)) => {
                             pipeline.reset(ResetReason::SourceChanged);
                             epoch = epoch.wrapping_add(1);
@@ -247,6 +348,7 @@ impl Service {
                                     }
                                 }
                             }
+                            if command == ImuCommand::On && session.view.busy() { restore_off = false; }
                             if command == ImuCommand::On && state.state != State::Running {
                                 pipeline.reset(ResetReason::SourceChanged);
                                 epoch = epoch.wrapping_add(1);
@@ -272,6 +374,8 @@ impl Service {
                                     }
                                 }
                             } else if command == ImuCommand::Off {
+                                if session.view.busy() && session.view.phase != Phase::Saving { session.cancel(); }
+                                restore_off = false;
                                 pipeline.reset(ResetReason::SourceChanged);
                                 state.estimate = None;
                                 state.sample = None;
@@ -313,6 +417,10 @@ impl Service {
                                     {
                                         state.raw_tilt_rejections += 1;
                                     }
+                                    let raw_a = mount.map_or_else(|| sample.accel_g(), |m| m.apply(sample.accel_g()));
+                                    let raw_g = mount.map_or_else(|| sample.gyro_dps(), |m| m.apply(sample.gyro_dps()));
+                                    session.ingest(raw_a, raw_g, sample.temperature_c(), now.duration_since(clock).as_micros() as u64, sample.saturated());
+                                    let (corrected_a, corrected_g) = if profile.level { profile.apply(raw_a, raw_g) } else { (raw_a, raw_g) };
                                     state.estimate = Some(pipeline.update(Observation {
                                         source_epoch: epoch,
                                         received_us: now.duration_since(clock).as_micros() as u64,
@@ -328,15 +436,9 @@ impl Service {
                                         } else {
                                             InputQuality::Fresh
                                         },
-                                        calibration: Calibration::Unverified,
-                                        accel_g: mount.map_or_else(
-                                            || sample.accel_g(),
-                                            |m| m.apply(sample.accel_g()),
-                                        ),
-                                        gyro_dps: mount.map_or_else(
-                                            || sample.gyro_dps(),
-                                            |m| m.apply(sample.gyro_dps()),
-                                        ),
+                                        calibration: if profile.level && profile.temperature_ok(sample.temperature_c()) { Calibration::Verified } else { Calibration::Unverified },
+                                        accel_g: corrected_a,
+                                        gyro_dps: corrected_g,
                                         temperature_c: Some(sample.temperature_c()),
                                         accel_covariance_g2: None,
                                         gyro_covariance_dps2: None,
@@ -365,6 +467,51 @@ impl Service {
                             }
                         }
                     }
+                    session.check_timeout(clock.elapsed().as_micros() as u64);
+                    if !session.view.reset && session.view.busy() && session.view.phase != Phase::Saving && state.state == State::Failed {session.fail(Reason::Sensor);}
+                    if !session.view.reset && session.view.busy() && session.view.phase != Phase::Saving && state.sample.is_some_and(|(_, at)|at.elapsed().as_millis()>=100) {
+                        session.fail(Reason::Gap);
+                    }
+                    if session.view.phase == Phase::Saving {
+                        let pending = session.candidate.expect("saving requires reviewed candidate");
+                        let status = persist((!save_enqueued).then_some(pending));
+                        match status {
+                            StoreStatus::Pending => save_enqueued = true,
+                            StoreStatus::Saved(generation) if generation == pending.generation => {
+                                profile = pending; session.view.phase = Phase::Saved;
+                                session.view.generation = generation; session.view.calibrated = profile.level;
+                                epoch = epoch.wrapping_add(1); pipeline.reset(ResetReason::CalibrationChanged);
+                                state.estimate = None;
+                            }
+                            StoreStatus::Failed(_) | StoreStatus::Unavailable => session.fail(Reason::Storage),
+                            _ => (),
+                        }
+                    }
+                    if !session.view.busy() {
+                        worker_reserved.store(false, Ordering::Release);
+                        if restore_off {
+                            restore_off = false;
+                            if state.state == State::Running {
+                                match driver.disable() {Ok(())=>state.state=State::Off,Err(e)=>{state.state=State::Failed;state.last_error=Some(e);state.errors+=1;}}
+                                state.sample = None; state.estimate = None;
+                                pipeline.reset(ResetReason::SourceChanged);
+                            }
+                        }
+                    }
+                    state.calibration = session.view;
+                    state.calibration.calibrated = profile.level;
+                    state.calibration.full_calibrated = profile.full;
+                    state.calibration.accel_rejected = pipeline.acceleration_rejected();
+                    state.calibration.storage_available = storage_available;
+                    state.calibration.reference_temperature_centi=(profile.temperature_c*100.) as i32;
+                    state.calibration.temperature_warning=profile.level && state.sample.is_some_and(|(sample,_)|!profile.temperature_ok(sample.temperature_c()));
+                    if !matches!(session.view.phase,Phase::Review|Phase::Saving) {
+                        state.calibration.temperature_available=state.sample.is_some();
+                        if let Some((sample,_))=state.sample {state.calibration.temperature_centi=(sample.temperature_c()*100.) as i32;}
+                    }
+                    if !matches!(session.view.phase,Phase::Review|Phase::Saving) {state.calibration.high_bias=profile.high_bias();}
+                    state.calibration.generation = profile.generation;
+                    state.profile = profile; state.storage_available = storage_available;
                     if let Ok(mut s) = shared.lock() {
                         *s = state;
                     } else {
@@ -380,14 +527,53 @@ impl Service {
                             .max(Duration::from_millis(1)),
                     );
                 }
-            })?;
+            }))?;
         Ok(Self {
+            calibration_reserved,
             commands,
             snapshot,
             next_request: AtomicU32::new(1),
         })
     }
+    /// Nonblocking lifecycle hint for temporary display demonstrations. Testing
+    /// is unknown so a showcase never interrupts an explicit self-test.
+    pub fn acquiring(&self) -> Option<bool> {
+        if self.calibration_reserved.load(Ordering::Acquire) { return None; }
+        self.snapshot.try_lock().ok().and_then(|s| match s.state {
+            State::Running | State::Starting => Some(true),
+            State::Off | State::Failed => Some(false),
+            State::Testing => None,
+        })
+    }
+    pub fn calibration_view(&self) -> Option<CalibrationView> {
+        self.snapshot.try_lock().ok().map(|s| s.calibration)
+    }
     pub fn handle(&self, command: ImuCommand) -> Response {
+        let starts = matches!(command, ImuCommand::CalibrateLevel | ImuCommand::CalibrateFull | ImuCommand::CalibrationReset);
+        let calibration_command = starts || matches!(command, ImuCommand::CalibrationSave(_) | ImuCommand::CalibrationCancel(_));
+        if starts {
+            let Ok(s) = self.snapshot.try_lock() else {return reply(format_args!("ERR imu_busy"));};
+            if !s.storage_available {return reply(format_args!("ERR calibration_storage_unavailable"));}
+            if s.state == State::Testing || self.calibration_reserved.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire).is_err() {
+                return reply(format_args!("ERR imu_calibration_busy"));
+            }
+        } else if self.calibration_reserved.load(Ordering::Acquire) && matches!(command, ImuCommand::SelfTest) {
+            return reply(format_args!("ERR imu_calibration_busy"));
+        }
+        if let ImuCommand::CalibrationSave(job) | ImuCommand::CalibrationCancel(job) = command {
+            let Ok(s) = self.snapshot.try_lock() else {return reply(format_args!("ERR imu_busy"));};
+            if s.calibration.job != job || (matches!(command,ImuCommand::CalibrationSave(_)) && s.calibration.phase != Phase::Review)
+                || s.calibration.phase == Phase::Saving {
+                return reply(format_args!("ERR calibration_not_ready"));
+            }
+        }
+        if calibration_command {
+            let request=self.next_request.fetch_add(1,Ordering::Relaxed);
+            return match self.commands.try_send((request,command)) {
+                Ok(())=>reply(format_args!("OK imu calibration_queued=true request={request} completion=check_calibration_status")),
+                Err(_) => {if starts {self.calibration_reserved.store(false,Ordering::Release);}reply(format_args!("ERR imu_busy"))}
+            };
+        }
         if matches!(
             command,
             ImuCommand::On | ImuCommand::Off | ImuCommand::SelfTest | ImuCommand::Audit
@@ -462,6 +648,11 @@ fn bench_input(s: Snapshot, now: Instant) -> instrument_core::imu_attitude::Inpu
 
 fn snapshot_response(s: Snapshot, cmd: ImuCommand, now: Instant) -> Response {
     let quality = s.quality(now);
+    if cmd == ImuCommand::CalibrationStatus {
+        let c=s.calibration; let p=s.profile;
+        return reply(format_args!("OK imu_calibration job={} phase={:?} reason={:?} full={} pose={}/24 progress={} calibrated={} generation={} temperature_warning={} high_bias={} candidate_high_bias={} candidate_bias_milli_dps={:?} candidate_noise_milli_dps={} candidate_rms_milli_g={} bias_dps={:?} gyro_noise_dps={:?} temperature_c={:.2} rms_g={:.6} max_error_g={:.6} samples={} storage={} coeff_accel_bias_g={:?} coeff_accel_matrix={:?} level_rotation={:?}",
+            c.job,c.phase,c.reason,c.full,c.pose,c.progress,p.level,p.generation,c.temperature_warning,p.high_bias(),c.high_bias,c.gyro_bias_milli,c.noise_milli,c.rms_milli,p.gyro_bias_dps,p.gyro_noise_dps,p.temperature_c,p.rms_g,p.max_error_g,p.samples,s.storage_available,p.accel_bias_g,p.accel_matrix,p.level_rotation));
+    }
     let age = s.sample.map(|(_, at)| now.duration_since(at).as_millis());
     if cmd == ImuCommand::Estimator {
         let estimate = s
@@ -473,10 +664,10 @@ fn snapshot_response(s: Snapshot, cmd: ImuCommand, now: Instant) -> Response {
             .roll_pitch_deg
             .map(|[r, p]| format!("roll_deg={r:.3} pitch_deg={p:.3}"))
             .unwrap_or_else(|| "roll_deg=none pitch_deg=none".into());
-        return reply(format_args!("OK imu estimator={} quality={} input_quality={} {} yaw_deg={:?} attitude_covariance={} bias_covariance={} gyro_bias_rad_s={:?} frame={:?} calibration=unverified timebase=receipt acquired_us=unknown received_us={:?} gauge_eligible=false bench_display_eligible={}", s.estimator_name,
-            match estimate.quality {Quality::Unavailable=>"unavailable",Quality::BenchOnly=>"bench_only",Quality::Estimated=>"estimated"}, quality, angles, estimate.yaw_deg,
+        return reply(format_args!("OK imu estimator={} quality={} input_quality={} acceleration_rejected={} {} yaw_deg={:?} attitude_covariance={} bias_covariance={} gyro_bias_rad_s={:?} frame={:?} calibration={} timebase={} acquired_us=unknown received_us={:?} gauge_eligible=false bench_display_eligible={}", s.estimator_name,
+            match estimate.quality {Quality::Unavailable=>"unavailable",Quality::BenchOnly=>"bench_only",Quality::Estimated=>"estimated"}, quality, s.calibration.accel_rejected, angles, estimate.yaw_deg,
             if estimate.attitude_error_covariance_rad2.is_some() {"available"} else {"unknown"},
-            if estimate.gyro_bias_covariance_rad2_s2.is_some() {"available"} else {"unknown"}, estimate.gyro_bias_rad_s, estimate.frame,
+            if estimate.gyro_bias_covariance_rad2_s2.is_some() {"available"} else {"unknown"}, estimate.gyro_bias_rad_s, estimate.frame, if s.profile.full {"full"} else if s.profile.level {"level"} else {"none"}, if s.profile.level && !s.calibration.temperature_warning && s.estimator_name.starts_with("madgwick") {"counter_with_receipt_guard"}else{"receipt"},
             s.estimate.filter(|_|quality=="valid").map(|o|o.received_us),bench_input(s,now).pitch_roll_deg.is_some()));
     }
     if cmd == ImuCommand::Status {
@@ -484,7 +675,7 @@ fn snapshot_response(s: Snapshot, cmd: ImuCommand, now: Instant) -> Response {
             .identity
             .map(|i| (i.address, i.who, i.revision))
             .unwrap_or((0, 0, 0));
-        return reply(format_args!("OK imu request={} completed={} state={} quality={} detected={} address=0x{:02x} who=0x{:02x} revision=0x{:02x} samples={} skipped={} duplicates={} errors={} estimate_rejections={} raw_tilt_rejections={} max_gap_ms={} age_ms={} error={:?} accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration=none gauge_source=unchanged selftest={} selftest_accel_g={:?} selftest_gyro_dps={:?} audit={}",s.request,s.completed,s.state.name(),quality,s.identity.is_some(),address,who,revision,s.samples,s.skipped,s.duplicates,s.errors,s.estimate_rejections,s.raw_tilt_rejections,s.max_gap_ms,age.map(|a|a.to_string()).unwrap_or_else(||"none".into()),s.last_error,s.self_test.map(|t|if t.passed() {"passed"} else {"failed"}).unwrap_or("not_run"),s.self_test.map(|t|t.accel_g),s.self_test.map(|t|t.gyro_dps),s.audit.map(|a|format!("config_match:{};data_match:{};ctrl:{:02x?};byte_gy:{};burst_gy:{}",a.configuration_matches(),a.data_match,a.configuration,a.bytewise_gyro_y,a.burst_gyro_y)).unwrap_or_else(||"not_run".into())));
+        return reply(format_args!("OK imu request={} completed={} state={} quality={} detected={} address=0x{:02x} who=0x{:02x} revision=0x{:02x} samples={} skipped={} duplicates={} errors={} estimate_rejections={} raw_tilt_rejections={} max_gap_ms={} age_ms={} error={:?} accel_fs_g=4 gyro_fs_dps=256 odr_hz=112.1 frame=sensor calibration={} gauge_source=unchanged selftest={} selftest_accel_g={:?} selftest_gyro_dps={:?} audit={}",s.request,s.completed,s.state.name(),quality,s.identity.is_some(),address,who,revision,s.samples,s.skipped,s.duplicates,s.errors,s.estimate_rejections,s.raw_tilt_rejections,s.max_gap_ms,age.map(|a|a.to_string()).unwrap_or_else(||"none".into()),s.last_error,if s.profile.full {"full"}else if s.profile.level {"level"}else{"none"},s.self_test.map(|t|if t.passed() {"passed"} else {"failed"}).unwrap_or("not_run"),s.self_test.map(|t|t.accel_g),s.self_test.map(|t|t.gyro_dps),s.audit.map(|a|format!("config_match:{};data_match:{};ctrl:{:02x?};byte_gy:{};burst_gy:{}",a.configuration_matches(),a.data_match,a.configuration,a.bytewise_gyro_y,a.burst_gyro_y)).unwrap_or_else(||"not_run".into())));
     }
     if quality != "valid" {
         return reply(format_args!("ERR imu_{}", quality));
@@ -970,5 +1161,89 @@ mod tests {
             ticks >= 3,
             "console owner stopped while sensor I/O was blocked"
         );
+    }
+}
+
+/// Fuse calibrated rates only. Before calibration, preserve the accepted bench tilt.
+#[derive(Default)]
+pub struct CalibratedFusion { tilt: AveragedTilt, fusion: attitude_estimator::fusion::Madgwick }
+impl AttitudeEstimator for CalibratedFusion {
+    fn name(&self)->&'static str { "madgwick6dof_or_tilt" }
+    fn acceleration_rejected(&self)->bool {self.fusion.accel_rejected}
+    fn reset(&mut self,r:ResetReason){ self.tilt.reset(r); self.fusion.reset(r); }
+    fn update(&mut self,s:&Observation,dt:f32)->Estimate {
+        if s.calibration==Calibration::Verified { self.fusion.update(s,dt) } else { self.tilt.update(s,dt) }
+    }
+}
+
+#[cfg(test)]
+mod calibration_transaction_tests {
+    use super::*;
+    struct NoIo;
+    impl Bus for NoIo {
+        fn read(&mut self,_:u8,_:u8,_:&mut[u8])->Result<(),Error>{panic!("reset/review must not touch the sensor")}
+        fn write(&mut self,_:u8,_:u8,_:u8)->Result<(),Error>{panic!("reset/review must not touch the sensor")}
+        fn delay_us(&mut self,_:u32){}
+    }
+    fn command(service:&Service, c:ImuCommand)->Response {
+        let until=Instant::now()+Duration::from_secs(1);
+        loop {let r=service.handle(c);if !r.as_str().starts_with("ERR imu_busy") || Instant::now()>=until{return r;}thread::sleep(Duration::from_millis(1));}
+    }
+    fn wait(service:&Service,phase:Phase)->CalibrationView {
+        let end=Instant::now()+Duration::from_secs(2);
+        loop {if let Some(v)=service.calibration_view(){if v.phase==phase{return v;}}
+            assert!(Instant::now()<end,"calibration phase {phase:?} did not complete");thread::sleep(Duration::from_millis(5));}
+    }
+    #[test]
+    fn review_cancel_stale_jobs_and_persistence_failure_never_replace_active_calibration() {
+        struct Store {durable:Record,pending:Option<Record>,ack:bool,fail:bool,submits:u32}
+        let old=Record {generation:11,level:true,gyro_bias_dps:[-1.,30.,0.],..Record::default()};
+        let store=Arc::new(Mutex::new(Store {durable:old,pending:None,ack:false,fail:false,submits:0}));
+        let worker=store.clone();
+        let service=Service::start_with_calibration(NoIo,CalibratedFusion::default(),Some(Mount::new([3,-2,1]).unwrap()),|_,_|true,Some(old),move |candidate| {
+            let mut s=worker.lock().unwrap();
+            if let Some(r)=candidate {s.pending=Some(r);s.submits+=1;return StoreStatus::Pending;}
+            if let Some(r)=s.pending {if s.fail {s.pending=None;return StoreStatus::Failed(-99);}
+                if !s.ack {return StoreStatus::Pending;}s.durable=r;s.pending=None;}
+            StoreStatus::Saved(s.durable.generation)
+        }).unwrap();
+        assert!(command(&service, ImuCommand::CalibrationReset).as_str().starts_with("OK "));
+        let review=wait(&service,Phase::Review);assert_eq!(service.snapshot.lock().unwrap().profile,old);
+        assert!(command(&service, ImuCommand::CalibrationSave(review.job+1)).as_str().starts_with("ERR "));
+        assert!(command(&service, ImuCommand::SelfTest).as_str().contains("calibration_busy"));
+        assert_eq!(store.lock().unwrap().submits,0);
+        assert!(command(&service, ImuCommand::CalibrationSave(review.job)).as_str().starts_with("OK "));
+        wait(&service,Phase::Saving);thread::sleep(Duration::from_millis(30));
+        assert_eq!(service.snapshot.lock().unwrap().profile,old);assert_eq!(store.lock().unwrap().submits,1);
+        assert!(command(&service, ImuCommand::CalibrationCancel(review.job)).as_str().starts_with("ERR "));
+        store.lock().unwrap().ack=true;wait(&service,Phase::Saved);
+        assert_eq!(service.snapshot.lock().unwrap().profile.generation,12);assert!(!service.snapshot.lock().unwrap().profile.level);
+        assert!(command(&service, ImuCommand::CalibrationReset).as_str().starts_with("OK "));
+        let review=wait(&service,Phase::Review);
+        command(&service, ImuCommand::CalibrationCancel(review.job));wait(&service,Phase::Cancelled);
+        assert_eq!(store.lock().unwrap().submits,1);
+        assert!(command(&service, ImuCommand::CalibrationReset).as_str().starts_with("OK "));
+        let review=wait(&service,Phase::Review);store.lock().unwrap().fail=true;
+        command(&service, ImuCommand::CalibrationSave(review.job));wait(&service,Phase::Failed);
+        assert_eq!(service.snapshot.lock().unwrap().profile.generation,12);
+        assert_eq!(store.lock().unwrap().durable.generation,12);
+    }
+    #[test]
+    fn missing_storage_refuses_calibration_without_sensor_io() {
+        let service=Service::start(NoIo).unwrap();
+        assert!(command(&service, ImuCommand::CalibrateLevel).as_str().contains("storage_unavailable"));
+        assert!(command(&service, ImuCommand::CalibrationStatus).as_str().starts_with("OK imu_calibration"));
+    }
+    #[test]
+    fn failed_bus_quiesce_reports_the_job_and_allows_local_reset_and_cancel() {
+        let service=Service::start_with_calibration(NoIo,CalibratedFusion::default(),None,
+            |_,quiesce|!quiesce,None,|_|StoreStatus::Saved(0)).unwrap();
+        assert!(command(&service, ImuCommand::CalibrateLevel).as_str().starts_with("OK "));
+        let failed=wait(&service,Phase::Failed);
+        assert!(failed.job>0);assert_eq!(failed.reason,Reason::Sensor);
+        assert!(command(&service, ImuCommand::CalibrationReset).as_str().starts_with("OK "));
+        let review=wait(&service,Phase::Review);assert!(review.job>failed.job);
+        assert!(command(&service, ImuCommand::CalibrationCancel(review.job)).as_str().starts_with("OK "));
+        wait(&service,Phase::Cancelled);
     }
 }

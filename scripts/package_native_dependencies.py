@@ -6,13 +6,18 @@ import subprocess
 import sys
 
 target = Path(sys.argv[1]).resolve()
-metadata = json.loads(subprocess.check_output([
+roots = set(sys.argv[2].split(',')) if len(sys.argv) > 2 else {'instrument-connector', 'desktop-cli', 'instrument-tray'}
+arguments = [
     'cargo', 'metadata', '--format-version', '1', '--locked',
-    '--filter-platform', 'x86_64-pc-windows-msvc',
-    '--features', 'instrument-connector/msfs']))
+    '--filter-platform', 'x86_64-pc-windows-msvc']
+if 'instrument-connector' in roots:
+    arguments += ['--features', 'instrument-connector/msfs']
+metadata = json.loads(subprocess.check_output(arguments))
 packages = {p['id']: p for p in metadata['packages']}
 nodes = {p['id']: p for p in metadata['resolve']['nodes']}
-pending = [p['id'] for p in packages.values() if p['name'] in ('instrument-connector', 'desktop-cli', 'instrument-tray')]
+if not roots or not roots.issubset({p['name'] for p in packages.values()}):
+    raise RuntimeError('Unknown dependency package root')
+pending = [p['id'] for p in packages.values() if p['name'] in roots]
 seen = set()
 while pending:
     identity = pending.pop()

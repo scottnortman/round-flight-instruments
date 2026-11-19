@@ -3,8 +3,22 @@
 version = 4
 
 [[package]]
+name = "aircraft-profiles"
+version = "0.1.0"
+dependencies = [
+ "instrument-core",
+ "instrument-ui",
+ "serde",
+ "serde_json",
+ "text-cli",
+]
+
+[[package]]
 name = "attitude-estimator"
 version = "0.1.0"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "bitflags"
@@ -142,29 +156,35 @@ dependencies = [
 
 [[package]]
 name = "instrument-connector"
-version = "0.1.0"
+version = "0.2.0-test.13"
 dependencies = [
+ "aircraft-profiles",
  "connector-runtime",
  "ctrlc",
+ "instrument-core",
  "serde",
  "serde_json",
  "serialport",
  "sim-bridge",
  "simconnect-native",
  "simulator-link",
+ "text-cli",
 ]
 
 [[package]]
 name = "instrument-core"
 version = "0.1.0"
 dependencies = [
+ "attitude-estimator",
  "simulator-link",
 ]
 
 [[package]]
 name = "instrument-tray"
-version = "0.2.0"
+version = "0.2.0-test.13"
 dependencies = [
+ "aircraft-profiles",
+ "instrument-core",
  "serde",
  "serde_json",
  "serialport",

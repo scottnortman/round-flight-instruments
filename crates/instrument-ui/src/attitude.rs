@@ -37,6 +37,7 @@ pub(crate) fn cache_foreground(
             quality: Quality::Valid,
         },
         source,
+        false,
     );
     let (cx, cy, radius) = (disk.cx, disk.cy, disk.radius);
     let mut count = 0;
@@ -269,7 +270,7 @@ const PALETTE: [u16; 30] = {
     }
     colors
 };
-fn isqrt(mut n: u32) -> u32 {
+pub(crate) fn isqrt(mut n: u32) -> u32 {
     let mut root = 0;
     let mut bit = 1u32 << 30;
     while bit > n {
@@ -458,12 +459,19 @@ fn polar(radius: f32, angle: f32) -> (f32, f32) {
     (240. + radius * libm::sinf(a), 240. - radius * libm::cosf(a))
 }
 pub fn draw<T: Target>(target: &mut T, model: Attitude, source_label: &str) {
+    draw_face(target, model, source_label, false);
+}
+/// Larger bank labels for the Combined panel's 276-pixel subviewport.
+pub(crate) fn draw_combined<T: Target>(target: &mut T, model: Attitude) {
+    draw_face(target, model, "", true);
+}
+fn draw_face<T: Target>(target: &mut T, model: Attitude, source_label: &str, compact_bank: bool) {
     let mut disk = Disk::new(target);
     if let Some(angles) = model.angles {
         horizon(&mut disk, &Pose::new(angles), None, None, &mut || {});
     }
     moving(&mut disk, model, &mut || {}, None);
-    foreground(&mut disk, model, source_label);
+    foreground(&mut disk, model, source_label, compact_bank);
 }
 pub(crate) fn waiting<T: Target>(target: &mut T) {
     let mut disk = Disk::new(target);
@@ -529,7 +537,7 @@ pub(crate) fn incremental(
             offset += run.len as usize;
         }
     } else {
-        foreground(&mut Disk::new(&mut fb), model, snapshot.source_label);
+        foreground(&mut Disk::new(&mut fb), model, snapshot.source_label, false);
     }
     history.attitude = model.angles;
 }
@@ -604,7 +612,7 @@ fn moving<T: Target>(
         );
     }
 }
-fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: &str) {
+fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: &str, compact_bank: bool) {
     if model.angles.is_some() {
         // Phone face's dark bank-scale arc; opaque RGB565 backing for contrast.
         bank_backing(disk);
@@ -618,12 +626,21 @@ fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: 
                 MARK,
             );
         }
-        // Offset labels three degrees toward level along the arc so the
-        // upright glyphs clear the thick ticks. Leave radial clearance for
-        // the top-left corner of the left "30" inside the clipped disk.
-        for (angle, label) in [(-57., "60"), (-27., "30"), (27., "30"), (57., "60")] {
-            let (x, y) = polar(212., angle);
-            c.text_on(x, y, 12., label, (MARK, rgb(6, 18, 30)));
+        // The compact face needs larger glyphs at its reduced physical scale.
+        // Shift them inward and toward level to clear both the rim and ticks.
+        // Disk plus the Combined viewport still clips every glyph write.
+        let labels = if compact_bank {
+            [(-55., "60"), (-25., "30"), (25., "30"), (55., "60")]
+        } else {
+            [(-57., "60"), (-27., "30"), (27., "30"), (57., "60")]
+        };
+        for (angle, label) in labels {
+            let (x, y) = polar(if compact_bank { 205. } else { 212. }, angle);
+            if compact_bank {
+                c.text_bold_on(x, y, 18., label, (MARK, rgb(6, 18, 30)));
+            } else {
+                c.text_on(x, y, 12., label, (MARK, rgb(6, 18, 30)));
+            }
         }
         c.polygon(&[(231., 35.), (249., 35.), (240., 51.)], MARK);
         for (color, width) in [(rgb(19, 24, 28), 11.), (AIRCRAFT, 5.)] {
@@ -666,7 +683,7 @@ fn foreground<T: Target>(disk: &mut Disk<'_, T>, model: Attitude, source_label: 
         // Center the visible ink vertically within the cross's banner.
         c.text_on(240., 243., 22., message, (FAILURE, FACE));
     }
-    captions(disk, source_label);
+    if !source_label.is_empty() { captions(disk, source_label); }
 }
 fn captions<T: Target>(disk: &mut Disk<'_, T>, source_label: &str) {
     let mut c = Canvas::new(disk);

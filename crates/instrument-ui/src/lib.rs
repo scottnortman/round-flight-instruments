@@ -2,6 +2,10 @@
 #![forbid(unsafe_code)]
 
 pub mod altimeter;
+pub mod consolidated;
+pub mod debug;
+pub mod calibration;
+pub mod visibility;
 pub mod airspeed;
 pub mod attitude;
 pub mod continuity;
@@ -17,6 +21,8 @@ pub mod turn;
 pub mod heading;
 pub mod vsi;
 mod dial;
+#[cfg(test)]
+mod demo_tests;
 
 use instrument_core::{App, Field, Instrument, Quality, Reading};
 
@@ -35,13 +41,18 @@ pub struct Snapshot {
     /// Receipt time in the console owner clock, not the platform display clock.
     pub source_received_ms: u64,
     pub baro_age_ms: Option<u64>,
+    pub baro_quality: Quality,
     pub source_label: &'static str,
     pub kollsman_pressed: bool,
+    pub altitude_hidden: bool,
     pub editor: Option<interaction::EditorView>,
     pub menu: Option<navigation::View>,
+    pub calibration: Option<calibration::View>,
+    pub gauge_profile: Option<instrument_core::gauge_profile::Profile>,
     pub center_pressed: bool,
     pub selected: Instrument,
     pub altitude: Reading,
+    pub pressure_altitude: Reading,
     pub ias: Reading,
     pub heading: Reading,
     pub vsi: Reading,
@@ -52,19 +63,39 @@ pub struct Snapshot {
     pub baro_inhg: f32,
 }
 impl Snapshot {
+    /// Only the pressure/altitude inputs govern this editor, even if another
+    /// component of the Combined panel is unavailable.
+    pub fn baro_editor_visible(self)->bool {
+        self.editor.is_some() && self.menu.is_none() && self.calibration.is_none()
+            && matches!(self.selected,Instrument::Altimeter|Instrument::Consolidated)
+            && self.model().indicated_ft.is_some()
+    }
+    fn consolidated_quality(self) -> Quality {
+        let qualities = [self.model().quality, self.airspeed_model().quality,
+            self.attitude_model().quality, self.heading_model().quality,
+            self.turn_model().quality(), self.vsi_model().quality];
+        [Quality::TimingFault, Quality::Failed, Quality::Stale, Quality::Missing]
+            .into_iter().find(|q| qualities.contains(q)).unwrap_or(Quality::Valid)
+    }
     pub fn heading_model(self)->heading::Heading {heading::model(self.heading,self.heading_stale_ms())}
-    pub fn vsi_model(self)->vsi::Vsi {vsi::model(self.vsi,self.vsi_stale_ms())}
+    pub fn vsi_model(self)->vsi::Vsi {vsi::model_with_profile(self.vsi,self.vsi_stale_ms(),self.vsi_profile())}
+    pub fn vsi_profile(self)->vsi::Profile {self.gauge_profile.map_or(vsi::DEFAULT_PROFILE,|p|vsi::Profile::new(p.vsi_max as f32,165.).unwrap())}
     fn heading_stale_ms(self)->u64 {
         if self.external {instrument_core::simulator_link::measurements::Quantity::MagneticHeadingDeg.stale_after_ms() as u64}else{Field::HeadingDeg.stale_after_ms()}
     }
     fn vsi_stale_ms(self)->u64 {
         if self.external {instrument_core::simulator_link::measurements::Quantity::VerticalSpeedFpm.stale_after_ms() as u64}else{Field::VsiFpm.stale_after_ms()}
     }
+    pub fn render_profile(self)->Option<instrument_core::gauge_profile::Profile> {
+        if matches!(self.selected,Instrument::Airspeed|Instrument::Vsi|Instrument::Consolidated){self.gauge_profile}else{None}
+    }
     pub fn airspeed_model(self) -> airspeed::Airspeed {
-        airspeed::model(self.ias, self.airspeed_stale_ms())
+        if let Some(p)=self.gauge_profile {let mut points=[(0.,0.);11];
+            airspeed::model_with_profile(self.ias,self.airspeed_stale_ms(),airspeed::Profile::configured(p,&mut points))
+        }else{airspeed::model(self.ias, self.airspeed_stale_ms())}
     }
     pub fn airspeed_demo_limits(self) -> bool {
-        self.selected == Instrument::Airspeed && !self.external && !self.imu_bench
+        self.gauge_profile.is_none() && self.selected == Instrument::Airspeed && !self.external && !self.imu_bench
     }
     fn airspeed_stale_ms(self) -> u64 {
         if self.external {
@@ -114,8 +145,10 @@ impl Snapshot {
             && self.attitude_model().quality != Quality::Valid
     }
     pub fn displayed_quality(self) -> Option<Quality> {
-        if self.menu.is_some() { return None; }
+        if self.menu.is_some() || self.calibration.is_some() { return None; }
         match self.selected {
+            Instrument::Debug => Some(crate::debug::quality(self)),
+            Instrument::Consolidated => Some(self.consolidated_quality()),
             Instrument::Heading=>Some(self.heading_model().quality),
             Instrument::Vsi=>Some(self.vsi_model().quality),
             Instrument::Airspeed => Some(self.airspeed_model().quality),
@@ -126,6 +159,8 @@ impl Snapshot {
     }
     pub fn displayed_age_ms(self) -> Option<u64> {
         match self.selected {
+            Instrument::Debug => crate::debug::rows(self).into_iter().filter_map(|(_, r)| r.age_ms).max(),
+            Instrument::Consolidated => [self.altitude, self.ias, self.heading, self.vsi, self.pitch, self.roll, self.turn_rate, self.ball].into_iter().filter_map(|r| r.age_ms).max(),
             Instrument::Heading=>self.heading.age_ms,
             Instrument::Vsi=>self.vsi.age_ms,
             Instrument::Airspeed => self.ias.age_ms,
@@ -141,7 +176,7 @@ impl Snapshot {
         }
     }
     pub fn from_app(app: &App) -> Self {
-        Self {
+        let mut snapshot = Self {
             device: instrument_core::device::Info::default(),
             imu_bench: app.imu_bench(),
             imu_last_good: app.imu_last_good(),
@@ -152,13 +187,19 @@ impl Snapshot {
             source_sequence: app.external().map_or(0, |e| e.sequence()),
             source_received_ms: app.external().and_then(|e| e.received_ms()).unwrap_or(0),
             baro_age_ms: app.external_baro(app.now_ms()).and_then(|b| b.age_ms),
+            baro_quality: app.external_baro(app.now_ms()).map_or(
+                if app.imu_bench() { Quality::Missing } else { Quality::Valid }, |b| b.quality),
             source_label: app.source_label(),
             kollsman_pressed: false,
+            altitude_hidden: false,
             menu: None,
+            calibration: None,
+            gauge_profile: app.gauge_profile(),
             center_pressed: false,
             editor: None,
             selected: app.selected(),
             altitude: app.altimeter_reading(app.now_ms()),
+            pressure_altitude: app.reading(Field::PressureAltitudeFt, app.now_ms()),
             ias: app.reading(Field::IasKt, app.now_ms()),
             heading: app.reading(Field::HeadingDeg,app.now_ms()),
             vsi: app.reading(Field::VsiFpm,app.now_ms()),
@@ -169,9 +210,39 @@ impl Snapshot {
             baro_inhg: app
                 .external_baro(app.now_ms())
                 .map_or_else(|| app.baro_inhg(), |r| r.value.unwrap_or(f32::NAN)),
+        };
+        if let Some(frame) = app.demo_frame() {
+            snapshot.imu_bench = false;
+            snapshot.imu_last_good = None;
+            snapshot.external = false;
+            snapshot.external_attitude = false;
+            snapshot.source_running = true;
+            snapshot.source_session = 0;
+            snapshot.source_sequence = app.tick_count();
+            snapshot.source_received_ms = app.now_ms();
+            snapshot.baro_age_ms = None;
+            snapshot.baro_quality = Quality::Valid;
+            snapshot.source_label = if frame.using_imu { "DEMO IMU" } else { "DEMO AUTO" };
+            snapshot.altitude = frame.readings[Field::PressureAltitudeFt as usize];
+            snapshot.pressure_altitude = snapshot.altitude;
+            snapshot.ias = frame.readings[Field::IasKt as usize];
+            snapshot.heading = frame.readings[Field::HeadingDeg as usize];
+            snapshot.vsi = frame.readings[Field::VsiFpm as usize];
+            snapshot.pitch = frame.readings[Field::PitchDeg as usize];
+            snapshot.roll = frame.readings[Field::RollDeg as usize];
+            snapshot.turn_rate = frame.readings[Field::TurnDps as usize];
+            snapshot.ball = frame.readings[Field::Ball as usize];
+            snapshot.baro_inhg = 29.92;
         }
+        snapshot
     }
     pub fn aged(mut self, elapsed_ms: u64) -> Self {
+        self.pressure_altitude.age_ms = self.pressure_altitude.age_ms.map(|a| a.saturating_add(elapsed_ms));
+        if self.pressure_altitude.quality == Quality::Valid
+            && self.pressure_altitude.age_ms.is_none_or(|a| a >= 1000) {
+            self.pressure_altitude.value = None;
+            self.pressure_altitude.quality = Quality::Stale;
+        }
         let heading_ttl=self.heading_stale_ms();let vsi_ttl=self.vsi_stale_ms();
         for (r,ttl)in [(&mut self.heading,heading_ttl),(&mut self.vsi,vsi_ttl)] {
             r.age_ms=r.age_ms.map(|a|a.saturating_add(elapsed_ms));
@@ -210,6 +281,7 @@ impl Snapshot {
             self.baro_age_ms = self.baro_age_ms.map(|a| a.saturating_add(elapsed_ms));
             if self.baro_age_ms.is_none_or(|a| a >= 1000) {
                 self.baro_inhg = f32::NAN;
+                if self.baro_quality == Quality::Valid { self.baro_quality = Quality::Stale; }
             }
         }
         if let Some(age) = self.altitude.age_ms {
@@ -231,7 +303,13 @@ impl Snapshot {
     pub fn numeric_lifetime_ms(self) -> Option<u64> {
         // Navigation replaces the whole face with an opaque, non-numeric view.
         // Flight samples keep aging in the background; none are shown here.
-        if self.menu.is_some() { return None; }
+        if self.menu.is_some() || self.calibration.is_some() { return None; }
+        if self.selected == Instrument::Debug { return crate::debug::lifetime_ms(self); }
+        if self.selected == Instrument::Consolidated {
+            return [Instrument::Altimeter, Instrument::Airspeed, Instrument::Attitude,
+                Instrument::Heading, Instrument::Turn, Instrument::Vsi]
+                .into_iter().filter_map(|selected| Self { selected, ..self }.numeric_lifetime_ms()).min();
+        }
         if self.selected==Instrument::Heading {
             return self.heading_model().magnetic_deg.map(|_|self.heading_stale_ms().saturating_sub(self.heading.age_ms.unwrap_or(self.heading_stale_ms())));
         }
@@ -513,9 +591,14 @@ mod tests {
             source_session: 0,
             source_sequence: 0,
             source_received_ms: 0,
+            pressure_altitude: instrument_core::Reading {value: Some(4520.), quality: Quality::Valid, age_ms: Some(0)},
             baro_age_ms: None,
+            calibration: None,
+            gauge_profile: None,
+            baro_quality: Quality::Valid,
             source_label: "SIM INPUT",
             kollsman_pressed: false,
+            altitude_hidden: false,
             menu: None,
             center_pressed: false,
             selected: Instrument::Altimeter,

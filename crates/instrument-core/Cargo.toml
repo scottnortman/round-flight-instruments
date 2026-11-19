@@ -8,4 +8,5 @@ license = "Apache-2.0"
 path = "src/lib.rs"
 
 [dependencies]
+attitude-estimator = { path = "../attitude-estimator" }
 simulator-link = { path = "../simulator-link" }

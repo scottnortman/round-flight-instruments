@@ -140,11 +140,15 @@ struct Presented {
     presented_ms: u32,
     source_age_ms: Option<u64>,
     altitude: Option<f32>,
+    pressure_altitude: Option<f32>,
     ias: Option<f32>,
     heading: Option<f32>,
     vsi: Option<f32>,
     pitch: Option<f32>,
     roll: Option<f32>,
+    turn: Option<f32>,
+    ball: Option<f32>,
+    baro: Option<f32>,
     instrument: Option<Instrument>,
     quality: u32,
     holding: bool,
@@ -194,12 +198,19 @@ struct Shared {
     shown_instrument: AtomicU32,
     shown_editor: AtomicBool,
     shown_menu: AtomicU32,
+    shown_calibration: AtomicU32,
 }
 pub struct Service {
     shared: Arc<Shared>,
     stats: Mutex<Stats>,
     interaction: RefCell<Controller>,
     navigation: RefCell<instrument_ui::navigation::Controller>,
+    calibration_ui: RefCell<instrument_ui::calibration::Controller>,
+    calibration_status: RefCell<(instrument_core::calibration::View,bool)>,
+    calibration_command: RefCell<Option<instrument_core::ImuCommand>>,
+    calibration_open_requested: RefCell<bool>,
+    calibration_feedback: RefCell<bool>,
+    visibility: RefCell<instrument_ui::visibility::Controller>,
     device_info: RefCell<instrument_core::device::Info>,
     touch_input: RefCell<instrument_ui::interaction::InputCache>,
     touch_snapshot_misses: AtomicU32,
@@ -282,6 +293,7 @@ impl Service {
             shown_instrument: AtomicU32::new(2),
             shown_editor: AtomicBool::new(false),
             shown_menu: AtomicU32::new(0),
+            shown_calibration: AtomicU32::new(0),
         });
         let guard = s.clone();
         thread::Builder::new()
@@ -406,6 +418,12 @@ impl Service {
         Ok(Self {
             interaction: RefCell::new(Controller::default()),
             navigation: RefCell::new(instrument_ui::navigation::Controller::default()),
+            calibration_ui: RefCell::new(instrument_ui::calibration::Controller::default()),
+            calibration_status: RefCell::new((instrument_core::calibration::View::default(),false)),
+            calibration_command: RefCell::new(None),
+            calibration_open_requested: RefCell::new(false),
+            calibration_feedback: RefCell::new(false),
+            visibility: RefCell::new(instrument_ui::visibility::Controller::default()),
             device_info: RefCell::new(instrument_core::device::Info::default()),
             touch_input: RefCell::new(instrument_ui::interaction::InputCache::default()),
             touch_snapshot_misses: AtomicU32::new(0),
@@ -418,6 +436,19 @@ impl Service {
             }),
         })
     }
+    pub fn set_calibration_status(&self, status: Option<instrument_core::calibration::View>, available: bool) {
+        let mut stored=self.calibration_status.borrow_mut();
+        if let Some(status)=status {
+            if self.calibration_ui.borrow().view().is_some() && stored.0.job==status.job
+                && (stored.0.pose!=status.pose || (stored.0.phase!=status.phase && matches!(status.phase,instrument_core::calibration::Phase::Review|instrument_core::calibration::Phase::Failed))) {
+                *self.calibration_feedback.borrow_mut()=true;
+            }
+            stored.0=status;
+        }
+        stored.1=available && stored.0.storage_available;
+    }
+    pub fn take_imu_command(&self)->Option<instrument_core::ImuCommand> {self.calibration_command.borrow_mut().take()}
+    pub fn calibration_command_result(&self,ok:bool) {self.calibration_ui.borrow_mut().acknowledge_command(ok);}
     pub fn set_device_info(&self, info: instrument_core::device::Info) { *self.device_info.borrow_mut()=info; }
     pub fn publish(&self, app: &mut App, touch: Option<crate::touch::State>) -> bool {
         let s = &self.shared;
@@ -428,6 +459,8 @@ impl Service {
         }
         let mut interaction = self.interaction.borrow_mut();
         let mut navigation = self.navigation.borrow_mut();
+        let mut calibration_ui = self.calibration_ui.borrow_mut();
+        let calibration_was_open = calibration_ui.view().is_some();
         let healthy = s.light.load(Ordering::Acquire)
             && !s.pattern.load(Ordering::Acquire)
             && s.enabled.load(Ordering::Acquire)
@@ -453,26 +486,52 @@ impl Service {
         let selection = navigation.update_visible(
             app.now_ms(),
             input,
-            navigation_healthy && interaction.view().is_none() && !interaction.window_pressed(),
+            navigation_healthy && interaction.view().is_none() && !interaction.window_pressed() && !calibration_was_open,
             s.light.load(Ordering::Acquire),
             instrument_ui::navigation::Context::from_app(app),
             s.shown_menu.load(Ordering::Acquire),
         );
-        let allowed = healthy
+        let (calibration_status,calibration_available)=*self.calibration_status.borrow();
+        if (navigation.calibrate_requested() || self.calibration_open_requested.replace(false)) && app.set_calibration_overlay(true) {
+            interaction.cancel(); self.visibility.borrow_mut().cancel();
+            calibration_ui.open(calibration_status,calibration_available,app.now_ms());
+        }
+        if let Some(command)=calibration_ui.update(app.now_ms(),input,instrument_ui::calibration::Context {
+            healthy:navigation_healthy,visible:s.light.load(Ordering::Acquire),presented:s.shown_calibration.load(Ordering::Acquire),
+            status:calibration_status,available:calibration_available}) {
+            *self.calibration_command.borrow_mut()=Some(command);
+        }
+        if calibration_ui.view().is_some() {let _=app.set_calibration_overlay(true);}
+        else if s.shown_calibration.load(Ordering::Acquire)==0 {let _=app.set_calibration_overlay(false);}
+        let demo_requested = navigation.demo_requested();
+        if demo_requested {
+            interaction.cancel();
+            self.visibility.borrow_mut().cancel();
+            let _ = app.apply(Command::Demo(Some(!app.demo_active())));
+        }
+        let allowed = healthy && !calibration_was_open && calibration_ui.view().is_none()
             && app.baro_edit_allowed()
-            && app.selected() == Instrument::Altimeter
+            && matches!(app.selected(),Instrument::Altimeter | Instrument::Consolidated)
             && !menu_was_busy
             && !navigation.busy()
-            && selection.is_none();
-        if let Some(value) = interaction.update(
+            && selection.is_none()
+            && !demo_requested;
+        if let Some(value) = interaction.update_for_instrument(
             app.now_ms(),
             input,
             allowed,
             app.baro_inhg(),
             s.shown_editor.load(Ordering::Acquire),
+            app.selected(),
         ) {
             let _ = app.apply(Command::Baro(value));
         }
+        let visibility_press = self.visibility.borrow_mut().update(
+            app.now_ms(), input,
+            healthy && navigation_healthy && !calibration_was_open && calibration_ui.view().is_none() && app.selected() == Instrument::Altimeter
+                && interaction.view().is_none() && !interaction.window_pressed()
+                && !menu_was_busy && !navigation.busy() && selection.is_none(),
+        );
         if let Some(instrument) = selection {
             let _ = app.apply(Command::Select(instrument));
         }
@@ -483,14 +542,16 @@ impl Service {
         if let Ok(mut v) = s.snapshot.try_lock() {
             let mut snapshot = Snapshot::from_app(app);
             snapshot.device = *self.device_info.borrow();
+            snapshot.altitude_hidden = self.visibility.borrow().hidden();
             snapshot.editor = interaction.view();
             snapshot.kollsman_pressed = interaction.window_pressed();
             snapshot.menu = navigation.view();
+            snapshot.calibration = calibration_ui.view();
             snapshot.center_pressed = navigation.center_pressed();
             *v = Some((snapshot, Instant::now()));
             s.owner.store(now(), Ordering::Release);
         }
-        interaction.press_started() || navigation.press_started()
+        interaction.press_started() || navigation.press_started() || visibility_press || calibration_ui.press_started || self.calibration_feedback.replace(false)
     }
     pub fn handle(&self, command: DisplayCommand) -> Response {
         let s = &self.shared;
@@ -522,15 +583,19 @@ impl Service {
                     }
                 }
                 let firmware_hash = core::str::from_utf8(&hash).unwrap();
+                let imu_task = unsafe { sys::xTaskGetHandle(c"imu".as_ptr()) };
+                let imu_stack = if imu_task.is_null() { 0 } else {
+                    unsafe { sys::uxTaskGetStackHighWaterMark(imu_task) }
+                };
                 // Query-only diagnostics. No allocation or display/source change.
                 return unsafe { reply(format_args!(
-                    "OK memory firmware_elf_sha256={firmware_hash} app_offset_bytes={app_offset} app_size_bytes={app_size} internal_total_bytes={} internal_free_bytes={} internal_min_free_bytes={} internal_largest_bytes={} psram_total_bytes={} psram_free_bytes={} psram_min_free_bytes={} psram_largest_bytes={} dma_free_bytes={} dma_largest_bytes={} display_stack_min_free_bytes={} internal_caps=internal+8bit",
+                    "OK memory firmware_elf_sha256={firmware_hash} app_offset_bytes={app_offset} app_size_bytes={app_size} internal_total_bytes={} internal_free_bytes={} internal_min_free_bytes={} internal_largest_bytes={} psram_total_bytes={} psram_free_bytes={} psram_min_free_bytes={} psram_largest_bytes={} dma_free_bytes={} dma_largest_bytes={} display_stack_min_free_bytes={} imu_stack_min_free_bytes={} internal_caps=internal+8bit",
                     sys::heap_caps_get_total_size(internal),sys::heap_caps_get_free_size(internal),
                     sys::heap_caps_get_minimum_free_size(internal),sys::heap_caps_get_largest_free_block(internal),
                     sys::heap_caps_get_total_size(external),sys::heap_caps_get_free_size(external),
                     sys::heap_caps_get_minimum_free_size(external),sys::heap_caps_get_largest_free_block(external),
                     sys::heap_caps_get_free_size(dma),sys::heap_caps_get_largest_free_block(dma),
-                    s.stack_min.load(Ordering::Acquire)
+                    s.stack_min.load(Ordering::Acquire), imu_stack
                 )) };
             }
             DisplayCommand::SampleStatus => {
@@ -539,7 +604,7 @@ impl Service {
                     Err(_) => return reply(format_args!("ERR display_sample_busy")),
                 };
                 let at = now();
-                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={} shown_ias_kt={:?} ias_over_range={} shown_heading_deg={:?} shown_vsi_fpm={:?}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][if s.hold_misses.load(Ordering::Acquire)>0 && v.quality==0 {8}else{v.quality as usize}],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,(v.holding || s.hold_active.load(Ordering::Acquire)),v.ias,v.ias.is_some_and(|ias|ias>instrument_ui::airspeed::MAX_KT),v.heading,v.vsi));
+                return reply(format_args!("OK display_sample now_display_ms={} presented_display_ms={} session={} sequence={} received_owner_ms={} source_age_at_present_ms={:?} source_age_now_ms={:?} shown_alt_ft={:?} quality={} renderer={} shown_pitch_deg={:?} shown_roll_deg={:?} holding={} shown_ias_kt={:?} ias_over_range={} shown_heading_deg={:?} shown_vsi_fpm={:?} shown_pressure_alt_ft={:?} shown_turn_dps={:?} shown_ball={:?} shown_baro_inhg={:?}",at,v.presented_ms,v.session,v.sequence,v.received_ms,v.source_age_ms,v.source_age_ms.map(|age|age.saturating_add(at.wrapping_sub(v.presented_ms) as u64)),v.altitude,["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][if s.hold_misses.load(Ordering::Acquire)>0 && v.quality==0 {8}else{v.quality as usize}],v.instrument.map_or("unknown",Instrument::name),v.pitch,v.roll,(v.holding || s.hold_active.load(Ordering::Acquire)),v.ias,v.ias.is_some_and(|ias|ias>instrument_ui::airspeed::MAX_KT),v.heading,v.vsi,v.pressure_altitude,v.turn,v.ball,v.baro));
             }
             DisplayCommand::TouchSound(_) | DisplayCommand::TouchSoundStatus => {
                 return reply(format_args!("ERR touch_sound_unavailable"))
@@ -550,6 +615,10 @@ impl Service {
                 }
                 return reply(format_args!("OK touch hold_ms={ms} edit=cancelled"));
             }
+            DisplayCommand::Calibration => {
+                *self.calibration_open_requested.borrow_mut()=true;
+                return reply(format_args!("OK display calibration_requested=true completion=touch_status"));
+            }
             DisplayCommand::MenuHold(ms) => {
                 if !self.navigation.borrow_mut().set_hold_ms(ms) {
                     return reply(format_args!("ERR range"));
@@ -557,8 +626,14 @@ impl Service {
                 return reply(format_args!("OK touch menu_hold_ms={ms} menu=cancelled"));
             }
             DisplayCommand::TouchCancel => {
+                match self.calibration_ui.borrow_mut().dismiss() {
+                    Ok(Some(command))=>*self.calibration_command.borrow_mut()=Some(command),
+                    Ok(None)=>(),
+                    Err(_)=>return reply(format_args!("ERR calibration_busy")),
+                }
                 self.interaction.borrow_mut().cancel();
                 self.navigation.borrow_mut().cancel();
+                self.visibility.borrow_mut().cancel();
                 return reply(format_args!("OK touch edit=cancelled"));
             }
             DisplayCommand::TouchStatus => {
@@ -567,10 +642,10 @@ impl Service {
                 let sample = state.and_then(|s| s.sample);
                 let menu = self.navigation.borrow();
                 let (block,blocks,block_at,opens)=menu.diagnostics();
-                return reply(format_args!("OK touch ready={} hold_ms={} overlay={} draft_cents={:?} contact={:?} age_ms={:?} polls={} reports={} errors={} last_error={:?} menu={} menu_hold_ms={} center_pressed={} menu_generation={} shown_menu={} snapshot_misses={} menu_block={} menu_blocks={} menu_block_at_ms={} menu_opens={}",
+                return reply(format_args!("OK touch ready={} hold_ms={} overlay={} draft_cents={:?} contact={:?} age_ms={:?} polls={} reports={} errors={} last_error={:?} menu={} menu_hold_ms={} center_pressed={} menu_generation={} shown_menu={} snapshot_misses={} menu_block={} menu_blocks={} menu_block_at_ms={} menu_opens={} altitude_hidden={} calibration_open={} shown_calibration={}",
                     state.is_some_and(|s|s.ready),ui.hold_ms(),ui.view().is_some(),ui.view().map(|v|v.cents),sample.map(|s|s.0),sample.map(|s|s.1.elapsed().as_millis()),
                     state.map_or(0,|s|s.polls),state.map_or(0,|s|s.reports),state.map_or(0,|s|s.errors),state.and_then(|s|s.error),
-                    menu.view().is_some(),menu.hold_ms(),menu.center_pressed(),menu.view().map_or(0,|v|v.generation),s.shown_menu.load(Ordering::Acquire), self.touch_snapshot_misses.load(Ordering::Relaxed),block,blocks,block_at,opens));
+                    menu.view().is_some(),menu.hold_ms(),menu.center_pressed(),menu.view().map_or(0,|v|v.generation),s.shown_menu.load(Ordering::Acquire), self.touch_snapshot_misses.load(Ordering::Relaxed),block,blocks,block_at,opens,self.visibility.borrow().hidden(),self.calibration_ui.borrow().view().is_some(),s.shown_calibration.load(Ordering::Acquire)));
             }
             DisplayCommand::Stats | DisplayCommand::StatsReset | DisplayCommand::StatsStop => {
                 let Ok(mut stats) = self.stats.try_lock() else {
@@ -619,7 +694,7 @@ impl Service {
             DisplayCommand::TransferStall => s.stall.store(2, Ordering::Release),
             DisplayCommand::Recover => s.stall.store(0, Ordering::Release),
             DisplayCommand::Status => {
-                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?} deadline_holding={} consecutive_misses={} allowed_misses={} deadline_blanks={} last_blank_misses={}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn","airspeed","heading","vsi"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][if s.hold_misses.load(Ordering::Acquire)>0 && s.shown_quality.load(Ordering::Acquire)==0 {8}else{s.shown_quality.load(Ordering::Acquire) as usize}],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None},s.hold_active.load(Ordering::Acquire),s.hold_misses.load(Ordering::Acquire),s.hold_allowed.load(Ordering::Acquire),s.hold_blanks.load(Ordering::Acquire),s.last_blank_misses.load(Ordering::Acquire)));
+                return reply(format_args!("OK display pclk_requested_hz={} pclk_applied_hz={} ready={} failed={} backlight={} enabled={} mode={} stall={} frames={} frame_age_ms={} owner_age_ms={} render_max_ms={} transfer_max_ms={} stack_free_bytes={} psram_bytes={} internal_free_bytes={} blanked_at_ms={} expired_ticks={} expired_source_valid={} expired_source_invalid={} source={} renderer={} shown_quality={} shown_alt_ft={:?} deadline_holding={} consecutive_misses={} allowed_misses={} deadline_blanks={} last_blank_misses={}",s.requested_pclk.load(Ordering::Acquire),s.applied_pclk.load(Ordering::Acquire),s.ready.load(Ordering::Acquire),s.failed.load(Ordering::Acquire),s.light.load(Ordering::Acquire),s.enabled.load(Ordering::Acquire),if s.pattern.load(Ordering::Acquire){"pattern"}else{"gauge"},s.stall.load(Ordering::Acquire),s.frames.load(Ordering::Acquire),now().wrapping_sub(s.presented.load(Ordering::Acquire)),now().wrapping_sub(s.owner.load(Ordering::Acquire)),s.render_max.load(Ordering::Acquire),s.transfer_max.load(Ordering::Acquire),s.stack_min.load(Ordering::Acquire),unsafe{sys::esp_psram_get_size()},unsafe{sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL)},s.blanked_at.load(Ordering::Acquire),s.expired_ticks.load(Ordering::Acquire),s.expired_source_valid.load(Ordering::Acquire),s.expired_source_invalid.load(Ordering::Acquire),s.snapshot.try_lock().ok().and_then(|v|v.as_ref().map(|(v,_)|if v.source_label.starts_with("DEMO ") {"demo"} else if v.imu_bench {"imu_bench"} else if v.external {"external"} else {"sim"})).unwrap_or("unknown"),["altimeter","attitude","placeholder","turn","airspeed","heading","vsi","consolidated","debug"][s.shown_instrument.load(Ordering::Acquire) as usize],["valid","missing","stale","failed","timing_fault","placeholder","pattern","menu","held"][if s.hold_misses.load(Ordering::Acquire)>0 && s.shown_quality.load(Ordering::Acquire)==0 {8}else{s.shown_quality.load(Ordering::Acquire) as usize}],if s.shown_quality.load(Ordering::Acquire)==0 && s.shown_instrument.load(Ordering::Acquire)==0 {Some(f32::from_bits(s.shown_altitude.load(Ordering::Acquire)))}else{None},s.hold_active.load(Ordering::Acquire),s.hold_misses.load(Ordering::Acquire),s.hold_allowed.load(Ordering::Acquire),s.hold_blanks.load(Ordering::Acquire),s.last_blank_misses.load(Ordering::Acquire)));
             }
         }
         reply(format_args!(
@@ -640,6 +715,8 @@ struct Backend {
     airspeed_backdrop: &'static mut [u16],
     heading_backdrop: &'static mut [u16],
     vsi_backdrop: &'static mut [u16],
+    consolidated_backdrop: &'static mut [u16],
+    debug_backdrop: &'static mut [u16],
     foreground_pixels: &'static mut [u16],
     navigation_pixels: &'static mut [u16],
     wake: Queue<u32>,
@@ -733,6 +810,12 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
     let vsi_backdrop=unsafe{sys::heap_caps_calloc(480*480,2,sys::MALLOC_CAP_SPIRAM|sys::MALLOC_CAP_8BIT)};
     if vsi_backdrop.is_null(){return Err(io::Error::other("LCD VSI backdrop allocation"));}
     let vsi_backdrop=unsafe{core::slice::from_raw_parts_mut(vsi_backdrop.cast::<u16>(),480*480)};
+    let consolidated_backdrop=unsafe{sys::heap_caps_calloc(480*480,2,sys::MALLOC_CAP_SPIRAM|sys::MALLOC_CAP_8BIT)};
+    if consolidated_backdrop.is_null(){return Err(io::Error::other("LCD consolidated backdrop allocation"));}
+    let consolidated_backdrop=unsafe{core::slice::from_raw_parts_mut(consolidated_backdrop.cast::<u16>(),480*480)};
+    let debug_backdrop=unsafe{sys::heap_caps_calloc(480*480,2,sys::MALLOC_CAP_SPIRAM|sys::MALLOC_CAP_8BIT)};
+    if debug_backdrop.is_null(){return Err(io::Error::other("LCD debug backdrop allocation"));}
+    let debug_backdrop=unsafe{core::slice::from_raw_parts_mut(debug_backdrop.cast::<u16>(),480*480)};
     let navigation_pixels = unsafe {
         sys::heap_caps_calloc(480 * 480, 2, sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT)
     };
@@ -780,6 +863,8 @@ fn create_backend(shared: Arc<Shared>) -> io::Result<Backend> {
         airspeed_backdrop,
         heading_backdrop,
         vsi_backdrop,
+        consolidated_backdrop,
+        debug_backdrop,
         foreground_pixels,
         navigation_pixels,
         wake,
@@ -795,6 +880,8 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         airspeed_backdrop,
         heading_backdrop,
         vsi_backdrop,
+        consolidated_backdrop,
+        debug_backdrop,
         foreground_pixels,
         navigation_pixels,
         wake,
@@ -808,6 +895,10 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         .ok_or_else(|| io::Error::other("LCD airspeed backdrop size"))?;
     let mut heading_renderer=render::CachedRenderer::new(heading_backdrop,480,480).ok_or_else(||io::Error::other("LCD heading backdrop size"))?;
     let mut vsi_renderer=render::CachedRenderer::new(vsi_backdrop,480,480).ok_or_else(||io::Error::other("LCD VSI backdrop size"))?;
+    let mut consolidated_renderer=render::CachedRenderer::new(consolidated_backdrop,480,480)
+        .ok_or_else(||io::Error::other("LCD consolidated backdrop size"))?;
+    let mut debug_renderer=render::CachedRenderer::new(debug_backdrop,480,480)
+        .ok_or_else(||io::Error::other("LCD debug backdrop size"))?;
     let mut attitude_renderer = render::CachedRenderer::with_foreground_cache(
         attitude_backdrop,
         480,
@@ -818,7 +909,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     .with_foreground_pixels(foreground_pixels);
     let mut navigation_cache = render::NavigationCache::new(navigation_pixels)
         .ok_or_else(|| io::Error::other("LCD shared navigation cache size"))?;
-    // Warm all six static faces before the first visible frame. Switching views
+    // Warm all eight static faces before the first visible frame. Switching views
     // must not discard/rebuild the other face while a 100 ms attitude deadline
     // is running. These CPU-only caches contain artwork, not sampled readings.
     let mut warm = loop {
@@ -846,6 +937,10 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     if !heading_renderer.prepare_background(warm){return Err(io::Error::other("heading preparation"));}
     warm.selected=Instrument::Vsi;
     if !vsi_renderer.prepare_background(warm){return Err(io::Error::other("VSI preparation"));}
+    warm.selected = Instrument::Consolidated;
+    if !consolidated_renderer.prepare_background(warm){return Err(io::Error::other("consolidated preparation"));}
+    warm.selected = Instrument::Debug;
+    if !debug_renderer.prepare_background(warm){return Err(io::Error::other("debug preparation"));}
     warm.selected = Instrument::Attitude;
     if !attitude_renderer.prepare_background(warm) {
         return Err(io::Error::other("attitude preparation"));
@@ -854,8 +949,10 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
     navigation_cache.prepare_background(warm);
     let mut applied_pclk = 18_000_000;
     s.applied_pclk.store(applied_pclk, Ordering::Release);
-    let mut histories =
-        core::array::from_fn::<_, 3, _>(|_| instrument_ui::damage::FrameHistory::new());
+    // Three retained damage maps grow with modal history. Allocate them once
+    // rather than consume the raster task's call-stack reserve on every path.
+    let mut histories = Vec::with_capacity(3);
+    for _ in 0..3 { histories.push(instrument_ui::damage::FrameHistory::new()); }
     let mut pipeline = FramePipeline::<RenderedFrame>::new();
     let mut idle_budget = Instant::now();
     let mut last_draw_ms = 30u32;
@@ -895,7 +992,7 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
         // Late capture: avoid spending the spare buffer's source lifetime
         // waiting behind an earlier transfer. Predict only scheduling time;
         // completion counters still exclusively determine DMA ownership.
-        if matches!(previous_view, Some(Instrument::Attitude | Instrument::Turn)) && pipeline.is_pending() {
+        if matches!(previous_view, Some(Instrument::Attitude | Instrument::Turn | Instrument::Consolidated)) && pipeline.is_pending() {
             let frame_ms = (548u64 * 508 * 1000).div_ceil(applied_pclk as u64) as u32;
             loop {
                 // A new view must start immediately: the old attitude frame
@@ -1004,6 +1101,10 @@ fn run_display(s: &Shared, backend: Backend) -> io::Result<()> {
                 &mut heading_renderer
             } else if snapshot.selected==Instrument::Vsi && !pattern {
                 &mut vsi_renderer
+            } else if snapshot.selected==Instrument::Consolidated && !pattern {
+                &mut consolidated_renderer
+            } else if snapshot.selected==Instrument::Debug && !pattern {
+                &mut debug_renderer
             } else {
                 &mut renderer
             };
@@ -1108,7 +1209,7 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
     if grace { s.grace_frames.fetch_add(1, Ordering::Relaxed); }
     let quality = if pattern {
         6
-    } else if snapshot.menu.is_some() {
+    } else if snapshot.menu.is_some() || snapshot.calibration.is_some() {
         7
     } else if grace {
         8
@@ -1139,26 +1240,27 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
             source_age_ms: snapshot
                 .displayed_age_ms()
                 .map(|age| age.saturating_add(presented_ms.wrapping_sub(stamp) as u64)),
-            altitude: if quality == 0 && snapshot.selected == Instrument::Altimeter {
+            altitude: if !pattern && snapshot.menu.is_none() && snapshot.calibration.is_none() && matches!(snapshot.selected, Instrument::Altimeter | Instrument::Consolidated) {
                 model.indicated_ft
             } else {
                 None
             },
-            ias: if !pattern && snapshot.menu.is_none() && snapshot.selected == Instrument::Airspeed {
+            ias: if !pattern && snapshot.menu.is_none() && snapshot.calibration.is_none() && matches!(snapshot.selected, Instrument::Airspeed | Instrument::Consolidated) {
                 snapshot.airspeed_model().ias_kt
             } else { None },
-            heading: if !pattern && snapshot.menu.is_none() && snapshot.selected==Instrument::Heading {snapshot.heading_model().magnetic_deg}else{None},
-            vsi: if !pattern && snapshot.menu.is_none() && snapshot.selected==Instrument::Vsi {snapshot.vsi_model().fpm}else{None},
-            pitch: if !pattern && snapshot.menu.is_none() && snapshot.selected == Instrument::Attitude {
+            heading: if !pattern && snapshot.menu.is_none() && snapshot.calibration.is_none() && matches!(snapshot.selected, Instrument::Heading | Instrument::Consolidated) {snapshot.heading_model().magnetic_deg}else{None},
+            vsi: if !pattern && snapshot.menu.is_none() && snapshot.calibration.is_none() && matches!(snapshot.selected, Instrument::Vsi | Instrument::Consolidated) {snapshot.vsi_model().fpm}else{None},
+            pitch: if !pattern && snapshot.menu.is_none() && snapshot.calibration.is_none() && matches!(snapshot.selected, Instrument::Attitude | Instrument::Consolidated) {
                 snapshot.attitude_model().angles.map(|a| a.pitch_deg)
             } else {
                 None
             },
-            roll: if !pattern && snapshot.menu.is_none() && snapshot.selected == Instrument::Attitude {
+            roll: if !pattern && snapshot.menu.is_none() && snapshot.calibration.is_none() && matches!(snapshot.selected, Instrument::Attitude | Instrument::Consolidated) {
                 snapshot.attitude_model().angles.map(|a| a.roll_deg)
             } else {
                 None
             },
+            pressure_altitude: None, turn: None, ball: None, baro: None,
             instrument: if pattern {
                 None
             } else {
@@ -1169,6 +1271,11 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
                 && snapshot.selected == Instrument::Attitude
                 && snapshot.imu_holding()),
         };
+        if !pattern && snapshot.menu.is_none() && snapshot.calibration.is_none() && snapshot.selected == Instrument::Debug {
+            let values = instrument_ui::debug::rows(snapshot).map(|(_, r)|
+                r.value.filter(|v| v.is_finite() && r.quality == instrument_core::Quality::Valid));
+            [v.altitude, v.pressure_altitude, v.ias, v.pitch, v.roll, v.heading, v.turn, v.ball, v.vsi, v.baro] = values;
+        }
     }
     s.shown_altitude.store(
         model.indicated_ft.unwrap_or(0.).to_bits(),
@@ -1182,12 +1289,14 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
             Instrument::Airspeed => 4,
             Instrument::Heading=>5,
             Instrument::Vsi=>6,
+            Instrument::Consolidated=>7,
+            Instrument::Debug=>8,
         },
         Ordering::Release,
     );
     s.shown_quality.store(quality, Ordering::Release);
     s.shown_editor
-        .store(quality == 0 && snapshot.editor.is_some(), Ordering::Release);
+        .store(!pattern && snapshot.baro_editor_visible(), Ordering::Release);
     s.shown_menu.store(
         if pattern {
             0
@@ -1196,6 +1305,7 @@ fn record_presentation(s: &Shared, frame: RenderedFrame, elapsed: u32) {
         },
         Ordering::Release,
     );
+    s.shown_calibration.store(if pattern {0}else{snapshot.calibration.map_or(0,|v|v.generation)},Ordering::Release);
     s.frames.fetch_add(1, Ordering::Release);
     s.ready.store(true, Ordering::Release);
     s.stack_min.fetch_min(

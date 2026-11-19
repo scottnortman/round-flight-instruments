@@ -15,7 +15,7 @@ choice remains unchanged for one second, the board saves it automatically.
 After a restart or normal firmware update, that gauge is selected again.
 Power removal before the save completes can restore the earlier selection.
 
-Hold the center for three seconds, release, and tap **INFO**. The information
+Hold the center for one second, release, and tap **INFO**. The information
 page shows the firmware's Git revision and the board's full UUID, on two lines.
 **BACK** returns to gauge selection. INFO and BACK have the same blue pressed
 feedback, release-to-activate behavior and single chirp as the other buttons.

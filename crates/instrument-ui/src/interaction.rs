@@ -24,6 +24,8 @@ pub const KOLLSMAN: Rect = Rect {
     w: 136,
     h: 42,
 };
+/// Shared geometry for the Combined footer button and its touch target.
+pub const COMBINED_QNH: Rect = Rect { x:146, y:422, w:188, h:26 };
 pub const MINUS: Rect = Rect {
     x: 104,
     y: 220,
@@ -126,6 +128,7 @@ struct Edit {
     pressed: Option<(Button, u8)>,
 }
 pub struct Controller {
+    instrument: Option<instrument_core::Instrument>,
     hold_ms: u32,
     armed: bool,
     holding: Option<(u64, u8, u16, u16)>,
@@ -136,6 +139,7 @@ pub struct Controller {
 impl Default for Controller {
     fn default() -> Self {
         Self {
+            instrument: None,
             hold_ms: 250,
             armed: false,
             holding: None,
@@ -185,6 +189,16 @@ impl Controller {
         baro: f32,
         editor_presented: bool,
     ) -> Option<f32> {
+        self.update_for_instrument(now,input,allowed,baro,editor_presented,instrument_core::Instrument::Altimeter)
+    }
+    pub fn update_for_instrument(
+        &mut self, now:u64, input:Option<Input>, allowed:bool, baro:f32,
+        editor_presented:bool, instrument:instrument_core::Instrument,
+    ) -> Option<f32> {
+        use instrument_core::Instrument;
+        if self.instrument!=Some(instrument) {self.cancel();self.instrument=Some(instrument);}
+        let target=if instrument==Instrument::Consolidated {COMBINED_QNH}else{KOLLSMAN};
+        let tap=instrument==Instrument::Consolidated;
         self.press_started = false;
         let gap_bad = self.last_tick.is_some_and(|last| {
             now.checked_sub(last)
@@ -199,6 +213,7 @@ impl Controller {
             return None;
         };
         if !allowed
+            || !matches!(instrument,Instrument::Altimeter|Instrument::Consolidated)
             || gap_bad
             || !baro.is_finite()
             || !(28.1..=31.).contains(&baro)
@@ -223,6 +238,11 @@ impl Controller {
         }
         match input.contact {
             Contact::Up => {
+                if tap && self.holding.is_some() && self.edit.is_none() {
+                    self.edit=Some(Edit {original:baro.to_bits(),cents:libm::roundf(baro*100.)as u16,activity:now,pressed:None});
+                    self.holding=None;self.armed=false;
+                    return None;
+                }
                 self.holding = None;
                 self.armed = true;
                 if let Some(mut e) = self.edit {
@@ -260,12 +280,12 @@ impl Controller {
                     self.edit = Some(e);
                 } else if let Some((start, first_id, ox, oy)) = self.holding {
                     if id != first_id
-                        || !KOLLSMAN.contains(x, y)
+                        || !target.contains(x, y)
                         || ox.abs_diff(x) > 16
                         || oy.abs_diff(y) > 16
                     {
                         self.holding = None;
-                    } else if input.at_ms.saturating_sub(start) >= self.hold_ms as u64 {
+                    } else if !tap && input.at_ms.saturating_sub(start) >= self.hold_ms as u64 {
                         self.edit = Some(Edit {
                             original: baro.to_bits(),
                             cents: libm::roundf(baro * 100.) as u16,
@@ -274,7 +294,7 @@ impl Controller {
                         });
                         self.holding = None;
                     }
-                } else if self.armed && KOLLSMAN.contains(x, y) {
+                } else if self.armed && target.contains(x, y) {
                     self.holding = Some((input.at_ms, id, x, y));
                     self.press_started = true;
                     self.armed = false;
@@ -290,6 +310,39 @@ impl Controller {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn combined_qnh_tap_opens_shared_editor_and_requires_presented_release_before_apply() {
+        use instrument_core::Instrument;
+        let mut c=Controller::default();
+        let feed=|c:&mut Controller,t,contact,presented|c.update_for_instrument(t,Some(Input{at_ms:t,contact}),true,29.92,presented,Instrument::Consolidated);
+        feed(&mut c,0,Contact::Up,false);
+        feed(&mut c,20,down(240,430),false);assert!(c.window_pressed());assert!(c.view().is_none());
+        assert_eq!(feed(&mut c,40,Contact::Up,false),None);assert_eq!(c.view().unwrap().cents,2992);
+        feed(&mut c,60,down(300,310),false);assert_eq!(feed(&mut c,80,Contact::Up,false),None);
+        feed(&mut c,100,Contact::Up,true);feed(&mut c,120,down(340,245),true);feed(&mut c,140,Contact::Up,true);
+        assert_eq!(c.view().unwrap().cents,2993);
+        feed(&mut c,160,down(300,310),true);assert_eq!(feed(&mut c,180,Contact::Up,true),Some(29.93));assert!(c.view().is_none());
+    }
+    #[test]
+    fn combined_opening_rejects_drag_multiple_stale_readonly_and_screen_changes() {
+        use instrument_core::Instrument;
+        for cause in 0..6 {
+            let mut c=Controller::default();
+            c.update_for_instrument(0,Some(Input{at_ms:0,contact:Contact::Up}),true,29.92,true,Instrument::Consolidated);
+            c.update_for_instrument(20,Some(Input{at_ms:20,contact:down(240,430)}),true,29.92,true,Instrument::Consolidated);
+            let (at,input,allowed,instrument)=match cause {
+                0=>(40,Some(Input{at_ms:40,contact:down(80,430)}),true,Instrument::Consolidated),
+                1=>(40,Some(Input{at_ms:40,contact:Contact::Multiple}),true,Instrument::Consolidated),
+                2=>(200,Some(Input{at_ms:20,contact:Contact::Up}),true,Instrument::Consolidated),
+                3=>(40,Some(Input{at_ms:40,contact:Contact::Up}),false,Instrument::Consolidated),
+                4=>(40,Some(Input{at_ms:40,contact:Contact::Up}),true,Instrument::Altimeter),
+                _=>(40,None,true,Instrument::Consolidated),
+            };
+            c.update_for_instrument(at,input,allowed,29.92,true,instrument);
+            c.update_for_instrument(at+20,Some(Input{at_ms:at+20,contact:Contact::Up}),allowed,29.92,true,instrument);
+            assert!(c.view().is_none(),"cause {cause}");
+        }
+    }
     #[test]
     fn offscreen_rectangles_do_not_wrap_hit_targets() {
         let r = super::Rect {

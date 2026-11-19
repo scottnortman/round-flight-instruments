@@ -285,6 +285,29 @@ fn read_only_never_enables_controls_and_pause_hides_numeric_values() {
         .any(|c| c.starts_with("control enable")));
 }
 #[test]
+fn combined_qnh_uses_the_same_readonly_claim_and_confirmed_readback_path() {
+    use instrument_core::Instrument;
+    let mut readonly=rig_profile(false,Instrument::Consolidated,true);
+    readonly.feed(0,Lifecycle::Running,29.92);
+    assert!(!readonly.device.borrow().app.baro_edit_allowed());
+    assert!(readonly.device.borrow_mut().app.apply(Command::Baro(29.93)).is_err());
+    assert!(readonly.provider.borrow().writes.is_empty());
+    let mut r=rig_profile(true,Instrument::Consolidated,true);
+    r.feed(0,Lifecycle::Running,29.92);assert!(r.device.borrow().app.baro_edit_allowed());
+    r.edit(29.93);r.feed(33,Lifecycle::Running,29.92);
+    assert_eq!(r.provider.borrow().writes.len(),1);
+    assert_eq!(r.device.borrow().app.baro_inhg(),29.92);
+    assert!(r.device.borrow().commands.iter().any(|c|c.starts_with("control claim ")));
+    r.provider.borrow_mut().reply.as_mut().unwrap().status=Status::Confirmed;
+    r.feed(66,Lifecycle::Running,29.93);assert_eq!(r.device.borrow().app.control_status(),Some(Status::Confirmed));
+    r.feed(99,Lifecycle::Running,29.93);assert_eq!(r.provider.borrow().writes.len(),1);
+    r.device.borrow_mut().app.apply(Command::Select(Instrument::Heading)).unwrap();
+    assert!(r.device.borrow_mut().app.apply(Command::Baro(30.)).is_err());
+    r.device.borrow_mut().app.apply(Command::Select(Instrument::Consolidated)).unwrap();
+    r.device.borrow_mut().app.apply(Command::Demo(Some(true))).unwrap();
+    assert!(!r.device.borrow().app.baro_edit_allowed());
+}
+#[test]
 fn writeback_requires_later_telemetry_and_is_not_replayed() {
     let mut r = rig(true);
     r.feed(0, Lifecycle::Running, 29.92);

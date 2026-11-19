@@ -14,8 +14,8 @@ on November 4, 2026. This source checkpoint has no new prebuilt release assets.
 
 ## Select and exercise a gauge
 
-Hold the center for **3 seconds**, release, then tap a face. The time remains
-configurable with `touch menu hold 3000`. Selection preserves the data source;
+Hold the center for **1 second**, release, then tap a face. The time remains
+configurable with `touch menu hold 1000`. Selection preserves the data source;
 it does not start a demonstration or change aircraft controls. Local simulation
 and the tray app's T2 stream support all six choices. T1 supports Altimeter
 only; IMU bench mode supports Attitude only.
@@ -32,7 +32,7 @@ sim heading 60
 
 Use `sim vsi 60`, `sim airspeed 60`, `sim attitude 60`, `sim turn 60` or
 `sim takeoff 60` for the other faces. One demo runs at a time. Durations are
-5–600 seconds. Each supports `stop` and `status`; stopping holds the current
+5â€“600 seconds. Each supports `stop` and `status`; stopping holds the current
 simulated value. Manual changes to that demo's inputs stop it. Changing source,
 pausing, faulting an owned input or resetting the preset also stops it.
 These commands cannot replace external or IMU readings.
@@ -44,14 +44,14 @@ These commands cannot replace external or IMU readings.
 | Airspeed | `instrument airspeed`, `sim set ias_kt 85` | Indicated knots; [limits and scale policy](AIRSPEED.md) |
 
 Heading matches the phone prototype's rotating compass card and fixed aircraft.
-The index points to the magnetic heading. East comes under the index at 90°;
+The index points to the magnetic heading. East comes under the index at 90Â°;
 north then sits to the left. The heading demo crosses north in both directions
 without a false full-circle jump. No true heading, track or unreferenced IMU
 fallback replaces missing magnetic heading.
 
-VSI has a conventional zero-left **±2,000 ft/min** face. The numerals are in
+VSI has a conventional zero-left **Â±2,000 ft/min** face. The numerals are in
 hundreds of ft/min: 5 = 500, 10 = 1,000. Climb moves above zero, descent below.
-The white pointer has a thin orange outline. Valid readings beyond ±2,000 show
+The white pointer has a thin orange outline. Valid readings beyond Â±2,000 show
 **OVER RANGE** and their actual signed ft/min, with no misleading pegged pointer.
 The model has a validated scale-profile boundary for future configuration;
 host configuration and persistence remain TBD. The gauge uses direct simulator
@@ -88,7 +88,7 @@ on the board. Use the existing
 3. Compare Airspeed against the cockpit's **indicated** knots, Heading against
    **magnetic** heading, and VSI against vertical speed in **ft/min**. Check
    level flight, climb, descent, turns and a north crossing. A jet above 200 KIAS
-   or ±2,000 ft/min will deliberately show the relevant overrange indication.
+   or Â±2,000 ft/min will deliberately show the relevant overrange indication.
 4. Watch for flicker, tearing, leftover pointers, red X during fresh running
    data, resets or an unresponsive menu. Check all six, especially rapid-motion
    Attitude and Turn. Do not evaluate against paused/loading or missing inputs.

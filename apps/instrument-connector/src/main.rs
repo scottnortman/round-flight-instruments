@@ -63,7 +63,7 @@ fn options(args: &[String]) -> io::Result<BTreeMap<String, String>> {
             "--msfs" | "--writeback" | "--diagnostics" | "--frame-timing" | "--switch-demo"
             | "--sixpack" | "--app-status" => String::new(),
             "--port" | "--config" | "--dll" | "--desktop" | "--synthetic" | "--replay"
-            | "--log-dir" | "--duration" | "--stop-file" | "--synthetic-age-ms" => it
+            | "--gauge-profile" | "--log-dir" | "--duration" | "--stop-file" | "--synthetic-age-ms" => it
                 .next()
                 .filter(|v| !v.starts_with("--"))
                 .ok_or_else(|| io::Error::other(format!("value needed for {key}")))?
@@ -261,6 +261,11 @@ fn execute(
             transport::DesktopWire::open(Path::new(&opts["--desktop"]))?,
         )?)
     };
+    let device: Box<dyn DeviceLink> = if let Some(path)=opts.get("--gauge-profile") {
+        if !opts.contains_key("--sixpack") {return Err(io::Error::other("Gauge profiles require --sixpack."));}
+        let profile=aircraft_profiles::store::read_profile(Path::new(path))?;
+        Box::new(transport::ProfileDevice::new(device,profile)?)
+    }else{device};
     runner::run(
         provider,
         device,

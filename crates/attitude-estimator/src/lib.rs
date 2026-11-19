@@ -1,6 +1,8 @@
 #![no_std]
 #![forbid(unsafe_code)]
 pub mod mount;
+pub mod calibration;
+pub mod fusion;
 
 /// Axes must be identified before fusion; native sensor axes are NOT aircraft axes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -173,6 +175,7 @@ impl Estimate {
 /// A later Kalman implementation owns its state, P/Q/R, bias model and gating.
 pub trait AttitudeEstimator {
     fn name(&self) -> &'static str;
+    fn acceleration_rejected(&self) -> bool { false }
     fn reset(&mut self, reason: ResetReason);
     /// dt is measured receipt interval; it is NOT a claimed acquisition interval.
     /// Zero marks the first observation after reset; implementations must initialize.
@@ -200,6 +203,7 @@ impl<E: AttitudeEstimator> Pipeline<E> {
     pub fn name(&self) -> &'static str {
         self.estimator.name()
     }
+    pub fn acceleration_rejected(&self) -> bool { self.estimator.acceleration_rejected() }
     pub fn reset(&mut self, reason: ResetReason) {
         self.previous = None;
         self.estimator.reset(reason);

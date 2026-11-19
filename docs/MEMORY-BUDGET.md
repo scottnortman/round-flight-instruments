@@ -1,6 +1,21 @@
 # Flash and RAM budget
 
 Waveshare ESP32-S3-Touch-LCD-2.8C, SKU 29086: **16 MiB flash / 8 MiB PSRAM**.
+
+The November 7 IMU calibration candidate uses **1,280,816 B (30.54%)** of the
+4 MiB app partition. After the eight-screen regression: internal free **68,635 B**,
+PSRAM free **1,591,228 B**, renderer minimum stack reserve **7,296 B**. During
+calibration startup/self-test the 12 KiB IMU stack retained **5,716 B**. Startup
+captures are boxed and the three damage histories are allocated once on the
+heap; no new framebuffer or per-frame allocation is introduced. Full physical
+24-pose completion still needs acceptance. See [verification](../verification/IMU-CALIBRATION.md).
+
+November 7 development firmware adds a seventh Combined screen with one
+460,800-byte retained PSRAM backdrop. Measured application: **1,196,400 B
+(28.52%)**; free PSRAM **2,138,304 B**; internal free **77,771 B**; minimum
+renderer stack reserve **2,940 B** after the switching regression. No additional
+scanout buffer is allocated. See [current verification](../verification/CONSOLIDATED.md).
+
 Current six-face source checkpoint: **v0.2.0-rc.9**, measured November 4,
 2026. The 4 MiB application layout is already merged into `main`; earlier
 three-face migration results remain in [verification](../verification/MEMORY-LAYOUT.md).

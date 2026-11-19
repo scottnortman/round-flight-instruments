@@ -101,15 +101,19 @@ fn main() {
         let mut configuration = ThreadSpawnConfiguration::get().unwrap_or_default();
         let previous_priority = configuration.priority;
         let previous_core = configuration.pin_to_core;
+        let previous_name = configuration.name;
+        configuration.name = Some(c"imu");
         configuration.priority = 6;
         // Keep the faster sensor poller off the sole raster core. Acquisition
         // shares core 0 with the state owner and RGB ISR; all I/O stays bounded.
         configuration.pin_to_core = Some(Core::Core0);
         configuration.set().map_err(io::Error::other)?;
         let touch_poller = touch.clone();
-        let result = imu_service::Service::start_with_mount(
+        let calibration_store = settings.clone();
+        let calibration_record = settings.calibration_record();
+        let result = imu_service::Service::start_with_calibration(
             ImuBus(bus),
-            imu_service::AveragedTilt::default(),
+            imu_service::CalibratedFusion::default(),
             // SKU29086 upright screen: level raw +X; clockwise bank raw -Y.
             // Proper rotation into bench forward/right/down: [Z,-Y,X].
             Some(imu_service::Mount::new([3, -2, 1]).expect("proper board mounting")),
@@ -127,9 +131,12 @@ fn main() {
                 }
                 true
             },
+            calibration_record,
+            move |candidate| calibration_store.calibration_sync(candidate),
         );
         configuration.priority = previous_priority;
         configuration.pin_to_core = previous_core;
+        configuration.name = previous_name;
         configuration
             .set()
             .expect("restore thread spawn configuration");
@@ -169,20 +176,51 @@ fn main() {
     console_threads.priority=8;
     console_threads.pin_to_core=Some(Core::Core0);
     console_threads.set().expect("console scheduling");
+    let mut demo_imu_requested = false;
+    let mut demo_imu_restore_off = false;
+    let mut demo_imu_retry_ms = 0;
     let result = console_runtime::run_with_device_control(
         UartRx { buffer:[0;512], begin:0, end:0 },
         io::stdout(),
         Arc::new(console_runtime::Metrics::default()),
         |app| {
-            if app.imu_bench() {
+            let demo_imu = app.demo_uses_imu();
+            if let Ok(service) = &imu {
+                if demo_imu && !demo_imu_requested && app.now_ms() >= demo_imu_retry_ms {
+                    demo_imu_retry_ms = app.now_ms().saturating_add(500);
+                    if let Some(acquiring) = service.acquiring() {
+                        if acquiring { demo_imu_requested = true; }
+                        else if service.handle(instrument_core::ImuCommand::On).as_str().starts_with("OK ") {
+                            demo_imu_requested = true;
+                            demo_imu_restore_off = true;
+                        }
+                    }
+                }
+                if !app.demo_active() {
+                    demo_imu_requested = false;
+                    if app.imu_bench() { demo_imu_restore_off = false; }
+                    if demo_imu_restore_off && app.now_ms() >= demo_imu_retry_ms {
+                        demo_imu_retry_ms = app.now_ms().saturating_add(500);
+                        if service.handle(instrument_core::ImuCommand::Off).as_str().starts_with("OK ") {
+                            demo_imu_restore_off = false;
+                        }
+                    }
+                }
+            }
+            if app.imu_bench() || demo_imu {
                 if let Ok(service) = &imu {
                     if let Some(input) = service.attitude() {
                         app.accept_imu(input);
                     }
                 }
             }
+            display.set_calibration_status(imu.as_ref().ok().and_then(|s|s.calibration_view()),imu.is_ok());
             if display.publish(app, touch.snapshot()) {
                 buzzer.request_press();
+            }
+            if let Some(command)=display.take_imu_command() {
+                let ok=imu.as_ref().ok().is_some_and(|service|service.handle(command).as_str().starts_with("OK "));
+                display.calibration_command_result(ok);
             }
             settings.observe(app.selected());
             if let Some(info)=settings.info(){display.set_device_info(info);}
@@ -229,7 +267,11 @@ fn main() {
     );
     // Losing the owner stops snapshot publication: the display guard blanks,
     // and this task stops feeding its watchdog to allow reset/recovery.
-    let _ = result;
+    if let Err(error)=result {
+        eprintln!("console supervisor failed: {error:?}; internal_free={} internal_largest={}",
+            unsafe {sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL|sys::MALLOC_CAP_8BIT)},
+            unsafe {sys::heap_caps_get_largest_free_block(sys::MALLOC_CAP_INTERNAL|sys::MALLOC_CAP_8BIT)});
+    }
     loop {
         std::thread::sleep(Duration::from_millis(100));
     }

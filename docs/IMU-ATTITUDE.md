@@ -1,11 +1,13 @@
+Calibration-capable firmware adds [menu LEVEL / FULL 24 calibration](IMU-CALIBRATION.md), persistent coefficients and guarded Madgwick fusion. The accelerometer-only details below describe the uncalibrated fallback and earlier measurements. Raw `imu read` remains uncorrected; accepted calibration is used by the estimator.
+
 # IMU-driven attitude bench mode
 
-On `feature/attitude-gauge`, the onboard QMI8658 can explicitly drive the
-standalone attitude face. This is accelerometer-only tilt for debugging on a
-desk or in your hand. It is uncalibrated, does not use the known biased gyro,
-and is not a flight attitude solution. A 15-sample moving average reduces
-jitter before tilt calculation. Acceleration can produce misleading tilt
-even when its magnitude is close to 1 g.
+The onboard QMI8658 can explicitly drive the standalone attitude face for bench
+checks. Without an eligible saved calibration, it uses accelerometer-only tilt
+and excludes the known biased gyro. A 15-sample moving average reduces jitter.
+After accepted calibration it uses guarded Madgwick fusion. Both are bench
+indications; acceleration can mislead a six-axis IMU even near 1 g. The historical
+measurements below describe the uncalibrated fallback.
 
 Hold the display upright facing you, with its lettering upright. In the UART
 CLI (921600/8N1, no flow control), enter:

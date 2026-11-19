@@ -88,6 +88,22 @@ pub(crate) fn draw<T: Target>(target: &mut T, m: Vsi, source: &str) {
         dial::invalid(&mut c, "VSI", m.quality);
     }
 }
+pub(crate) fn preview_background<T:Target>(target:&mut T,profile:Profile) {
+    let mut c=Canvas::new(target);c.circle(240.,240.,228.,dial::FACE);
+    for n in -20i32..=20 {
+        let value=profile.full_scale_fpm*n as f32/20.;let angle=profile.angle(value).unwrap();let major=n%5==0;
+        c.stroke(dial::point(if major{184.}else{197.},angle),dial::point(210.,angle),if major{4.}else{2.},dial::MARK);
+        if major {
+            let(x,y)=dial::point(if n==0{159.}else{151.},angle);let number=value.abs()/100.;let mut text=crate::render::Text::new();
+            if (number-libm::floorf(number)).abs()<0.0001 {let _=write!(text,"{number:.0}");}
+            else if (number*10.-libm::floorf(number*10.)).abs()<0.0001 {let _=write!(text,"{number:.1}");}
+            else {let _=write!(text,"{number:.2}");}
+            c.text(x,y,30.,text.str(),dial::MARK);
+        }
+    }
+    c.text(240.,175.,18.,"VERTICAL SPEED",dial::MARK);c.text(145.,199.,18.,"UP",dial::MARK);
+    c.text(145.,281.,18.,"DN",dial::MARK);c.text(240.,305.,19.,"100 FT/MIN",dial::MARK);
+}
 #[cfg(test)]
 mod tests {
     use super::*;

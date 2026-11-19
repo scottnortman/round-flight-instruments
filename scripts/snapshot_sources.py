@@ -22,9 +22,9 @@ with zipfile.ZipFile(target / 'source-snapshot.zip', 'x', zipfile.ZIP_DEFLATED) 
         entries.append({'path': name, 'sha256': hashlib.sha256(data).hexdigest()})
 feature = sys.argv[2] if len(sys.argv) > 2 else 'sim-bridge/msfs'
 metadata = {'files': entries, 'rustc': subprocess.check_output(['rustc', '-Vv'], cwd=root).decode(),
-            'firmware_rustc': (None if feature == 'instrument-connector/msfs' else
+            'firmware_rustc': (None if feature in ('instrument-connector/msfs', 'none') else
                                subprocess.check_output(['rustc', '-Vv'], cwd=root / 'firmware/console').decode()),
             'cargo': subprocess.check_output(['cargo', '-V'], cwd=root).decode().strip(),
-            'features': [feature],
+            'features': [] if feature == 'none' else [feature],
             'note': 'Source snapshot, not a claim of bit-for-bit reproducible compiler output.'}
 (target / 'source-manifest.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')

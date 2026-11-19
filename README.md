@@ -1,5 +1,29 @@
 # Round Flight Instruments
 
+Test.13 adds manual **live aircraft-profile delivery**: save a profile, click
+**Use on connected board**, then check tray Status for board confirmation.
+The Combined VSI now matches the standalone left-zero orientation and scale.
+See [installation and tests](docs/MSFS-TEST-13.md) and
+[verification](verification/PROFILE-LIVE.md).
+
+The development menu now includes **CALIBRATE**: guided upright LEVEL and FULL
+24-pose IMU calibration, explicit review/save, persistent coefficients, and
+calibrated six-axis Madgwick fusion. Hold center for one second, release, then
+tap CALIBRATE. Read the [calibration and validation instructions](docs/IMU-CALIBRATION.md)
+before collecting a level reference. The test.12 Windows connector remains compatible.
+
+Development firmware adds a seventh **COMBINED** flight-panel screen and a
+tap-to-hide numeric altitude window with a permanent white outline. See
+[controls and layout](docs/CONSOLIDATED.md) and
+[verification](verification/CONSOLIDATED.md).
+
+Every screen also has a **DEMO** menu button: automatic motion with IMU tilt
+where useful. Tap it again to return to normal data. See [demo controls](docs/DEMO.md).
+
+On `feature/aircraft-profile-editor`, the native Windows editor saves aircraft
+profiles and previews all eight faces. Test.13 delivers the manually selected
+profile to the connected board. See [profile editor usage](docs/PROFILE-EDITOR.md).
+
 Source checkpoint **v0.2.0-rc.10** remembers the board's selected gauge
 and stores a persistent UUID. Hold center, release, then tap **INFO** for the
 firmware revision and UUID. See [device settings, CLI and aircraft-profile
@@ -35,7 +59,7 @@ unmodified Microsoft SimConnect runtime with its separate license and notices.
 A Rust instrument-display prototype for the **Waveshare ESP32-S3-Touch-LCD-2.8C
 (SKU 29086, 480 x 480, 16 MiB flash)**. This source checkpoint provides a simulated
 three-pointer altimeter, touch barometer adjustment, a text CLI and a smooth
-0–10,000 ft demonstration, a standalone attitude renderer and touch gauge selection.
+0Ã¢â‚¬â€œ10,000 ft demonstration, a standalone attitude renderer and touch gauge selection.
 This development checkout implements all six standard faces; the released rc.7
 firmware implements Altimeter, Attitude and Turn Coordinator. MSFS 2020 input and optional two-way barometer
 control are bench-tested on the Just Flight Piper Warrior. See the
@@ -68,11 +92,11 @@ red X means no data has been supplied yet. Close the terminal before using MSFS.
 
 ## Gauge selection and attitude demonstration
 
-In this source checkpoint, hold the dial center for **3 seconds**, release,
+In this source checkpoint, hold the dial center for **1 second**, release,
 then tap a gauge to select it. All six faces are enabled in this development
 checkout with local simulation or the tray app's T2 stream. Source-incompatible
 choices remain disabled. Active
-buttons turn blue and chirp. Set the volatile hold with `touch menu hold 3000`.
+buttons turn blue and chirp. Set the volatile hold with `touch menu hold 1000`.
 See [touch gauge menu and current MSFS limits](docs/GAUGE-MENU.md).
 
 The standalone attitude face follows the phone prototype. For a local motion
@@ -101,7 +125,7 @@ T2 for all six faces and permits live gauge selection without restarting.
 ## Control the gauge
 
 Hold the Kollsman pressure window for **0.25 seconds**; it turns blue while pressed.
-Release, then use **−/+** for 0.01 inHg steps or **29.92** to reset the draft.
+Release, then use **Ã¢Ë†â€™/+** for 0.01 inHg steps or **29.92** to reset the draft.
 **Apply** changes the barometric offset; **Cancel** or 30 seconds of inactivity
 leaves the active value unchanged. [Touch details](docs/TOUCH.md).
 
@@ -182,7 +206,7 @@ validated commands; input freshness, display supervision and watchdogs remain
 independent of rendering. See [architecture](docs/DISPLAY.md) and
 [control contracts](docs/BASELINE.md).
 
-- **225 Rust workspace tests** and strict all-target Clippy pass. All-six local
+- **253 Rust workspace tests** and strict all-target Clippy pass. All-six local
   motion runs measure 32.33-32.41 completed FPS; continuous text telemetry
   measures 30.80-32.33 FPS. The native MSFS-path timing/load tests also pass;
   [results and open limits](verification/SIX-PACK.md) distinguish the workloads.
@@ -214,3 +238,8 @@ retain their own terms, including the instrument font; see [NOTICE](NOTICE) and
 Developed with **OpenAI ChatGPT and Codex**, under Scott Nortman's direction,
 with automated checks and physical bench testing. AI assistance is not a
 correctness or flight-safety guarantee.
+
+The 0.2.0-test.12 package adds an eighth [DEBUG telemetry screen](docs/DEBUG.md),
+ASCII-only Windows profile editor titles, and a verified 1,000 ms menu hold.
+See [MSFS test instructions](docs/MSFS-TEST-12.md). The ten existing T2 quantities
+are unchanged; DEBUG displays the received values, age and validity.

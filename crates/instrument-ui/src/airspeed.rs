@@ -82,6 +82,12 @@ impl<'a> Profile<'a> {
         }
         Some(p)
     }
+    pub fn configured(p: instrument_core::gauge_profile::Profile, points: &'a mut [(f32,f32);11]) -> Self {
+        let count=if p.linear {points[0]=(0.,0.);points[1]=(p.airspeed_max as f32,342.);2}
+            else {*points=SCALE.map(|(kt,a)|(kt*p.airspeed_max as f32/200.,a));11};
+        let limits=p.limits.map(|[vs0,vs1,vfe,vno,vne]|Limits{white:[vs0,vfe],green:[vs1,vno],yellow:[vno,vne],red:vne});
+        Self::new(&points[..count],limits).expect("validated gauge configuration")
+    }
     pub fn max_kt(self) -> f32 {
         self.scale[self.scale.len() - 1].0
     }
@@ -269,6 +275,27 @@ pub(crate) fn draw<T: Target>(target: &mut T, m: Airspeed, source: &str) {
     }
 }
 
+/// Static profile-editor artwork; the running firmware retains its existing cache path.
+pub(crate) fn preview_background<T:Target>(target:&mut T,profile:Profile<'_>) {
+    let mut c=Canvas::new(target);c.circle(240.,240.,228.,FACE);
+    if let Some(l)=profile.limits() {
+        for (range,radius,width,color) in [(l.green,216.,9.,rgb(60,197,107)),(l.yellow,216.,9.,rgb(244,216,77)),(l.white,203.,7.,MARK)] {
+            let mut a=profile.angle_at(range[0]).unwrap();let end=profile.angle_at(range[1]).unwrap();
+            while a<end {let b=(a+1.).min(end);c.polygon(&[point(radius-width/2.,a),point(radius+width/2.,a),point(radius+width/2.,b),point(radius-width/2.,b)],color);a=b;}
+        }
+        let red=profile.angle_at(l.red).unwrap();c.stroke(point(194.,red),point(223.,red),4.5,RED);
+    }
+    for n in 0..=40 {
+        let kt=profile.max_kt()*n as f32/40.;let major=n%4==0;
+        let inner=if major{184.}else if n%2==0{190.}else{194.};
+        let a=profile.angle_at(kt).unwrap();c.stroke(point(inner,a),point(198.,a),if major{4.}else{2.},MARK);
+        if major&&n>0 {let(x,y)=point(148.,a);let mut text=crate::render::Text::new();let _=write!(text,"{kt:.0}");
+            c.text(x,y+10.,28.,text.str(),MARK);}
+    }
+    c.text(240.,175.,23.,"AIRSPEED",MARK);c.text(240.,305.,26.,"KNOTS",MARK);
+    c.text(240.,355.,15.,if profile.limits().is_some(){"PROFILE LIMITS"}else{"LIMITS NOT SET"},rgb(175,185,192));
+}
+
 #[cfg(test)]
 mod tests {
     extern crate std;
@@ -423,7 +450,7 @@ mod tests {
                     s.menu = Some(View { info: false,
                         generation: 1,
                         context: Context {
-                            selected: Instrument::Airspeed,
+                            demo: false, selected: Instrument::Airspeed,
                             external: s.external,
                             external_attitude: s.external,
                             imu: false,

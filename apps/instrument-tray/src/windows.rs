@@ -30,6 +30,7 @@ fn message(_hwnd: HWND, text: &str) {
         );
     }
 }
+pub fn show_error(text:&str){message(null_mut(),text);}
 unsafe fn notify(hwnd: HWND, action: u32) {
     let mut n: NOTIFYICONDATAW = std::mem::zeroed();
     n.cbSize = size_of::<NOTIFYICONDATAW>() as u32;
@@ -149,6 +150,7 @@ unsafe fn menu(hwnd: HWND) {
         (5, "Choose SimConnect runtime...", false),
         (6, "Open diagnostics folder", false),
         (7, "Export diagnostics...", false),
+        (8, "Aircraft profiles…", false),
     ] {
         AppendMenuW(
             menu,
@@ -234,6 +236,10 @@ unsafe fn menu(hwnd: HWND) {
             }
             Err(e) => Err(e),
         },
+        8 => {
+            let root=with_supervisor(|s|s.root.join("profiles"));
+            crate::profile_window::open(root,hwnd,false).map(|_|())
+        }
         9 => {
             DestroyWindow(hwnd);
             Ok(())
@@ -381,6 +387,7 @@ pub fn run() {
         }
         let mut msg: MSG = std::mem::zeroed();
         while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {
+            if crate::profile_window::route(&msg) { continue; }
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
